@@ -1,0 +1,44 @@
+/* src/index.css */
+@import "tailwindcss";
+
+
+/* Define custom theme values for Tailwind */
+@theme {
+  --color-primary: #fdf2fa;
+  --color-secondary: #fa4d6a;
+  --color-table: #FF8096;
+  --font-family: 'Poppins', sans-serif;
+}
+
+/* Apply global styles */
+body {
+  font-family: var(--font-family);
+  /* background-color: var(--color-bodycolor); */
+}
+
+/* Hide scrollbar */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Remove number input spin buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* input[type="number"] {
+  -moz-appearance: textfield;
+} */
+
+/* Optional: Dark mode styles */
+.dark {
+  --color-bodycolor: #1a202c;
+  --color-primary: #f7fafc;
+  --color-secondary: #ed64a6;
+}
