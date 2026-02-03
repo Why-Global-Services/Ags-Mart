@@ -18,6 +18,7 @@ import SystemTable from "./pages/System User/systemTable";
 import FeatuuredAssignProducts from "./pages/featuredproductas/AssignProducts";
 import UserQueries from "./pages/UserQueries/UserQueries";
 import AdminTopbarMessages from "./pages/TopBar/AdminTopbarMessages";
+import TestimonialMain from "./pages/Testimonial/TestimonialMain";
 
 // Lazy load all components
 const Dmain = lazy(() => import("./pages/DashBoard/Dmain"));
@@ -129,6 +130,8 @@ const Paytm = lazy(() =>
 const AboutUs = lazy(() => import("./pages/Setting/forms/AboutUs"));
 const ReturnPoilicy = lazy(() => import("./pages/Setting/forms/ReturnPoilicy"));
 const SampleForm = lazy(() => import("./pages/SampleForm/sampleForm"));
+// const TestimonialMain = lazy(() => import("./pages/Testimonial/TestimonialMain"));
+const TestimonialForm = lazy(() => import("./pages/Testimonial/TestimonialForm"));
 // const TopBar = lazy(() => import("./pages/TopBar/AdminTopbarMessages"));
 // const Faq = lazy(() => import("./pages/Setting/forms/Faq"));
 
@@ -158,6 +161,9 @@ const App = () => {
           <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
+                <Route path="/testimonial" element={<TestimonialMain/>} />
+                <Route path="/testimonial/add" element={<TestimonialForm/>} />
+                <Route path="/testimonial/edit/:id" element={<TestimonialForm/>} />
                 <Route path="/" element={<Login />} />
                 <Route path="/productForm" element={<SampleForm />} />
                 <Route element={<ProtectedRoute />}>
@@ -212,6 +218,7 @@ const App = () => {
                     element={<AssignProducts />}
                   />
                   <Route path="/report" element={<ReportMain />} />
+                  
                   <Route path="/brand" element={<BrandsMain />} />
                   <Route path="/brand/edit/:id" element={<BrandsForm />} />
                   <Route path="/brand/add" element={<BrandsForm />} />

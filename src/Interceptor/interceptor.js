@@ -3,8 +3,8 @@ import { jwtDecode } from "jwt-decode";
 // import { data } from "react-router-dom";
 
 const apiInstance = axios.create({
-  // baseURL: "http://localhost:5001/v1/admin",
-  baseURL: "https://natureshuntapi.whydev.in/v1/admin",
+  baseURL: "http://localhost:5001/v1/admin",
+  // baseURL: "https://natureshuntapi.whydev.in/v1/admin",
 });
 
 const handleTokenExpiration = () => {
@@ -470,6 +470,38 @@ export const toggleTopbarMessage = async (id) => {
 // ❌ Delete topbar
 export const deleteTopbarMessage = async (id) => {
   const res = await apiInstance.delete(`/deleteTopbar/${id}`);
+  return res;
+};
+
+
+export const getTestimonial = async () => {
+  const res = await apiInstance.get(`/getTest`);
+  return res;
+};
+
+
+export const createTestimonial = async (data) => {
+  const res = await apiInstance.post(`/createTest`, data, {
+     headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return res;
+};
+
+
+export const updateTestimonial = async (id, data) => {
+  const res = await apiInstance.put(`/updateTest/${id}`, data, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return res;
+};
+
+
+export const deleteTestimonial = async (id) => {
+  const res = await apiInstance.delete(`/deleteTest/${id}`);
   return res;
 };
 

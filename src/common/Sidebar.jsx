@@ -56,6 +56,7 @@ const Sidebar = ({ isCollapsed }) => {
     { icon: FaBarsProgress, label: "Settings", path: "/setting/privacy&policy", permission: permissions?.settings },
     // { icon: FaBell, label: "Notification", path: "/notification", permission: permissions?.notifications },
     { icon: IoSettingsSharp, label: "Web Setting", path: "/websetting", permission: true },
+    {icon: FaTag, label: "Testimonial", path: "/testimonial", permission: true},
     { icon: FaUser, label: "User Queries", path: "/userqueries", permission: true },
     { icon: FaTags, label: "TopBar", path: "/topbar", permission: true },
   ];
