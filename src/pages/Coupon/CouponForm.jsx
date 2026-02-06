@@ -1,34 +1,50 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaUpload, FaTimes } from "react-icons/fa";
-import { Form, Input, Upload, Button, Switch, Select, message } from 'antd';
-
-
+import { Switch } from 'antd';
 import { 
   createCoupon, 
   editCoupon, 
   getOneCoupon 
 } from "../../Interceptor/interceptor";
 import { toast } from "react-toastify";
+import { getAllProduct } from "../../services/Products";
 
 const CouponForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditMode = Boolean(id);
 
+  const [products, setProducts] = useState([]);
+  const [variants, setVariants] = useState([]);
+
   const [formData, setFormData] = useState({
     code: "",
     message: "",
+
+    offerType: "DISCOUNT", // DISCOUNT | FREE_PRODUCT
+
     minPurchaseAmount: 0,
+
+    // Discount fields (only for DISCOUNT type)
     discountValue: 0,
     discountType: "percentage",
     maxDiscountAmount: 0,
-    forSpecificUsers: false,
+
+    // Free Product fields (only for FREE_PRODUCT type)
+    freeProduct: {
+      productId: "",
+      variantId: "",
+      productType: "nonVariant",
+    },
+
     validFrom: "",
     validUntil: "",
     usageLimit: 1,
     repeatUsage: "allowed",
+
     couponImage: null,
+
     cashBack: false,
     status: "active",
     firstOrderOnly: false,
@@ -39,10 +55,53 @@ const CouponForm = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isEditMode) {
+    fetchProducts();
+  }, []);
+
+  useEffect(() => {
+    if (isEditMode && products.length > 0) {
       fetchCouponData();
     }
-  }, [id]);
+  }, [id, products]);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await getAllProduct();
+      const data = res?.data || res || [];
+      setProducts(data);
+    } catch (err) {
+      console.error("Failed to fetch products", err);
+      toast.error("Failed to load products");
+    }
+  };
+
+  const handleFreeProductSelect = (productId) => {
+    const selected = products.find((p) => p._id === productId);
+
+    if (!selected) return;
+
+    // Detect variants
+    let productVariants = [];
+
+    if (selected?.variant?.sizeColorVariants?.length) {
+      productVariants = selected.variant.sizeColorVariants;
+    } else if (selected?.variant?.sizeOnlyVariants?.length) {
+      productVariants = selected.variant.sizeOnlyVariants;
+    } else if (selected?.variant?.colorOnlyVariants?.length) {
+      productVariants = selected.variant.colorOnlyVariants;
+    }
+
+    setVariants(productVariants);
+
+    setFormData((prev) => ({
+      ...prev,
+      freeProduct: {
+        productId,
+        variantId: "",
+        productType: productVariants.length ? "variant" : "nonVariant",
+      },
+    }));
+  };
 
   const fetchCouponData = async () => {
     try {
@@ -53,20 +112,54 @@ const CouponForm = () => {
       setFormData({
         code: data.code || "",
         message: data.message || "",
+
+        offerType: data.offerType || "DISCOUNT",
+
         minPurchaseAmount: data.minPurchaseAmount || 0,
+
         discountValue: data.discountValue || 0,
         discountType: data.discountType || "percentage",
         maxDiscountAmount: data.maxDiscountAmount || 0,
-        forSpecificUsers: data.forSpecificUsers || false,
-        validFrom: data.validFrom ? data.validFrom.split('T')[0] : "",
-        validUntil: data.validUntil ? data.validUntil.split('T')[0] : "",
+
+        freeProduct: data.freeProduct || {
+          productId: "",
+          variantId: "",
+          productType: "nonVariant",
+        },
+
+        validFrom: data.validFrom ? data.validFrom.split("T")[0] : "",
+        validUntil: data.validUntil ? data.validUntil.split("T")[0] : "",
+
         usageLimit: data.usageLimit || 1,
         repeatUsage: data.repeatUsage || "allowed",
+
         couponImage: null,
+
         cashBack: data.cashBack || false,
         status: data.status || "active",
         firstOrderOnly: data.firstOrderOnly || false,
       });
+
+      // Load variants for edit mode
+      if (data.offerType === "FREE_PRODUCT" && data.freeProduct?.productId) {
+        const selected = products.find(
+          (p) => p._id === data.freeProduct.productId
+        );
+
+        if (selected?.variant) {
+          let productVariants = [];
+
+          if (selected.variant.sizeColorVariants?.length) {
+            productVariants = selected.variant.sizeColorVariants;
+          } else if (selected.variant.sizeOnlyVariants?.length) {
+            productVariants = selected.variant.sizeOnlyVariants;
+          } else if (selected.variant.colorOnlyVariants?.length) {
+            productVariants = selected.variant.colorOnlyVariants;
+          }
+
+          setVariants(productVariants);
+        }
+      }
 
       if (data.couponImage) {
         setExistingImage(data.couponImage);
@@ -94,12 +187,12 @@ const CouponForm = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      message.error('File is not an image');
+      toast.error('File is not an image');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      message.error('File is too large (max 5MB)');
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File is too large (max 5MB)');
       return;
     }
 
@@ -112,7 +205,7 @@ const CouponForm = () => {
   };
 
   const removeImage = () => {
-    if (imagePreview) {
+    if (imagePreview && imagePreview.startsWith('blob:')) {
       URL.revokeObjectURL(imagePreview);
     }
     setImagePreview(null);
@@ -132,12 +225,27 @@ const CouponForm = () => {
     try {
       const formPayload = new FormData();
       
-      // Append all form fields except image
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key !== 'couponImage' && value !== null) {
-          formPayload.append(key, value);
-        }
-      });
+      // Append fields based on offer type
+      formPayload.append("code", formData.code);
+      formPayload.append("message", formData.message);
+      formPayload.append("offerType", formData.offerType);
+      formPayload.append("minPurchaseAmount", formData.minPurchaseAmount);
+      formPayload.append("validFrom", formData.validFrom);
+      formPayload.append("validUntil", formData.validUntil);
+      formPayload.append("usageLimit", formData.usageLimit);
+      formPayload.append("repeatUsage", formData.repeatUsage);
+      formPayload.append("cashBack", formData.cashBack);
+      formPayload.append("status", formData.status);
+      formPayload.append("firstOrderOnly", formData.firstOrderOnly);
+
+      // Append type-specific fields
+      if (formData.offerType === "DISCOUNT") {
+        formPayload.append("discountValue", formData.discountValue);
+        formPayload.append("discountType", formData.discountType);
+        formPayload.append("maxDiscountAmount", formData.maxDiscountAmount);
+      } else if (formData.offerType === "FREE_PRODUCT") {
+        formPayload.append("freeProduct", JSON.stringify(formData.freeProduct));
+      }
 
       // Handle image upload
       if (formData.couponImage instanceof File) {
@@ -163,14 +271,14 @@ const CouponForm = () => {
       }
       navigate("/coupons");
     } catch (error) {
-      toast.error(`${error.response.data.message}`);
+      toast.error(`${error.response?.data?.message || error.message}`);
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} coupon:`, error);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading && isEditMode) {
+  if (loading && isEditMode && products.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
@@ -181,17 +289,16 @@ const CouponForm = () => {
   return (
     <div className="bg-gray-50 min-h-screen p-6">
       <div className="mb-4">
-  <h1 className="text-3xl font-title text-gray-800">
-    {isEditMode ? "Edit Coupon" : "Add Coupon"}
-  </h1>
-  <button
-    className="text-black rounded my-3 mr-4  w-full md:w-auto cursor-pointer"
-    onClick={() => navigate(-1)}
-  >
-    ← Go back
-  </button>
-</div>
-
+        <h1 className="text-3xl font-title text-gray-800">
+          {isEditMode ? "Edit Coupon" : "Add Coupon"}
+        </h1>
+        <button
+          className="text-black rounded my-3 mr-4 w-full md:w-auto cursor-pointer"
+          onClick={() => navigate(-1)}
+        >
+          ← Go back
+        </button>
+      </div>
 
       <div className="col-span-2 space-y-2 bg-white shadow-lg rounded-lg p-6 w-full">
         {/* Image Upload Section */}
@@ -242,6 +349,7 @@ const CouponForm = () => {
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Coupon Code */}
             <div className="w-full mb-4">
               <label className="block text-sm font-medium text-gray-600 mb-2">
                 Coupon Code <span className="text-red-500">*</span>
@@ -249,7 +357,7 @@ const CouponForm = () => {
               <input
                 type="text"
                 name="code"
-                placeholder="Coupon Code"
+                placeholder="Enter coupon code"
                 className="border rounded p-2 w-full text-gray-800"
                 onChange={handleInputChange}
                 value={formData.code}
@@ -257,40 +365,151 @@ const CouponForm = () => {
               />
             </div>
 
+            {/* Coupon Type */}
             <div className="w-full mb-4">
               <label className="block text-sm font-medium text-gray-600 mb-2">
-                Discount Type <span className="text-red-500">*</span>
+                Coupon Type <span className="text-red-500">*</span>
               </label>
               <select
-                name="discountType"
-                className="border rounded p-2 w-full text-gray-800"
-                onChange={handleInputChange}
-                value={formData.discountType}
-                required
+                name="offerType"
+                className="border rounded p-2 w-full"
+                value={formData.offerType}
+                onChange={(e) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    offerType: e.target.value,
+                  }));
+                  // Reset variants when switching types
+                  setVariants([]);
+                }}
               >
-                <option value="percentage">Percentage</option>
-                <option value="fixed">Fixed Amount</option>
+                <option value="DISCOUNT">Discount Coupon</option>
+                <option value="FREE_PRODUCT">Free Product Coupon</option>
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="w-full mb-4">
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Discount Value <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="discountValue"
-                placeholder="Discount Value"
-                className="border rounded p-2 w-full text-gray-800"
-                onChange={handleInputChange}
-                value={formData.discountValue}
-                min="0"
-                required
-              />
-            </div>
+          {/* DISCOUNT TYPE FIELDS */}
+          {formData.offerType === "DISCOUNT" && (
+            <div className="border p-4 rounded bg-blue-50 mb-4">
+              <h3 className="font-semibold mb-3 text-gray-800">
+                Discount Details
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Discount Type */}
+                <div className="w-full mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Discount Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="discountType"
+                    className="border rounded p-2 w-full"
+                    value={formData.discountType}
+                    onChange={handleInputChange}
+                  >
+                    <option value="percentage">Percentage</option>
+                    <option value="fixed">Fixed</option>
+                  </select>
+                </div>
 
+                {/* Discount Value */}
+                <div className="w-full mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Discount Value <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="discountValue"
+                    className="border rounded p-2 w-full"
+                    value={formData.discountValue}
+                    onChange={handleInputChange}
+                    min="0"
+                    required
+                  />
+                </div>
+
+                {/* Max Discount */}
+                <div className="w-full mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Max Discount Amount
+                  </label>
+                  <input
+                    type="number"
+                    name="maxDiscountAmount"
+                    className="border rounded p-2 w-full"
+                    value={formData.maxDiscountAmount}
+                    onChange={handleInputChange}
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* FREE PRODUCT TYPE FIELDS */}
+          {formData.offerType === "FREE_PRODUCT" && (
+            <div className="border p-4 rounded bg-green-50 mb-4">
+              <h3 className="font-semibold mb-3 text-gray-800">
+                Free Product Details
+              </h3>
+
+              {/* Product Select */}
+              <div className="mb-3">
+                <label className="block text-sm mb-1">
+                  Select Product <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.freeProduct.productId}
+                  onChange={(e) => handleFreeProductSelect(e.target.value)}
+                  className="border rounded p-2 w-full"
+                  required
+                >
+                  <option value="">-- Select Product --</option>
+                  {products.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.productName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Variant Select */}
+              {variants.length > 0 && (
+                <div className="mb-3">
+                  <label className="block text-sm mb-1">
+                    Select Variant <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.freeProduct.variantId}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        freeProduct: {
+                          ...prev.freeProduct,
+                          variantId: e.target.value,
+                        },
+                      }))
+                    }
+                    className="border rounded p-2 w-full"
+                    required
+                  >
+                    <option value="">-- Select Variant --</option>
+                    {variants.map((v) => (
+                      <option key={v._id} value={v._id}>
+                        {v.size && `Size: ${v.size} `}
+                        {v.color && `Color: ${v.color} `}
+                        ₹{v.price?.salePrice}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Common Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="w-full mb-4">
               <label className="block text-sm font-medium text-gray-600 mb-2">
                 Minimum Purchase Amount <span className="text-red-500">*</span>
@@ -304,25 +523,6 @@ const CouponForm = () => {
                 value={formData.minPurchaseAmount}
                 min="0"
                 required
-              />
-            </div>
-          </div>
-
-          {/* Add all other coupon fields here following the same pattern */}
-          {/* For example: */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="w-full mb-4">
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Max Discount Amount
-              </label>
-              <input
-                type="number"
-                name="maxDiscountAmount"
-                placeholder="Max Discount Amount"
-                className="border rounded p-2 w-full text-gray-800"
-                onChange={handleInputChange}
-                value={formData.maxDiscountAmount}
-                min="0"
               />
             </div>
 
@@ -349,7 +549,7 @@ const CouponForm = () => {
             </label>
             <textarea
               name="message"
-              placeholder="Message"
+              placeholder="Coupon message or description"
               className="border rounded p-2 w-full text-gray-800"
               onChange={handleInputChange}
               value={formData.message}
@@ -406,57 +606,24 @@ const CouponForm = () => {
             </div>
 
             <div className="flex items-center mb-6">
-  <label className="flex items-center space-x-3">
-    <Switch
-      checked={formData.firstOrderOnly}
-      onChange={(checked) => {
-        setFormData((prev) => ({
-          ...prev,
-          firstOrderOnly: checked,
-
-          // optional safety defaults
-          repeatUsage: checked ? "notAllowed" : prev.repeatUsage,
-          usageLimit: checked ? 1 : prev.usageLimit,
-        }));
-      }}
-    />
-    <span className="text-sm font-medium text-gray-600">
-      First Order Only Coupon
-    </span>
-  </label>
-</div>
-
-
-            {/* <div className="flex items-center mb-4">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  name="cashBack"
-                  checked={formData.cashBack}
-                  onChange={handleInputChange}
-                  className="h-5 w-5"
+              <label className="flex items-center space-x-3">
+                <Switch
+                  checked={formData.firstOrderOnly}
+                  onChange={(checked) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      firstOrderOnly: checked,
+                      repeatUsage: checked ? "notAllowed" : prev.repeatUsage,
+                      usageLimit: checked ? 1 : prev.usageLimit,
+                    }));
+                  }}
                 />
                 <span className="text-sm font-medium text-gray-600">
-                  Is Cashback Coupon
+                  First Order Only Coupon
                 </span>
               </label>
-            </div> */}
+            </div>
           </div>
-
-          {/* <div className="flex items-center mb-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                name="forSpecificUsers"
-                checked={formData.forSpecificUsers}
-                onChange={handleInputChange}
-                className="h-5 w-5"
-              />
-              <span className="text-sm font-medium text-gray-600">
-                For Specific Users Only
-              </span>
-            </label>
-          </div> */}
 
           <div className="flex items-center mb-6">
             <label className="flex items-center space-x-2">

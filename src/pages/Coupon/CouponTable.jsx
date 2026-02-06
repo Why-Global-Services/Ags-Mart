@@ -40,6 +40,7 @@ const CouponTable = () => {
       const data = response.data || response;
       const formatted = data.map((item) => ({
         ...item,
+        offerType: item.offerType || "DISCOUNT",
         status: item.status, // Use the status field directly from API
         discount:
           item.discountType === 'percentage'
@@ -159,6 +160,12 @@ const CouponTable = () => {
       sortable: true,
       minWidth: '120px',
     },
+    {
+  name: "Type",
+  selector: (row) => row.offerType,
+  sortable: true,
+  width: "140px",
+},
     {
       name: 'Image',
       cell: (row) => (
