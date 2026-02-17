@@ -50,6 +50,7 @@ export default function ProductForm() {
     defaultValues: {
       productType: "nonVariant",
       isReturnable: false,
+      isTodaySpecial: false,
       variant: {
         variantType: "sizeColor",
         sizeColorVariants: [],
@@ -193,6 +194,7 @@ export default function ProductForm() {
         reset({
           ...initialData,
           isReturnable: initialData.isReturnable ?? false, // ✅ FIX
+          isTodaySpecial: initialData.isTodaySpecial ?? false, // ✅ FIX
           linkProducts: {
             relatedProducts: initialData.linkProducts?.relatedProducts || [],
           },
@@ -525,13 +527,18 @@ export default function ProductForm() {
         "isReturnable",
         data.isReturnable ? "true" : "false"
       );
+      formData.append(
+        "isTodaySpecial",
+        data.isTodaySpecial ? "true" : "false"
+      );
       console.log(data ,"vishnu");
 
       Object.entries(data).forEach(([key, value]) => {
         if (
           key === "variant" ||
           key === "nonVariant" ||
-          key === "isReturnable"
+          key === "isReturnable" ||
+          key === "isTodaySpecial"
         ) return;
 
         if (typeof value !== "object" || value === null) {
@@ -1181,7 +1188,18 @@ export default function ProductForm() {
             })}
           </div>
         </div>
+        {/* Check Box */}
+         <div className="form-group checkbox-group">
+          <h3>Today Special</h3>
+          <p>
+            <label className="checkbox-label">
+              <input type="checkbox" {...register("isTodaySpecial")} />
+              <span className="ps-4">Mark as Today's Special</span>
+            </label>
+          </p>
+          </div>
 
+          
         {/* SUBMIT */}
         <button
           type="submit"

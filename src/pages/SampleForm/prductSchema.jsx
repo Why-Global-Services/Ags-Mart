@@ -127,6 +127,7 @@ export const productSchema = z
     // shipping: shippingSchema.optional(),
     linkProducts: linkProductsSchema.optional(),
     isReturnable: z.boolean().optional(),
+    isTodaySpecial: z.boolean().optional(),
 
     searchTags: z.array(z.string()).optional(),
 
