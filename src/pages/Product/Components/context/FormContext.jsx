@@ -14,8 +14,11 @@ export const ProductFormProvider = ({ children }) => {
     productTitle: "",
     productCategory: "",
     category_id: "",
-    productSubCategory: "",
-    subcategory_id: "",
+    // SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
+    // Keep old product values when loading legacy records, but do not require
+    // or generate these fields for new product payloads.
+    // productSubCategory: "",
+    // subcategory_id: "",
     stockCount: "",
     productType: "nonVariant",
     productImages: [],
@@ -28,10 +31,8 @@ export const ProductFormProvider = ({ children }) => {
     
     // Variant structure matching backend
     variant: {
-      variantType: "",
-      sizeColorVariants: [],
-      colorOnlyVariants: [],
-      sizeOnlyVariants: [],
+      variantType: "unitOnly",
+      unitOnlyVariants: [],
     },
     
     // NonVariant structure matching backend
@@ -94,8 +95,9 @@ export const ProductFormProvider = ({ children }) => {
         return value.trim() ? "" : "Product name is required";
       case "productCategory":
         return value ? "" : "Category is required";
-      case "productSubCategory":
-        return value ? "" : "Subcategory is required";
+      // SUBCATEGORY TEMPORARILY DISABLED
+      // case "productSubCategory":
+      //   return value ? "" : "Subcategory is required";
       case "productDescription":
         return value.trim().length >= 20
           ? "" : "Description must be at least 20 characters";
@@ -140,7 +142,8 @@ export const ProductFormProvider = ({ children }) => {
       case "Product":
         stepErrors.productName = validateField("productName", formData.productName);
         stepErrors.productCategory = validateField("productCategory", formData.productCategory);
-        stepErrors.productSubCategory = validateField("productSubCategory", formData.productSubCategory);
+        // SUBCATEGORY TEMPORARILY DISABLED
+        // stepErrors.productSubCategory = validateField("productSubCategory", formData.productSubCategory);
         stepErrors.productDescription = validateField("productDescription", formData.productDescription);
         stepErrors.productUsage = validateField("productUsage", formData.productUsage);
         
@@ -166,6 +169,7 @@ export const ProductFormProvider = ({ children }) => {
         } else if (formData.productType === "variant") {
           // Check if variant data exists
           const hasVariants = 
+            (formData.variant?.unitOnlyVariants?.length > 0) ||
             (formData.variant?.sizeColorVariants?.length > 0) ||
             (formData.variant?.colorOnlyVariants?.length > 0) ||
             (formData.variant?.sizeOnlyVariants?.length > 0);
@@ -227,10 +231,8 @@ const loadProductData = useCallback((product) => {
     
     // Load variant data - FIXED
     variant: isVariant ? product.variant : {
-      variantType: "",
-      sizeColorVariants: [],
-      colorOnlyVariants: [],
-      sizeOnlyVariants: [],
+      variantType: "unitOnly",
+      unitOnlyVariants: [],
     },
     
     // Load nonVariant data
@@ -285,8 +287,9 @@ const loadProductData = useCallback((product) => {
       productTitle: formData.productTitle,
       productCategory: formData.productCategory,
       category_id: formData.category_id,
-      productSubCategory: formData.productSubCategory,
-      subcategory_id: formData.subcategory_id,
+      // SUBCATEGORY TEMPORARILY DISABLED: omit new values from Product Create/Edit payloads.
+      // productSubCategory: formData.productSubCategory,
+      // subcategory_id: formData.subcategory_id,
       productType: formData.productType,
       productDescription: formData.productDescription,
       productBenifits: keyBenefits, // Separate benefits array

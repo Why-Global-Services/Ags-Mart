@@ -759,37 +759,13 @@ const ProductForm = () => {
   const [apiError, setApiError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // State for size-color management
+  // State for variant management
   const [currentVariant, setCurrentVariant] = useState({
-    variantType: "",
-    sizeColorVariants: [],
-    colorOnlyVariants: [],
-    sizeOnlyVariants: [],
+    variantType: "unitOnly",
+    unitOnlyVariants: [],
   });
-  const [sizes, setSizes] = useState([]);
-  const [currentSize, setCurrentSize] = useState("");
-  const [selectedSize, setSelectedSize] = useState("");
-  const [currentColor, setCurrentColor] = useState("");
-  const [sizeColorMap, setSizeColorMap] = useState({});
-  const [currentSizeColorVariant, setCurrentSizeColorVariant] = useState({
-    size: "",
-    color: "",
-    stockCount: "",
-    skuCode: "",
-    productCode: "",
-    variantImages: [],
-    price: { costPrice: "", salePrice: "", discount: "", tax: "" },
-  });
-  const [currentColorVariant, setCurrentColorVariant] = useState({
-    color: "",
-    stockCount: "",
-    skuCode: "",
-    productCode: "",
-    variantImages: [],
-    price: { costPrice: "", salePrice: "", discount: "", tax: "" },
-  });
-  const [currentSizeVariant, setCurrentSizeVariant] = useState({
-    size: "",
+  const [currentUnitVariant, setCurrentUnitVariant] = useState({
+    unit: "",
     stockCount: "",
     skuCode: "",
     productCode: "",
@@ -1444,104 +1420,99 @@ const ProductForm = () => {
     }));
   };
 
+  const handleUnitVariantChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentUnitVariant((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleUnitPriceChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentUnitVariant((prev) => {
+      const updatedPrice = {
+        ...prev.price,
+        [name]: value === "" ? "" : parseFloat(value),
+      };
+
+      if (name === "costPrice" || name === "discount") {
+        const costPrice = name === "costPrice" ? value : prev.price.costPrice;
+        const discount = name === "discount" ? value : prev.price.discount;
+
+        if (costPrice && costPrice !== "") {
+          const cost = parseFloat(costPrice);
+          if (!isNaN(cost)) {
+            if (!discount || discount === "" || parseFloat(discount) === 0) {
+              updatedPrice.salePrice = cost;
+            } else {
+              const disc = parseFloat(discount);
+              if (!isNaN(disc) && disc >= 0 && disc <= 100) {
+                updatedPrice.salePrice = cost - (cost * disc) / 100;
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        ...prev,
+        price: updatedPrice,
+      };
+    });
+  };
+
+  const handleUnitImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    setCurrentUnitVariant((prev) => ({
+      ...prev,
+      variantImages: [...(prev.variantImages || []), ...files],
+    }));
+  };
+
+  const handleRemoveUnitImage = (index) => {
+    setCurrentUnitVariant((prev) => ({
+      ...prev,
+      variantImages: (prev.variantImages || []).filter((_, i) => i !== index),
+    }));
+  };
+
   const getCurrentVariant = () => {
-    switch (currentVariant.variantType) {
-      case "sizeColor":
-        return currentSizeColorVariant;
-      case "colorOnly":
-        return currentColorVariant;
-      case "sizeOnly":
-        return currentSizeVariant;
-      default:
-        return {};
-    }
+    return currentUnitVariant;
   };
 
   const getVariantArrayKey = () => {
-    switch (currentVariant.variantType) {
-      case "sizeColor":
-        return "sizeColorVariants";
-      case "colorOnly":
-        return "colorOnlyVariants";
-      case "sizeOnly":
-        return "sizeOnlyVariants";
-      default:
-        return "";
-    }
+    return "unitOnlyVariants";
   };
 
   const canAddVariant = () => {
-    const current = getCurrentVariant();
-    switch (currentVariant.variantType) {
-      case "sizeColor":
-        return (
-          current.size &&
-          current.color &&
-          current.stockCount &&
-          current.price?.costPrice
-        );
-      case "colorOnly":
-        return current.color && current.stockCount && current.price?.costPrice;
-      case "sizeOnly":
-        return current.size && current.stockCount && current.price?.costPrice;
-      default:
-        return false;
-    }
+    return !!(
+      currentUnitVariant.unit?.trim() &&
+      currentUnitVariant.stockCount !== "" &&
+      currentUnitVariant.price?.costPrice !== ""
+    );
   };
 
   const resetVariantForm = () => {
-    setCurrentSizeColorVariant({
-      size: "",
-      color: "",
+    setCurrentUnitVariant({
+      unit: "",
       stockCount: "",
       skuCode: "",
       productCode: "",
       variantImages: [],
       price: { costPrice: "", salePrice: "", discount: "", tax: "" },
     });
-    setCurrentColorVariant({
-      color: "",
-      stockCount: "",
-      skuCode: "",
-      productCode: "",
-      variantImages: [],
-      price: { costPrice: "", salePrice: "", discount: "", tax: "" },
-    });
-    setCurrentSizeVariant({
-      size: "",
-      stockCount: "",
-      skuCode: "",
-      productCode: "",
-      variantImages: [],
-      price: { costPrice: "", salePrice: "", discount: "", tax: "" },
-    });
-    setCurrentSize("");
-    setSelectedSize("");
-    setCurrentColor("");
-    setSizes([]);
-    setSizeColorMap({});
     setIsEditingVariant(false);
     setEditingVariantId(null);
   };
 
-  // Unified variant handler
   const handleAddVariant = () => {
     if (!canAddVariant()) {
-      alert(
-        "Please fill all required fields: size, color, stock count, and price"
-      );
+      alert("Please fill all required fields: unit, stock count, and price");
       return;
     }
 
     const current = getCurrentVariant();
-    const arrayKey = getVariantArrayKey();
-
-    if (!arrayKey) {
-      console.error("No variant type selected");
-      return;
-    }
-
-    // Create a deep copy of the current variant
     const newVariant = JSON.parse(
       JSON.stringify({
         ...current,
@@ -1551,131 +1522,52 @@ const ProductForm = () => {
 
     const updatedVariants = [...variants];
     let variantGroupIndex = updatedVariants.findIndex(
-      (v) => v.variantType === currentVariant.variantType
+      (v) => v.variantType === "unitOnly"
     );
 
     if (variantGroupIndex === -1) {
-      // Create new variant group
       variantGroupIndex = updatedVariants.length;
       updatedVariants.push({
-        variantType: currentVariant.variantType,
-        [arrayKey]: [newVariant],
+        variantType: "unitOnly",
+        unitOnlyVariants: [newVariant],
       });
     } else {
-      // Add to existing variant group
-      if (!updatedVariants[variantGroupIndex][arrayKey]) {
-        updatedVariants[variantGroupIndex][arrayKey] = [];
+      if (!updatedVariants[variantGroupIndex].unitOnlyVariants) {
+        updatedVariants[variantGroupIndex].unitOnlyVariants = [];
       }
-      updatedVariants[variantGroupIndex][arrayKey].push(newVariant);
+      updatedVariants[variantGroupIndex].unitOnlyVariants.push(newVariant);
     }
 
     setVariants(updatedVariants);
     updateFormData({ variants: updatedVariants });
 
-    // Show success message
     setSuccessMessage(`Variant added successfully!`);
     setTimeout(() => setSuccessMessage(""), 3000);
 
-    // Reset form for next variant of same type
-    if (currentVariant.variantType === "sizeColor") {
-      setCurrentSizeColorVariant({
-        ...currentSizeColorVariant,
-        stockCount: "",
-        skuCode: "",
-        productCode: "",
-        variantImages: [],
-        price: { costPrice: "", salePrice: "", discount: "", tax: "" },
-      });
-    } else if (currentVariant.variantType === "colorOnly") {
-      setCurrentColorVariant({
-        ...currentColorVariant,
-        stockCount: "",
-        skuCode: "",
-        productCode: "",
-        variantImages: [],
-        price: { costPrice: "", salePrice: "", discount: "", tax: "" },
-      });
-    } else if (currentVariant.variantType === "sizeOnly") {
-      setCurrentSizeVariant({
-        ...currentSizeVariant,
-        stockCount: "",
-        skuCode: "",
-        productCode: "",
-        variantImages: [],
-        price: { costPrice: "", salePrice: "", discount: "", tax: "" },
-      });
-    }
+    resetVariantForm();
   };
 
   const handleEditVariant = (variant) => {
-    console.log("Editing variant:", variant);
-    const variantType = variant.type;
     setIsEditingVariant(true);
     setEditingVariantId(variant.id);
 
-    if (variantType === "Size-Color") {
-      const [size, color] = variant.value.split(" - ");
-      setCurrentVariant({
-        variantType: "sizeColor",
-        sizeColorVariants: [],
-        colorOnlyVariants: [],
-        sizeOnlyVariants: [],
-      });
-      setCurrentSizeColorVariant({
-        size: size || "",
-        color: color || "",
-        stockCount: variant.stockCount,
-        skuCode: variant.skuCode,
-        productCode: variant.productCode,
-        variantImages: variant.variantImages || [],
-        price: {
-          costPrice: variant.costPrice || "",
-          salePrice: variant.salePrice || "",
-          discount: variant.discount || "",
-          tax: variant.tax || "",
-        },
-      });
-    } else if (variantType === "Color Only") {
-      setCurrentVariant({
-        variantType: "colorOnly",
-        sizeColorVariants: [],
-        colorOnlyVariants: [],
-        sizeOnlyVariants: [],
-      });
-      setCurrentColorVariant({
-        color: variant.value,
-        stockCount: variant.stockCount,
-        skuCode: variant.skuCode,
-        productCode: variant.productCode,
-        variantImages: variant.variantImages || [],
-        price: {
-          costPrice: variant.costPrice || "",
-          salePrice: variant.salePrice || "",
-          discount: variant.discount || "",
-          tax: variant.tax || "",
-        },
-      });
-    } else if (variantType === "Size Only") {
-      setCurrentVariant({
-        variantType: "sizeOnly",
-        sizeColorVariants: [],
-        colorOnlyVariants: [],
-        sizeOnlyVariants: [],
-      });
-      setCurrentSizeVariant({
-        size: variant.value,
-        stockCount: variant.stockCount,
-        skuCode: variant.skuCode,
-        productCode: variant.productCode,
-        variantImages: variant.variantImages || [],
-        price: {
-          costPrice: variant.costPrice || "",
-          salePrice: variant.salePrice || "",
-          discount: variant.discount || "",
-          tax: variant.tax || "",
-        },
-      });
-    }
+    setCurrentVariant({
+      variantType: "unitOnly",
+      unitOnlyVariants: [],
+    });
+    setCurrentUnitVariant({
+      unit: variant.value,
+      stockCount: variant.stockCount,
+      skuCode: variant.skuCode === "-" ? "" : variant.skuCode,
+      productCode: variant.productCode === "-" ? "" : variant.productCode,
+      variantImages: variant.variantImages || [],
+      price: {
+        costPrice: variant.costPrice || "",
+        salePrice: variant.salePrice || "",
+        discount: variant.discount || "",
+        tax: variant.tax || "",
+      },
+    });
   };
 
   const handleSaveEditedVariant = () => {
@@ -1685,17 +1577,13 @@ const ProductForm = () => {
     }
 
     const current = getCurrentVariant();
-    const arrayKey = getVariantArrayKey();
 
     const updatedVariants = variants.map((variantGroup) => {
-      if (
-        variantGroup.variantType === currentVariant.variantType &&
-        variantGroup[arrayKey]
-      ) {
-        const updatedArray = variantGroup[arrayKey].map((v) =>
+      if (variantGroup.unitOnlyVariants) {
+        const updatedArray = variantGroup.unitOnlyVariants.map((v) =>
           v._id === editingVariantId ? { ...current, _id: editingVariantId } : v
         );
-        return { ...variantGroup, [arrayKey]: updatedArray };
+        return { ...variantGroup, unitOnlyVariants: updatedArray };
       }
       return variantGroup;
     });
@@ -1727,28 +1615,17 @@ const ProductForm = () => {
 
     const updatedVariants = variants
       .map((variantGroup) => {
-        const keys = [
-          "sizeColorVariants",
-          "colorOnlyVariants",
-          "sizeOnlyVariants",
-        ];
-        keys.forEach((key) => {
-          if (variantGroup[key]) {
-            variantGroup[key] = variantGroup[key].filter(
-              (v) => v._id !== variantId
-            );
-          }
-        });
+        if (variantGroup.unitOnlyVariants) {
+          variantGroup.unitOnlyVariants = variantGroup.unitOnlyVariants.filter(
+            (v) => v._id !== variantId
+          );
+        }
         return variantGroup;
       })
       .filter(
         (variantGroup) =>
-          (variantGroup.sizeColorVariants &&
-            variantGroup.sizeColorVariants.length > 0) ||
-          (variantGroup.colorOnlyVariants &&
-            variantGroup.colorOnlyVariants.length > 0) ||
-          (variantGroup.sizeOnlyVariants &&
-            variantGroup.sizeOnlyVariants.length > 0)
+          variantGroup.unitOnlyVariants &&
+          variantGroup.unitOnlyVariants.length > 0
       );
 
     setVariants(updatedVariants);
@@ -1795,36 +1672,16 @@ const ProductForm = () => {
     if (!variants || variants.length === 0) return tableData;
 
     variants.forEach((variantGroup) => {
-      const { variantType } = variantGroup;
-
-      let variantList = [];
-      if (variantType === "sizeColor" && variantGroup.sizeColorVariants) {
-        variantList = variantGroup.sizeColorVariants;
-      } else if (
-        variantType === "colorOnly" &&
-        variantGroup.colorOnlyVariants
-      ) {
-        variantList = variantGroup.colorOnlyVariants;
-      } else if (variantType === "sizeOnly" && variantGroup.sizeOnlyVariants) {
-        variantList = variantGroup.sizeOnlyVariants;
-      }
+      const variantList = variantGroup.unitOnlyVariants || [];
 
       variantList.forEach((variant, index) => {
         tableData.push({
           id: variant._id || `variant-${index}`,
-          type:
-            variantType === "sizeColor"
-              ? "Size-Color"
-              : variantType === "colorOnly"
-              ? "Color Only"
-              : "Size Only",
-          value:
-            variantType === "sizeColor"
-              ? `${variant.size} - ${variant.color}`
-              : variant.color || variant.size,
+          type: "Unit",
+          value: variant.unit,
           stockCount: variant.stockCount,
-          skuCode: variant.skuCode,
-          productCode: variant.productCode,
+          skuCode: variant.skuCode || "-",
+          productCode: variant.productCode || "-",
           costPrice: variant.price?.costPrice,
           salePrice: variant.price?.salePrice,
           discount: variant.price?.discount,
@@ -1946,766 +1803,231 @@ const ProductForm = () => {
     },
   };
 
-  const renderSizeColorSection = () => (
-    <div className="space-y-6">
-      <div className="border p-4 rounded-lg">
-        <h5 className="text-md font-medium mb-3">Step 1: Define Sizes</h5>
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
+  const renderUnitOnlySection = () => {
+    const unitSuggestions = [
+      "LITRE",
+      "MILILITRE",
+      "MILIGRAM",
+      "GRAM",
+      "KILOGRAM",
+      "500 ML",
+      "250 GM",
+      "1 KG",
+      "2 KG",
+      "1 BAG",
+      "5 BAGS",
+      "1 BOX",
+      "10 PCS",
+      "1 BOTTLE",
+      "DOZEN",
+    ];
+
+    return (
+      <div className="space-y-4 border p-4 rounded-lg">
+        <h5 className="text-md font-medium mb-3">Configure Unit Variant</h5>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">
-              Size Name *
+              Unit *
             </label>
             <input
               type="text"
-              placeholder="e.g., Small, Medium, Large, XL"
-              value={currentSize}
-              onChange={(e) => setCurrentSize(e.target.value)}
+              list="unit-suggestions-product-form"
+              name="unit"
+              placeholder="e.g., 500 ML, 1 KG, LITRE"
+              value={currentUnitVariant.unit}
+              onChange={handleUnitVariantChange}
+              className={`border rounded p-2 w-full ${
+                errors.unit ? "border-red-500 bg-red-50" : ""
+              }`}
+              required
+            />
+            <datalist id="unit-suggestions-product-form">
+              {unitSuggestions.map((u) => (
+                <option key={u} value={u} />
+              ))}
+            </datalist>
+            {errors.unit && (
+              <p className="text-red-500 text-sm mt-1">{errors.unit}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Stock Count *
+            </label>
+            <input
+              type="number"
+              name="stockCount"
+              placeholder="Stock count"
+              min="0"
+              step="1"
+              value={currentUnitVariant.stockCount}
+              onChange={handleUnitVariantChange}
+              className={`border rounded p-2 w-full ${
+                errors.stockCount ? "border-red-500 bg-red-50" : ""
+              }`}
+              required
+            />
+            {errors.stockCount && (
+              <p className="text-red-500 text-sm mt-1">{errors.stockCount}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              SKU Code
+            </label>
+            <input
+              type="text"
+              name="skuCode"
+              placeholder="SKU code"
+              value={currentUnitVariant.skuCode}
+              onChange={handleUnitVariantChange}
               className="border rounded p-2 w-full"
             />
           </div>
-          <button
-            onClick={handleAddSize}
-            disabled={!currentSize}
-            className="bg-primary text-white px-4 py-2 rounded hover:bg-pink-600 disabled:bg-gray-400 h-fit"
-          >
-            Add Size
-          </button>
-        </div>
-        {sizes.length > 0 && (
-          <div className="mt-4">
-            <h6 className="text-sm font-medium mb-2">Added Sizes:</h6>
-            <div className="flex flex-wrap gap-2">
-              {sizes.map((size, index) => (
-                <div
-                  key={index}
-                  className="flex items-center bg-gray-100 text-black px-3 py-1 rounded-full text-sm"
-                >
-                  {size}
-                  <button
-                    onClick={() => handleRemoveSize(index)}
-                    className="ml-2 text-red-500 hover:text-red-700"
-                  >
-                    <IoMdClose />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      {sizes.length > 0 && (
-        <div className="border p-4 rounded-lg">
-          <h5 className="text-md font-medium mb-3">
-            Step 2: Add Colors for Size
-          </h5>
-          <div className="mb-4">
+          <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">
-              Select Size *
+              Product Code
             </label>
-            <select
-              value={selectedSize}
-              onChange={(e) => setSelectedSize(e.target.value)}
-              className="border rounded p-2 w-full md:w-64"
-            >
-              <option value="">Select a size</option>
-              {sizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
+            <input
+              type="text"
+              name="productCode"
+              placeholder="Product code"
+              value={currentUnitVariant.productCode}
+              onChange={handleUnitVariantChange}
+              className="border rounded p-2 w-full"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Cost Price ($) *
+            </label>
+            <input
+              type="number"
+              name="costPrice"
+              placeholder="Cost Price"
+              min="0"
+              step="0.01"
+              value={currentUnitVariant.price?.costPrice || ""}
+              onChange={handleUnitPriceChange}
+              className={`border rounded p-2 w-full ${
+                errors.costPrice ? "border-red-500 bg-red-50" : ""
+              }`}
+              required
+            />
+            {errors.costPrice && (
+              <p className="text-red-500 text-sm mt-1">{errors.costPrice}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Sale Price ($)
+            </label>
+            <input
+              type="number"
+              name="salePrice"
+              placeholder="Sale Price"
+              min="0"
+              step="0.01"
+              value={currentUnitVariant.price?.salePrice || ""}
+              onChange={handleUnitPriceChange}
+              className="border rounded p-2 w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Discount (%)
+            </label>
+            <input
+              type="number"
+              name="discount"
+              placeholder="Discount"
+              min="0"
+              max="100"
+              step="1"
+              value={currentUnitVariant.price?.discount || ""}
+              onChange={handleUnitPriceChange}
+              className="border rounded p-2 w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Tax (%)
+            </label>
+            <input
+              type="number"
+              name="tax"
+              placeholder="Tax"
+              min="0"
+              max="100"
+              step="1"
+              value={currentUnitVariant.price?.tax || ""}
+              onChange={handleUnitPriceChange}
+              className="border rounded p-2 w-full"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-2">
+            Variant Images
+          </label>
+          <input
+            type="file"
+            multiple
+            onChange={handleUnitImagesChange}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            accept="image/*"
+          />
+          {currentUnitVariant.variantImages?.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {currentUnitVariant.variantImages.map((image, index) => (
+                <div key={index} className="relative w-20 h-20">
+                  <img
+                    src={
+                      typeof image === "string"
+                        ? image
+                        : URL.createObjectURL(image)
+                    }
+                    alt={`Unit variant ${index + 1}`}
+                    className="w-full h-full object-cover rounded border"
+                  />
+                  <button
+                    onClick={() => handleRemoveUnitImage(index)}
+                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
-            </select>
-          </div>
-          {selectedSize && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Color Name *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Red, Blue, Green"
-                    value={currentColor}
-                    onChange={(e) => setCurrentColor(e.target.value)}
-                    className="border rounded p-2 w-full"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={handleAddColorToSize}
-                    disabled={!currentColor}
-                    className="bg-primary text-white px-4 py-2 rounded hover:bg-pink-600 disabled:bg-gray-400"
-                  >
-                    Add Color
-                  </button>
-                </div>
-              </div>
-              {sizeColorMap[selectedSize]?.length > 0 && (
-                <div className="mt-4">
-                  <h6 className="text-sm font-medium mb-2">
-                    Colors for {selectedSize}:
-                  </h6>
-                  <div className="flex flex-wrap gap-2">
-                    {sizeColorMap[selectedSize].map((colorObj, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center bg-blue-100 text-black px-3 py-1 rounded-full text-sm"
-                      >
-                        {colorObj.color}
-                        <button
-                          onClick={() =>
-                            handleRemoveColorFromSize(selectedSize, index)
-                          }
-                          className="ml-2 text-red-500 hover:text-red-700"
-                        >
-                          <IoMdClose />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
-      )}
-      {Object.keys(sizeColorMap).length > 0 && (
-        <div className="border p-4 rounded-lg">
-          <h5 className="text-md font-medium mb-3">
-            Step 3: Configure Individual Variants
-          </h5>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Select Size
-              </label>
-              <select
-                value={currentSizeColorVariant.size}
-                onChange={(e) =>
-                  handleSizeColorVariantChange("size", e.target.value)
-                }
-                className="border rounded p-2 w-full"
-              >
-                <option value="">Select size</option>
-                {sizes.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Select Color
-              </label>
-              <select
-                value={currentSizeColorVariant.color}
-                onChange={(e) =>
-                  handleSizeColorVariantChange("color", e.target.value)
-                }
-                className="border rounded p-2 w-full"
-                disabled={!currentSizeColorVariant.size}
-              >
-                <option value="">Select color</option>
-                {sizeColorMap[currentSizeColorVariant.size]?.map(
-                  (colorObj, index) => (
-                    <option key={index} value={colorObj.color}>
-                      {colorObj.color}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-          </div>
-          {currentSizeColorVariant.size && currentSizeColorVariant.color && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Stock Count *
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Stock count"
-                    min="0"
-                    step="1"
-                    value={currentSizeColorVariant.stockCount}
-                    onChange={(e) =>
-                      handleSizeColorVariantChange("stockCount", e.target.value)
-                    }
-                    className="border rounded p-2 w-full"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    SKU Code
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="SKU code"
-                    value={currentSizeColorVariant.skuCode}
-                    onChange={(e) =>
-                      handleSizeColorVariantChange("skuCode", e.target.value)
-                    }
-                    className="border rounded p-2 w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Product Code
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Product code"
-                    value={currentSizeColorVariant.productCode}
-                    onChange={(e) =>
-                      handleSizeColorVariantChange(
-                        "productCode",
-                        e.target.value
-                      )
-                    }
-                    className="border rounded p-2 w-full"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Regular Price ($) *
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Regular Price"
-                    min="0"
-                    step="0.01"
-                    value={currentSizeColorVariant.price?.costPrice || ""}
-                    onChange={(e) =>
-                      handleSizeColorPriceChange("costPrice", e.target.value)
-                    }
-                    className="border rounded p-2 w-full"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Sale Price ($)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Sale Price"
-                    min="0"
-                    step="0.01"
-                    value={currentSizeColorVariant.price?.salePrice || ""}
-                    onChange={(e) =>
-                      handleSizeColorPriceChange("salePrice", e.target.value)
-                    }
-                    className="border rounded p-2 w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Discount (%)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Discount"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={currentSizeColorVariant.price?.discount || ""}
-                    onChange={(e) =>
-                      handleSizeColorPriceChange("discount", e.target.value)
-                    }
-                    className="border rounded p-2 w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Tax (%)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Tax"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={currentSizeColorVariant.price?.tax || ""}
-                    onChange={(e) =>
-                      handleSizeColorPriceChange("tax", e.target.value)
-                    }
-                    className="border rounded p-2 w-full"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">
-                  Variant Images
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleSizeColorImagesChange}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  accept="image/*"
-                />
-                {currentSizeColorVariant.variantImages.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {currentSizeColorVariant.variantImages.map(
-                      (image, index) => (
-                        <div key={index} className="relative w-20 h-20">
-                          <img
-                            src={
-                              typeof image === "string"
-                                ? image
-                                : URL.createObjectURL(image)
-                            }
-                            alt={`Variant ${currentSizeColorVariant.size}-${
-                              currentSizeColorVariant.color
-                            } ${index + 1}`}
-                            className="w-full h-full object-cover rounded border"
-                          />
-                          <button
-                            onClick={() => handleRemoveSizeColorImage(index)}
-                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={
-                    isEditingVariant
-                      ? handleSaveEditedVariant
-                      : handleAddVariant
-                  }
-                  disabled={!canAddVariant()}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
-                >
-                  {isEditingVariant
-                    ? `Update ${currentSizeColorVariant.size} - ${currentSizeColorVariant.color} Variant`
-                    : `Add ${currentSizeColorVariant.size} - ${currentSizeColorVariant.color} Variant`}
-                </button>
-                {!isEditingVariant && (
-                  <button
-                    onClick={resetVariantForm}
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  >
-                    Clear Form
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderColorOnlySection = () => (
-    <div className="space-y-4 border p-4 rounded-lg">
-      <h5 className="text-md font-medium mb-3">Configure Color-Only Variant</h5>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Color *
-          </label>
-          <input
-            type="text"
-            name="color"
-            placeholder="e.g., Red, Blue, Green"
-            value={currentColorVariant.color}
-            onChange={handleColorVariantChange}
-            className={`border rounded p-2 w-full ${
-              errors.color ? "border-red-500 bg-red-50" : ""
-            }`}
-            required
-          />
-          {errors.color && (
-            <p className="text-red-500 text-sm mt-1">{errors.color}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Stock Count *
-          </label>
-          <input
-            type="number"
-            name="stockCount"
-            placeholder="Stock count"
-            min="0"
-            step="1"
-            value={currentColorVariant.stockCount}
-            onChange={handleColorVariantChange}
-            className={`border rounded p-2 w-full ${
-              errors.stockCount ? "border-red-500 bg-red-50" : ""
-            }`}
-            required
-          />
-          {errors.stockCount && (
-            <p className="text-red-500 text-sm mt-1">{errors.stockCount}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            SKU Code
-          </label>
-          <input
-            type="text"
-            name="skuCode"
-            placeholder="SKU code"
-            value={currentColorVariant.skuCode}
-            onChange={handleColorVariantChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Product Code
-          </label>
-          <input
-            type="text"
-            name="productCode"
-            placeholder="Product code"
-            value={currentColorVariant.productCode}
-            onChange={handleColorVariantChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Regular Price ($) *
-          </label>
-          <input
-            type="number"
-            name="costPrice"
-            placeholder="Regular Price"
-            min="0"
-            step="0.01"
-            value={currentColorVariant.price?.costPrice || ""}
-            onChange={handleColorPriceChange}
-            className={`border rounded p-2 w-full ${
-              errors.costPrice ? "border-red-500 bg-red-50" : ""
-            }`}
-            required
-          />
-          {errors.costPrice && (
-            <p className="text-red-500 text-sm mt-1">{errors.costPrice}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Sale Price ($)
-          </label>
-          <input
-            type="number"
-            name="salePrice"
-            placeholder="Sale Price"
-            min="0"
-            step="0.01"
-            value={currentColorVariant.price?.salePrice || ""}
-            onChange={handleColorPriceChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Discount (%)
-          </label>
-          <input
-            type="number"
-            name="discount"
-            placeholder="Discount"
-            min="0"
-            max="100"
-            step="1"
-            value={currentColorVariant.price?.discount || ""}
-            onChange={handleColorPriceChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Tax (%)
-          </label>
-          <input
-            type="number"
-            name="tax"
-            placeholder="Tax"
-            min="0"
-            max="100"
-            step="1"
-            value={currentColorVariant.price?.tax || ""}
-            onChange={handleColorPriceChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-600 mb-2">
-          Variant Images
-        </label>
-        <input
-          type="file"
-          multiple
-          onChange={handleColorImagesChange}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          accept="image/*"
-        />
-        {currentColorVariant.variantImages.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {currentColorVariant.variantImages.map((image, index) => (
-              <div key={index} className="relative w-20 h-20">
-                <img
-                  src={
-                    typeof image === "string"
-                      ? image
-                      : URL.createObjectURL(image)
-                  }
-                  alt={`Color variant ${index + 1}`}
-                  className="w-full h-full object-cover rounded border"
-                />
-                <button
-                  onClick={() => handleRemoveColorImage(index)}
-                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={
-            isEditingVariant ? handleSaveEditedVariant : handleAddVariant
-          }
-          disabled={!canAddVariant()}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
-        >
-          {isEditingVariant
-            ? `Update ${currentColorVariant.color} Variant`
-            : `Add ${currentColorVariant.color} Variant`}
-        </button>
-        {!isEditingVariant && (
+        <div className="flex gap-2">
           <button
-            onClick={resetVariantForm}
-            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            onClick={
+              isEditingVariant ? handleSaveEditedVariant : handleAddVariant
+            }
+            disabled={!canAddVariant()}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
           >
-            Clear Form
+            {isEditingVariant
+              ? `Update ${currentUnitVariant.unit || "Unit"} Variant`
+              : `+ Add Unit Variant`}
           </button>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderSizeOnlySection = () => (
-    <div className="space-y-4 border p-4 rounded-lg">
-      <h5 className="text-md font-medium mb-3">Configure Size-Only Variant</h5>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Size *
-          </label>
-          <input
-            type="text"
-            name="size"
-            placeholder="e.g., Small, Medium, Large"
-            value={currentSizeVariant.size}
-            onChange={handleSizeVariantChange}
-            className={`border rounded p-2 w-full ${
-              errors.size ? "border-red-500 bg-red-50" : ""
-            }`}
-            required
-          />
-          {errors.size && (
-            <p className="text-red-500 text-sm mt-1">{errors.size}</p>
+          {!isEditingVariant && (
+            <button
+              onClick={resetVariantForm}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            >
+              Clear Form
+            </button>
           )}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Stock Count *
-          </label>
-          <input
-            type="number"
-            name="stockCount"
-            placeholder="Stock count"
-            min="0"
-            step="1"
-            value={currentSizeVariant.stockCount}
-            onChange={handleSizeVariantChange}
-            className={`border rounded p-2 w-full ${
-              errors.stockCount ? "border-red-500 bg-red-50" : ""
-            }`}
-            required
-          />
-          {errors.stockCount && (
-            <p className="text-red-500 text-sm mt-1">{errors.stockCount}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            SKU Code
-          </label>
-          <input
-            type="text"
-            name="skuCode"
-            placeholder="SKU code"
-            value={currentSizeVariant.skuCode}
-            onChange={handleSizeVariantChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Product Code
-          </label>
-          <input
-            type="text"
-            name="productCode"
-            placeholder="Product code"
-            value={currentSizeVariant.productCode}
-            onChange={handleSizeVariantChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Regular Price ($) *
-          </label>
-          <input
-            type="number"
-            name="costPrice"
-            placeholder="Regular Price"
-            min="0"
-            step="0.01"
-            value={currentSizeVariant.price?.costPrice || ""}
-            onChange={handleSizePriceChange}
-            className={`border rounded p-2 w-full ${
-              errors.costPrice ? "border-red-500 bg-red-50" : ""
-            }`}
-            required
-          />
-          {errors.costPrice && (
-            <p className="text-red-500 text-sm mt-1">{errors.costPrice}</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Sale Price ($)
-          </label>
-          <input
-            type="number"
-            name="salePrice"
-            placeholder="Sale Price"
-            min="0"
-            step="0.01"
-            value={currentSizeVariant.price?.salePrice || ""}
-            onChange={handleSizePriceChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Discount (%)
-          </label>
-          <input
-            type="number"
-            name="discount"
-            placeholder="Discount"
-            min="0"
-            max="100"
-            step="1"
-            value={currentSizeVariant.price?.discount || ""}
-            onChange={handleSizePriceChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Tax (%)
-          </label>
-          <input
-            type="number"
-            name="tax"
-            placeholder="Tax"
-            min="0"
-            max="100"
-            step="1"
-            value={currentSizeVariant.price?.tax || ""}
-            onChange={handleSizePriceChange}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-600 mb-2">
-          Variant Images
-        </label>
-        <input
-          type="file"
-          multiple
-          onChange={handleSizeImagesChange}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          accept="image/*"
-        />
-        {currentSizeVariant.variantImages.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {currentSizeVariant.variantImages.map((image, index) => (
-              <div key={index} className="relative w-20 h-20">
-                <img
-                  src={
-                    typeof image === "string"
-                      ? image
-                      : URL.createObjectURL(image)
-                  }
-                  alt={`Size variant ${index + 1}`}
-                  className="w-full h-full object-cover rounded border"
-                />
-                <button
-                  onClick={() => handleRemoveSizeImage(index)}
-                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={
-            isEditingVariant ? handleSaveEditedVariant : handleAddVariant
-          }
-          disabled={!canAddVariant()}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
-        >
-          {isEditingVariant
-            ? `Update ${currentSizeVariant.size} Variant`
-            : `Add ${currentSizeVariant.size} Variant`}
-        </button>
-        {!isEditingVariant && (
-          <button
-            onClick={resetVariantForm}
-            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-          >
-            Clear Form
-          </button>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderNonVariantImagesSection = () => (
     <div className="w-full mt-4">
@@ -3375,28 +2697,14 @@ const ProductForm = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">
-                  Variant Type *
+                  Variant Type
                 </label>
-                <select
-                  name="variantType"
-                  value={currentVariant.variantType}
-                  onChange={handleVariantTypeChange}
-                  className="border rounded p-2 w-full"
-                  required
-                >
-                  <option value="">Select Variant Type</option>
-                  <option value="sizeColor">Size + Color</option>
-                  <option value="colorOnly">Color Only</option>
-                  <option value="sizeOnly">Size Only</option>
-                </select>
+                <div className="border rounded p-2 w-full bg-gray-50 text-gray-700 font-medium">
+                  Unit
+                </div>
               </div>
             </div>
-            {currentVariant.variantType === "sizeColor" &&
-              renderSizeColorSection()}
-            {currentVariant.variantType === "colorOnly" &&
-              renderColorOnlySection()}
-            {currentVariant.variantType === "sizeOnly" &&
-              renderSizeOnlySection()}
+            {renderUnitOnlySection()}
           </div>
           {variants.length > 0 && (
             <div className="mt-6 rounded w-full overflow-x-auto">

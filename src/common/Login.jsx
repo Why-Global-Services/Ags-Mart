@@ -567,7 +567,7 @@ const Login = () => {
             </button>
 
             <p className="text-center text-xs text-white/60 mt-4">
-              © {new Date().getFullYear()} Povi's Collections. All Rights Reserved.
+              © {new Date().getFullYear()} Agrowmed. All Rights Reserved.
             </p>
           </form>
         )}

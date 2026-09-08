@@ -83,7 +83,9 @@ const CouponForm = () => {
     // Detect variants
     let productVariants = [];
 
-    if (selected?.variant?.sizeColorVariants?.length) {
+    if (selected?.variant?.unitOnlyVariants?.length) {
+      productVariants = selected.variant.unitOnlyVariants;
+    } else if (selected?.variant?.sizeColorVariants?.length) {
       productVariants = selected.variant.sizeColorVariants;
     } else if (selected?.variant?.sizeOnlyVariants?.length) {
       productVariants = selected.variant.sizeOnlyVariants;
@@ -149,7 +151,9 @@ const CouponForm = () => {
         if (selected?.variant) {
           let productVariants = [];
 
-          if (selected.variant.sizeColorVariants?.length) {
+          if (selected.variant.unitOnlyVariants?.length) {
+            productVariants = selected.variant.unitOnlyVariants;
+          } else if (selected.variant.sizeColorVariants?.length) {
             productVariants = selected.variant.sizeColorVariants;
           } else if (selected.variant.sizeOnlyVariants?.length) {
             productVariants = selected.variant.sizeOnlyVariants;
@@ -497,6 +501,7 @@ const CouponForm = () => {
                     <option value="">-- Select Variant --</option>
                     {variants.map((v) => (
                       <option key={v._id} value={v._id}>
+                        {v.unit && `Unit: ${v.unit} `}
                         {v.size && `Size: ${v.size} `}
                         {v.color && `Color: ${v.color} `}
                         ₹{v.price?.salePrice}

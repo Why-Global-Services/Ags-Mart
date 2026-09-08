@@ -123,8 +123,10 @@ const CreateProductContent = () => {
       formDataToSend.append("productTitle", payload.productTitle || "");
       formDataToSend.append("productCategory", payload.productCategory || "");
       formDataToSend.append("category_id", payload.category_id || "");
-      formDataToSend.append("productSubCategory", payload.productSubCategory || "");
-      formDataToSend.append("subcategory_id", payload.subcategory_id || "");
+      // SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
+      // Re-enable these fields with the selector; do not send empty defaults.
+      // formDataToSend.append("productSubCategory", payload.productSubCategory || "");
+      // formDataToSend.append("subcategory_id", payload.subcategory_id || "");
       formDataToSend.append("productType", payload.productType || "");
       formDataToSend.append("productDescription", payload.productDescription || "");
       formDataToSend.append("productUsage", payload.productUsage || "");
@@ -168,12 +170,46 @@ if (payload.productType === "variant" && payload.variant) {
   // Prepare variant data without images for JSON
   const variantDataForJson = {
     variantType: variant.variantType,
+    unitOnlyVariants: [],
     sizeColorVariants: [],
     colorOnlyVariants: [],
     sizeOnlyVariants: [],
   };
 
   let variantImageCounter = 1;
+
+  // Process unitOnly variants
+  if (variant.variantType === "unitOnly" && variant.unitOnlyVariants) {
+    variant.unitOnlyVariants.forEach((v, index) => {
+      const variantWithoutImages = {
+        unit: v.unit,
+        stockCount: v.stockCount,
+        skuCode: v.skuCode || "",
+        productCode: v.productCode || "",
+        price: v.price || { costPrice: "", salePrice: "", discount: "", tax: "" },
+        _variantImageIndex: variantImageCounter,
+      };
+      if (v._id) {
+        variantWithoutImages._id = v._id;
+      }
+      variantDataForJson.unitOnlyVariants.push(variantWithoutImages);
+
+      // Handle images separately
+      if (v.variantImages && v.variantImages.length > 0) {
+        v.variantImages.forEach((img) => {
+          if (img instanceof File) {
+            formDataToSend.append(`variantImages_${variantImageCounter}`, img);
+          } else if (typeof img === "string") {
+            formDataToSend.append(
+              `existingVariantImages_${variantImageCounter}[]`,
+              img
+            );
+          }
+        });
+        variantImageCounter++;
+      }
+    });
+  }
 
   // Process sizeColor variants
   if (variant.variantType === "sizeColor" && variant.sizeColorVariants) {

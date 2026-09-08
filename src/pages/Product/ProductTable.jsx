@@ -250,6 +250,12 @@ if (searchTerm.trim()) {
       // Total stock (similar logic as table)
       let totalStock = 0;
       if (isVariant && product.variant) {
+        if (Array.isArray(product.variant.unitOnlyVariants)) {
+          totalStock += product.variant.unitOnlyVariants.reduce(
+            (sum, v) => sum + Number(v.stockCount || 0),
+            0
+          );
+        }
         if (Array.isArray(product.variant.sizeOnlyVariants)) {
           totalStock += product.variant.sizeOnlyVariants.reduce(
             (sum, v) => sum + Number(v.stockCount || 0),
@@ -280,6 +286,7 @@ if (searchTerm.trim()) {
 
       if (isVariant && product.variant) {
         const firstVariant =
+          product.variant.unitOnlyVariants?.[0] ||
           product.variant.sizeOnlyVariants?.[0] ||
           product.variant.colorOnlyVariants?.[0] ||
           product.variant.sizeColorVariants?.[0];

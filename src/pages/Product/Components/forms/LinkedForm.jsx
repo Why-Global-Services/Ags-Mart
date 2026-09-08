@@ -24,10 +24,12 @@ const LinkedProductsForm = () => {
           category: product.productCategory,
           subcategory: product.productSubCategory,
           price: product.nonVariant?.price?.costPrice || 
+                product.variant?.unitOnlyVariants?.[0]?.price?.costPrice ||
                 product.variant?.sizeColorVariants?.[0]?.price?.costPrice ||
                 product.variant?.colorOnlyVariants?.[0]?.price?.costPrice ||
                 product.variant?.sizeOnlyVariants?.[0]?.price?.costPrice || 0,
           stock: product.nonVariant?.stockCount || 
+                product.variant?.unitOnlyVariants?.[0]?.stockCount ||
                 product.variant?.sizeColorVariants?.[0]?.stockCount ||
                 product.variant?.colorOnlyVariants?.[0]?.stockCount ||
                 product.variant?.sizeOnlyVariants?.[0]?.stockCount || 0

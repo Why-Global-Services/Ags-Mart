@@ -9,12 +9,13 @@ import "./productFormCSS.css";
 
 import { productSchema } from "./prductSchema";
 import { getActiveCategories } from "../../Interceptor/interceptor";
-import { getSubCategoriesByCategory } from "../../services/Offer";
 import { createProduct, getAllActiveProducts, updateProduct } from "../../services/Products";
 
 export default function ProductForm() {
   const [categories, setCategories] = useState([]);
-  const [subCategories, setSubcategories] = useState([]);
+  // SUBCATEGORY TEMPORARILY DISABLED
+  // Re-enable this state together with the subcategory selector when that flow returns.
+  // const [subCategories, setSubcategories] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [selectedRelated, setSelectedRelated] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,10 +53,8 @@ export default function ProductForm() {
       isReturnable: false,
       isTodaySpecial: false,
       variant: {
-        variantType: "sizeColor",
-        sizeColorVariants: [],
-        sizeOnlyVariants: [],
-        colorOnlyVariants: [],
+        variantType: "unitOnly",
+        unitOnlyVariants: [],
       },
       nonVariant: {
         price: { costPrice: 0, salePrice: 0, discount: 0, tax: 0 },
@@ -76,16 +75,9 @@ export default function ProductForm() {
   const nonVariantCostPrice = watch("nonVariant.price.costPrice");
   const nonVariantDiscount = watch("nonVariant.price.discount");
 
-  // Watch for variant price fields
-  // const sizeColorVariants = watch("variant.sizeColorVariants");
-  // const sizeOnlyVariants = watch("variant.sizeOnlyVariants");
-  // const colorOnlyVariants = watch("variant.colorOnlyVariants");
-
   const { fields: benefitFields, append: appendBenefit, remove: removeBenefit } = useFieldArray({ control, name: "productBenifits" });
   const { fields: ingredientFields, append: appendIngredient, remove: removeIngredient } = useFieldArray({ control, name: "productIngrediants" });
-  const sizeColorArray = useFieldArray({ control, name: "variant.sizeColorVariants" });
-  const sizeOnlyArray = useFieldArray({ control, name: "variant.sizeOnlyVariants" });
-  const colorOnlyArray = useFieldArray({ control, name: "variant.colorOnlyVariants" });
+  const unitOnlyArray = useFieldArray({ control, name: "variant.unitOnlyVariants" });
   const { fields: tagFields, append: appendTag, remove: removeTag } = useFieldArray({ control, name: "searchTags" });
   const { fields: relatedFields, append: appendRelated, remove: removeRelated } = useFieldArray({ control, name: "linkProducts.relatedProducts" });
 
@@ -180,13 +172,9 @@ export default function ProductForm() {
       try {
         setLoading(true);
 
-        // Load subcategories and products for the selected category
+        // SUBCATEGORY TEMPORARILY DISABLED: load related products only.
         if (initialData.category_id) {
-          const [subRes, prodRes] = await Promise.all([
-            getSubCategoriesByCategory(initialData.category_id),
-            getAllActiveProducts(initialData.category_id),
-          ]);
-          setSubcategories(subRes.data || subRes);
+          const prodRes = await getAllActiveProducts(initialData.category_id);
           setAllProducts(prodRes.data || prodRes);
         }
 
@@ -355,24 +343,10 @@ export default function ProductForm() {
   };
 
   useEffect(() => {
-    if (variantType === "sizeColor") {
-      sizeOnlyArray.replace([]);
-      colorOnlyArray.replace([]);
-    } else if (variantType === "sizeOnly") {
-      sizeColorArray.replace([]);
-      colorOnlyArray.replace([]);
-    } else if (variantType === "colorOnly") {
-      sizeColorArray.replace([]);
-      sizeOnlyArray.replace([]);
-    }
-  }, [variantType]);
-
-  useEffect(() => {
     if (productType === "nonVariant") {
-      sizeColorArray.replace([]);
-      sizeOnlyArray.replace([]);
-      colorOnlyArray.replace([]);
+      unitOnlyArray.replace([]);
     } else if (productType === "variant") {
+      setValue("variant.variantType", "unitOnly");
       setValue("nonVariant", {
         price: { costPrice: 0, salePrice: 0, discount: 0, tax: 0 },
         stockCount: 0,
@@ -386,21 +360,17 @@ export default function ProductForm() {
 
     setValue("category_id", categoryId, { shouldValidate: true });
     setValue("productCategory", selectedText, { shouldValidate: true });
-    setValue("subcategory_id", "");
-    setValue("productSubCategory", "");
-
-    setSubcategories([]);
+    // SUBCATEGORY TEMPORARILY DISABLED
+    // setValue("subcategory_id", "");
+    // setValue("productSubCategory", "");
+    // setSubcategories([]);
     setAllProducts([]);
 
     if (!categoryId) return;
 
     try {
       setLoading(true);
-      const [subRes, prodRes] = await Promise.all([
-        getSubCategoriesByCategory(categoryId),
-        getAllActiveProducts(categoryId),
-      ]);
-      setSubcategories(subRes.data || subRes);
+      const prodRes = await getAllActiveProducts(categoryId);
       setAllProducts(prodRes.data || prodRes);
     } finally {
       setLoading(false);
@@ -446,6 +416,12 @@ export default function ProductForm() {
       if (data.productType === "variant") {
         delete data.nonVariant;
       }
+
+      // SUBCATEGORY TEMPORARILY DISABLED
+      // Do not send empty values to the API. Existing products retain their
+      // stored subcategory because the update endpoint ignores omitted fields.
+      delete data.productSubCategory;
+      delete data.subcategory_id;
 
       const formData = new FormData();
 
@@ -596,8 +572,26 @@ export default function ProductForm() {
     }
   };
 
-  const renderVariantFields = (array, type) => (
+  const renderUnitVariantFields = (array) => (
     <>
+      <datalist id="unit-suggestions">
+        <option value="LITRE" />
+        <option value="MILILITRE" />
+        <option value="MILIGRAM" />
+        <option value="GRAM" />
+        <option value="KILOGRAM" />
+        <option value="500 ML" />
+        <option value="250 GM" />
+        <option value="1 KG" />
+        <option value="2 KG" />
+        <option value="1 BAG" />
+        <option value="5 BAGS" />
+        <option value="1 BOX" />
+        <option value="10 PCS" />
+        <option value="1 BOTTLE" />
+        <option value="DOZEN" />
+      </datalist>
+
       {array.fields.map((field, i) => (
         <div key={field.id} className="variant-card">
           <div className="variant-header">
@@ -613,21 +607,26 @@ export default function ProductForm() {
           </div>
 
           <div className="form-row grid-3">
-            {(type === "sizeColor" || type === "sizeOnly") && (
-              <div className="form-group">
-                <label>Size</label>
-                <input placeholder="M, L, XL" {...register(`variant.${type}Variants.${i}.size`)} />
-              </div>
-            )}
-            {(type === "sizeColor" || type === "colorOnly") && (
-              <div className="form-group">
-                <label>Color</label>
-                <input placeholder="Red, Blue" {...register(`variant.${type}Variants.${i}.color`)} />
-              </div>
-            )}
+            <div className="form-group">
+              <label>Unit *</label>
+              <input
+                placeholder="e.g. 500 ML, 1 KG, LITRE"
+                list="unit-suggestions"
+                {...register(`variant.unitOnlyVariants.${i}.unit`)}
+              />
+              {errors?.variant?.unitOnlyVariants?.[i]?.unit && (
+                <small style={{ color: "red" }}>
+                  {errors.variant.unitOnlyVariants[i].unit.message}
+                </small>
+              )}
+            </div>
+            <div className="form-group">
+              <label>SKU Code</label>
+              <input placeholder="SKU Code" {...register(`variant.unitOnlyVariants.${i}.skuCode`)} />
+            </div>
             <div className="form-group">
               <label>Product Code</label>
-              <input placeholder="SKU" {...register(`variant.${type}Variants.${i}.productCode`)} />
+              <input placeholder="Product Code" {...register(`variant.unitOnlyVariants.${i}.productCode`)} />
             </div>
           </div>
 
@@ -636,7 +635,7 @@ export default function ProductForm() {
               <label>Cost ($)</label>
               <Controller
                 control={control}
-                name={`variant.${type}Variants.${i}.price.costPrice`}
+                name={`variant.unitOnlyVariants.${i}.price.costPrice`}
                 render={({ field }) => (
                   <input
                     type="number"
@@ -647,12 +646,12 @@ export default function ProductForm() {
                       field.onChange(cost);
 
                       const discount =
-                        watch(`variant.${type}Variants.${i}.price.discount`) || 0;
+                        watch(`variant.unitOnlyVariants.${i}.price.discount`) || 0;
 
                       const sale = calculateSalePrice(cost, discount);
 
                       setValue(
-                        `variant.${type}Variants.${i}.price.salePrice`,
+                        `variant.unitOnlyVariants.${i}.price.salePrice`,
                         sale,
                         { shouldDirty: true, shouldValidate: true }
                       );
@@ -668,7 +667,7 @@ export default function ProductForm() {
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                {...register(`variant.${type}Variants.${i}.price.salePrice`)}
+                {...register(`variant.unitOnlyVariants.${i}.price.salePrice`)}
                 readOnly
                 className="readonly-input"
               />
@@ -680,7 +679,7 @@ export default function ProductForm() {
               <label>Discount (%)</label>
               <Controller
                 control={control}
-                name={`variant.${type}Variants.${i}.price.discount`}
+                name={`variant.unitOnlyVariants.${i}.price.discount`}
                 render={({ field }) => (
                   <input
                     type="number"
@@ -691,12 +690,12 @@ export default function ProductForm() {
                       field.onChange(discount);
 
                       const cost =
-                        watch(`variant.${type}Variants.${i}.price.costPrice`) || 0;
+                        watch(`variant.unitOnlyVariants.${i}.price.costPrice`) || 0;
 
                       const sale = calculateSalePrice(cost, discount);
 
                       setValue(
-                        `variant.${type}Variants.${i}.price.salePrice`,
+                        `variant.unitOnlyVariants.${i}.price.salePrice`,
                         sale,
                         { shouldDirty: true, shouldValidate: true }
                       );
@@ -705,7 +704,6 @@ export default function ProductForm() {
                   />
                 )}
               />
-
             </div>
             <div className="form-group">
               <label>Tax (%)</label>
@@ -713,7 +711,7 @@ export default function ProductForm() {
                 type="number"
                 step="0.01"
                 placeholder="0"
-                {...register(`variant.${type}Variants.${i}.price.tax`)}
+                {...register(`variant.unitOnlyVariants.${i}.price.tax`)}
               />
             </div>
           </div>
@@ -721,26 +719,26 @@ export default function ProductForm() {
           <div className="form-row">
             <div className="form-group">
               <label>Stock Count</label>
-              <input type="number" placeholder="0" {...register(`variant.${type}Variants.${i}.stockCount`)} />
+              <input type="number" placeholder="0" {...register(`variant.unitOnlyVariants.${i}.stockCount`)} />
             </div>
             <div className="form-group">
               <label className="file-upload-label" style={{ backgroundColor: '#000', color: '#fff' }}>
                 <Upload size={18} />
                 <span>Images</span>
-                <input type="file" multiple accept="image/*" onChange={(e) => handleVariantImagesChange(e, i, type)} style={{ display: "none" }} />
+                <input type="file" multiple accept="image/*" onChange={(e) => handleVariantImagesChange(e, i, "unitOnly")} style={{ display: "none" }} />
               </label>
             </div>
           </div>
 
-          {variantImagePreviews[`${type}-${i}`]?.length > 0 && (
+          {variantImagePreviews[`unitOnly-${i}`]?.length > 0 && (
             <div className="image-preview-grid">
-              {variantImagePreviews[`${type}-${i}`].map((img) => (
+              {variantImagePreviews[`unitOnly-${i}`].map((img) => (
                 <div key={img.id} className="image-preview-item">
                   <img src={img.preview} alt="Preview" />
                   <button
                     type="button"
                     className="image-remove-btn"
-                    onClick={() => removeVariantImage(`${type}-${i}`, img.id)}
+                    onClick={() => removeVariantImage(`unitOnly-${i}`, img.id)}
                     style={{ backgroundColor: '#000', color: '#fff' }}
                   >
                     <X size={16} />
@@ -756,15 +754,15 @@ export default function ProductForm() {
         type="button"
         className="btn-add"
         onClick={() => array.append({
-          ...(type !== "colorOnly" && { size: "" }),
-          ...(type !== "sizeOnly" && { color: "" }),
+          unit: "",
+          skuCode: "",
           productCode: "",
           stockCount: 0,
           price: { costPrice: 0, salePrice: 0, discount: 0, tax: 0 }
         })}
         style={{ backgroundColor: '#059669', color: '#fff' }}
       >
-        <Plus size={20} /> Add {type === "sizeColor" ? "Size + Color" : type === "sizeOnly" ? "Size" : "Color"} Variant
+        <Plus size={20} /> Add Unit Variant
       </button>
     </>
   );
@@ -807,20 +805,15 @@ export default function ProductForm() {
               <input type="hidden" {...register("productCategory")} />
             </div>
 
+            {/* SUBCATEGORY TEMPORARILY DISABLED
+                Re-enable this selector and its API call when subcategories are restored.
             <div className="form-group">
               <label htmlFor="subcategory_id">Subcategory</label>
-              <select id="subcategory" {...register("subcategory_id")} disabled={loading || subCategories.length === 0}
-                onChange={(e) => {
-                  setValue("subcategory_id", e.target.value, { shouldValidate: true });
-                  setValue("productSubCategory", e.target.selectedOptions[0]?.text || "", { shouldValidate: true });
-                }}>
+              <select id="subcategory" {...register("subcategory_id")} disabled={loading || subCategories.length === 0}>
                 <option value="">Select Subcategory</option>
-                {subCategories.map((sub) => (
-                  <option key={sub._id} value={sub._id}>{sub.subCategoryTitle}</option>
-                ))}
               </select>
               <input type="hidden" {...register("productSubCategory")} />
-            </div>
+            </div> */}
 
             <div className="form-group">
               <label htmlFor="productTitle" className="required">Product Name</label>
@@ -1034,15 +1027,11 @@ export default function ProductForm() {
             <div className="form-group">
               <label>Variant Type</label>
               <select {...register("variant.variantType")}>
-                <option value="sizeColor">Size + Color</option>
-                <option value="sizeOnly">Size Only</option>
-                <option value="colorOnly">Color Only</option>
+                <option value="unitOnly">Unit</option>
               </select>
             </div>
 
-            {variantType === "sizeColor" && renderVariantFields(sizeColorArray, "sizeColor")}
-            {variantType === "sizeOnly" && renderVariantFields(sizeOnlyArray, "sizeOnly")}
-            {variantType === "colorOnly" && renderVariantFields(colorOnlyArray, "colorOnly")}
+            {renderUnitVariantFields(unitOnlyArray)}
           </div>
         )}
 

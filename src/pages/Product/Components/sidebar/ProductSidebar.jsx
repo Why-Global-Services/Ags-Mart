@@ -196,8 +196,10 @@ const ProductSidebar = ({ selected, onSelect, steps }) => {
           !!formData.brand_id?.trim() &&
           !!formData.productCategory?.trim() &&
           !!formData.category_id?.trim() &&
-          !!formData.productSubCategory?.trim() &&
-          !!formData.subcategory_id?.trim() &&
+          // SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
+          // Re-enable these checks together with the product form selector.
+          // !!formData.productSubCategory?.trim() &&
+          // !!formData.subcategory_id?.trim() &&
           !!formData.productName?.trim() &&
           !!formData.productDescription?.trim() &&
           formData.productDescription.trim().length >= 20 &&

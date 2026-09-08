@@ -26,7 +26,7 @@ const PrintableInvoice = React.forwardRef(({ order }, ref) => {
         {/* <div>
           <h2 className="text-lg font-semibold mb-3 text-gray-700">From:</h2>
           <div className="bg-gray-50 p-4 rounded">
-            <p className="font-bold">Natures Hunt</p>
+            <p className="font-bold">Agrowmed</p>
             <p>Company Address Line 1</p>
             <p>Company Address Line 2</p>
             <p>City, State - ZIP Code</p>
@@ -152,7 +152,7 @@ const PrintableInvoice = React.forwardRef(({ order }, ref) => {
       <div className="border-t pt-6 text-center text-sm text-gray-500">
         <p>Thank you for your business!</p>
         <p className="mt-2">
-          For any queries, contact: info@natureshunt.in | +91 8747099499 
+          For any queries, contact: sales@agrowmed.com | +91 93444 30739 
         </p>
         <p className="mt-4">
           Invoice generated on: {dayjs().format("DD/MM/YYYY hh:mm A")}

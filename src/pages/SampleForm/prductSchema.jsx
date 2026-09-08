@@ -39,44 +39,19 @@ export const linkProductsSchema = z.object({
 });
 
 
-export const sizeColorVariantSchema = z.object({
-  size: z.string().min(1),
-  color: z.string().min(1),
+export const unitOnlyVariantSchema = z.object({
+  unit: z.string().trim().min(1, "Unit is required"),
   stockCount: z.coerce.number().min(0).default(0),
   skuCode: z.string().optional(),
   productCode: z.string().optional(),
   variantImages: z.any().optional(),
   price: priceSchema,
 });
-
-
-export const colorOnlyVariantSchema = z.object({
-  color: z.string().min(1),
-  stockCount: z.coerce.number().min(0).default(0),
-  skuCode: z.string().optional(),
-  productCode: z.string().optional(),
-  variantImages: z.any().optional(),
-  price: priceSchema,
-});
-
-
-export const sizeOnlyVariantSchema = z.object({
-  size: z.string().min(1),
-  stockCount: z.coerce.number().min(0).default(0),
-  skuCode: z.string().optional(),
-  productCode: z.string().optional(),
-  variantImages: z.any().optional(),
-  price: priceSchema,
-});
-
 
 export const variantSchema = z
   .object({
-    variantType: z.enum(["sizeColor", "colorOnly", "sizeOnly"]),
-
-    sizeColorVariants: z.array(sizeColorVariantSchema).optional(),
-    colorOnlyVariants: z.array(colorOnlyVariantSchema).optional(),
-    sizeOnlyVariants: z.array(sizeOnlyVariantSchema).optional(),
+    variantType: z.literal("unitOnly").default("unitOnly"),
+    unitOnlyVariants: z.array(unitOnlyVariantSchema).optional(),
   });
 
 
@@ -108,8 +83,10 @@ export const productSchema = z
     productCategory: z.string().min(1),
     category_id: z.string().min(1),
 
-    productSubCategory: z.string().min(1),
-    subcategory_id: z.string().min(1),
+    // SUBCATEGORY TEMPORARILY DISABLED
+    // Re-enable these fields and their validation when product subcategories are restored.
+    // productSubCategory: z.string().min(1),
+    // subcategory_id: z.string().min(1),
 
     productType: z.enum(["variant", "nonVariant", "combo"]),
 
@@ -149,27 +126,29 @@ export const productSchema = z
 
     const v = data.variant;
 
-    if (v.variantType === "sizeColor" && !v.sizeColorVariants?.length) {
+    if (v.variantType === "unitOnly" && !v.unitOnlyVariants?.length) {
       ctx.addIssue({
-        path: ["variant", "sizeColorVariants"],
-        message: "Size + Color variants are required",
+        path: ["variant", "unitOnlyVariants"],
+        message: "Unit variants are required",
         code: "custom",
       });
     }
 
-    if (v.variantType === "colorOnly" && !v.colorOnlyVariants?.length) {
-      ctx.addIssue({
-        path: ["variant", "colorOnlyVariants"],
-        message: "Color variants are required",
-        code: "custom",
-      });
-    }
-
-    if (v.variantType === "sizeOnly" && !v.sizeOnlyVariants?.length) {
-      ctx.addIssue({
-        path: ["variant", "sizeOnlyVariants"],
-        message: "Size variants are required",
-        code: "custom",
+    if (v.unitOnlyVariants?.length) {
+      const seen = new Set();
+      v.unitOnlyVariants.forEach((variant, index) => {
+        const normalized = variant.unit?.trim().toLowerCase();
+        if (normalized) {
+          if (seen.has(normalized)) {
+            ctx.addIssue({
+              path: ["variant", "unitOnlyVariants", index, "unit"],
+              message: "This unit has already been added.",
+              code: "custom",
+            });
+          } else {
+            seen.add(normalized);
+          }
+        }
       });
     }
   }
