@@ -98,7 +98,7 @@ export default function WelcomePopup() {
             <div className="bg-white/90 backdrop-blur-sm rounded-xl p-2 shadow-lg">
               <img
                 src={logo}
-                alt="Povi"
+                alt="Agrowmed"
                 className="w-8 h-8"
               />
             </div>
@@ -132,7 +132,7 @@ export default function WelcomePopup() {
             />
           ) : (
             // Fallback design if no image
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-8 text-center">
+            <div className="bg-gradient-to-r from-[#1a4a13] to-[#2d7a22] p-8 text-center">
               <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 mb-4">
                 <h3 className="text-3xl font-bold text-white mb-2">WELCOME OFFER</h3>
                 <p className="text-white/90 text-lg">Special discount for you!</p>

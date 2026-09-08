@@ -15,6 +15,7 @@ const OrderDetailsMain = () => {
             productName: "Gentle Baby Shampoo",
             productImages: ["/placeholder.png"],
             variant: {
+              unitOnlyVariants: [],
               colorOnlyVariants: [],
             },
           },

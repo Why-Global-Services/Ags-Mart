@@ -1,8 +1,9 @@
 import axios from "axios";
 
 const apiInstance = axios.create({
-  // baseURL: "http://localhost:5001/v1/user",
-  baseURL: "https://poviscollections.whydev.in/v1/user",
+  baseURL:
+  //  "http://localhost:5001/v1/user",
+   "https://agsmartapi.whydev.in/v1/user"
 });
 
 // ✅ Public routes that don't need token
@@ -255,13 +256,18 @@ export const addEditReviewRating = async (productId, variantId, reviewData) => {
   }
 };
 
-export const addToCart = async ({ productId, variantId, quantity }) => {
+export const addToCart = async ({
+  productId,
+  variantId,
+  variantType,
+  quantity,
+}) => {
   const guestId = localStorage.getItem("guestId");
 
   try {
     const response = await apiInstance.post(
       `/cart?productId=${productId}&variantId=${variantId}`,
-      { quantity }, // 👈 BODY
+      { quantity, variantType }, // The backend resolves the selected variant by ID.
       {
         headers: {
           guestid: guestId, // 👈 HEADERS

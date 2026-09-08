@@ -14,7 +14,6 @@ import {
   FiCreditCard,
   FiRefreshCw,
   FiInfo,
-  FiBook,
 } from "react-icons/fi";
 
 const PrivacyPolicy = () => {
@@ -25,7 +24,8 @@ const PrivacyPolicy = () => {
   const fetchPrivacy = async () => {
     try {
       const response = await getPrivacyPolicy();
-      setPrivacy(response);
+      const data = response?.data !== undefined ? response.data : response;
+      setPrivacy(data);
       setError(false);
     } catch (err) {
       console.error("Error fetching privacy policy:", err);
@@ -41,17 +41,20 @@ const PrivacyPolicy = () => {
 
   if (loading) return <Loading />;
 
-  if (error || !privacy) {
+  if (error && !privacy) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center">
-          <FiAlertCircle className="text-4xl text-red-600 mx-auto mb-4" />
-          <p className="text-lg text-red-600 font-medium">
-            Failed to load Privacy Policy
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="text-center max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+          <FiAlertCircle className="text-4xl text-amber-500 mx-auto mb-4" />
+          <h3 className="text-lg text-gray-800 font-semibold mb-2">
+            Unable to Load Privacy Policy
+          </h3>
+          <p className="text-sm text-gray-600 mb-6">
+            We are having trouble retrieving the policy details at the moment. Please try again.
           </p>
           <button
             onClick={fetchPrivacy}
-            className="mt-4 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-bgvariant-2 transition"
+            className="px-6 py-2.5 bg-green-700 hover:bg-green-800 text-white font-medium rounded-xl transition shadow-sm"
           >
             Try Again
           </button>
@@ -71,6 +74,9 @@ const PrivacyPolicy = () => {
     ["changesToPolicyTitle", "changesToPolicyContent", FiRefreshCw, "bg-orange-100 text-orange-600"],
     ["contactUsTitle", "contactUsContent", FiMail, "bg-cyan-100 text-cyan-600"],
   ];
+  const populatedSections = privacy
+    ? sections.filter(([title, content]) => privacy[title] || privacy[content])
+    : [];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 sm:py-12 px-4 sm:px-6 lg:px-10">
@@ -85,50 +91,46 @@ const PrivacyPolicy = () => {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-emerald-800 mb-3">
             Privacy Policy
           </h1>
-          <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto">
-            Your privacy is important to us. Please read this policy carefully.
-          </p>
-          <div className="mt-3 text-xs sm:text-sm text-gray-500">
-            Last Updated: {new Date().toLocaleDateString()}
-          </div>
         </div>
 
         {/* Sections */}
-        <div className="space-y-6 sm:space-y-8">
-          {sections.map(([title, content, Icon, color], index) => (
-            <section
-              key={index}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 md:p-8 hover:shadow-md transition"
-            >
-              <div className="flex items-start gap-4">
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 ${color} rounded-xl flex items-center justify-center`}>
-                  <Icon className="text-lg sm:text-xl" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2">
-                    {privacy[title]}
-                  </h2>
-                  <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
-                    {privacy[content]}
-                  </p>
-                </div>
-              </div>
-            </section>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-10 sm:mt-12 text-center">
-          <div className="bg-emerald-50 rounded-2xl p-6 sm:p-8 border border-emerald-200">
-            <FiBook className="text-xl sm:text-2xl text-emerald-600 mx-auto mb-3" />
-            <p className="text-emerald-800 font-medium">
-              Thank you for taking the time to read our Privacy Policy.
-            </p>
-            <p className="text-bgvariant-2 text-sm mt-2">
-              If you have any questions, feel free to contact us.
+        {populatedSections.length > 0 ? (
+          <div className="space-y-6 sm:space-y-8">
+            {populatedSections
+              .map(([title, content, Icon, color], index) => (
+                <section
+                  key={index}
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 md:p-8 hover:shadow-md transition"
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`w-10 h-10 sm:w-12 sm:h-12 ${color} rounded-xl flex items-center justify-center`}
+                    >
+                      <Icon className="text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2">
+                        {privacy[title]}
+                      </h2>
+                      <p className="text-sm sm:text-base text-gray-700 leading-relaxed whitespace-pre-line">
+                        {privacy[content]}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
+            <FiShield className="text-4xl text-green-600 mx-auto mb-3 opacity-60" />
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              No Privacy Policy Available
+            </h3>
+            <p className="text-gray-600 text-sm max-w-lg mx-auto leading-relaxed">
+              Privacy policy content has not been published yet.
             </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

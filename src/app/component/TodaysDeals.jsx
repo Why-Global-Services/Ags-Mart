@@ -6,6 +6,7 @@ import "aos/dist/aos.css";
 import { FaStar, FaTimes,FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import ProductCard from "./CartUI";
 import { useSelector } from "react-redux";
+import { AgroCardSkeleton } from "../common/Loading";
 
 
 const TodaysDeals = () => {
@@ -30,7 +31,14 @@ const TodaysDeals = () => {
   }, []);
 
 
-const products = homeData?.todaysDealsData;
+  const rawProducts = homeData?.todaysDealsData;
+  const products = Array.isArray(rawProducts)
+    ? rawProducts
+    : Array.isArray(rawProducts?.data)
+    ? rawProducts.data
+    : Array.isArray(rawProducts?.products)
+    ? rawProducts.products
+    : [];
 
 
   const handleAddToCart = (item) => {
@@ -81,6 +89,27 @@ const products = homeData?.todaysDealsData;
     return wishlist.some(item => item.id === itemId);
   };
 
+  if (loading && !products.length) {
+    return (
+      <div className="bg-[#fefefb] py-8 px-2 md:px-6 sm:px-12">
+        <div
+          className="mb-6 flex flex-col items-center text-center"
+          data-aos="fade-up"
+        >
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-4xl font-normal font-fonttitle text-bgvariant-3 mb-3 px-4">
+            Todays <span className="text-bgvariant-1">Deals</span>
+          </h2>
+          <div className="w-20 sm:w-24 h-1 sm:h-1.5 bg-gradient-to-r from-bgvariant-1 via-bgvariant-4 to-bgvariant-2 rounded-full"></div>
+        </div>
+        <AgroCardSkeleton count={4} />
+      </div>
+    );
+  }
+
+  if (!loading && products.length === 0) {
+    return null;
+  }
+
   return (
     <div className="bg-[#fefefb] py-8 px-2 md:px-6 sm:px-12">
    <div
@@ -103,10 +132,10 @@ const products = homeData?.todaysDealsData;
   lg:grid-cols-3
   xl:grid-cols-4
   2xl:grid-cols-6 gap-2 md:gap-6 pb-4">
-        {products?.map((item, index) => (
-          <div className="flex-shrink-0">
+        {products.map((item, index) => (
+          <div key={item._id || item.id || index} className="flex-shrink-0">
           <ProductCard
-          key={item._id}
+            key={item._id || item.id || index}
             product= {item}
           />
           </div>

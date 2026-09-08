@@ -1447,6 +1447,7 @@ export default function ProductCard({ product }) {
   const isVariantProduct = product.productType === "variant";
   const isNonVariantProduct = product.productType === "nonVariant";
   const variantType = product.variant?.variantType;
+  const isUnitOnly = variantType === "unitOnly";
   const isColorOnly = variantType === "colorOnly";
   const isSizeOnly = variantType === "sizeOnly";
   const isSizeColor = variantType === "sizeColor";
@@ -1469,7 +1470,22 @@ export default function ProductCard({ product }) {
   if (isVariantProduct) {
     displayName = product.productName;
 
-    if (isColorOnly) {
+    if (isUnitOnly) {
+      variants = product.variant?.unitOnlyVariants || [];
+      const firstVariant = variants[0];
+      displayImage =
+        firstVariant?.variantImages?.[0] || product.productImages?.[0];
+      secondaryImage =
+         firstVariant?.variantImages?.[1] || product.productImages?.[0];
+      displayPrice = firstVariant?.price?.salePrice || 0;
+      displayCostPrice = firstVariant?.price?.costPrice || displayPrice;
+      displayDiscount = firstVariant?.price?.discount || 0;
+      priceBreakdown = firstVariant?.price;
+      productId = product._id;
+      variantId = firstVariant?._id;
+      productType = product.productType;
+      varaintType = product.variant?.variantType;
+    } else if (isColorOnly) {
       variants = product.variant?.colorOnlyVariants || [];
       colors = variants.map((v) => v.color);
       const firstVariant = variants[0];
@@ -1855,7 +1871,7 @@ export default function ProductCard({ product }) {
                         }}
                         className={`px-6 py-2.5 rounded font-medium transition-colors ${
                           selectedColor === color
-                            ? "bg-bgvariant-2 text-white"
+                            ? "bg-green-600 text-white"
                             : isAvailable
                               ? "bg-gray-200 hover:bg-gray-300"
                               : "bg-gray-200 cursor-not-allowed opacity-60"
@@ -1894,7 +1910,7 @@ export default function ProductCard({ product }) {
                         disabled={!isAvailable}
                         className={`px-6 py-2.5 rounded font-medium transition-colors ${
                           selectedSize === size
-                            ? "bg-bgvariant-2 text-white"
+                            ? "bg-green-600 text-white"
                             : isAvailable
                               ? "bg-gray-200 hover:bg-gray-300"
                               : "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -1960,202 +1976,122 @@ export default function ProductCard({ product }) {
   );
 
   return (
-    <div className="group relative  cursor-pointer">
-      {/* IMAGE */}
-      <div 
-      className="relative overflow-hidden rounded-lg"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+    <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col">
+      {/* IMAGE SECTION */}
+      <div
+        className="relative overflow-hidden bg-gray-50"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         <Link href={`/productdetails/?id=${productId}`}>
           <img
-            src={currentImage}
+            src={currentImage || displayImage}
             alt={displayName}
-            className="
-              w-full h-40 md:h-72 object-cover
-              transform
-              transition-transform duration-500 ease-out
-              group-hover:scale-110
-            "
-            
+            className="w-full aspect-square object-contain p-2 transition-transform duration-300 group-hover:scale-105"
           />
         </Link>
 
-        {/* ❤️ Wishlist icon */}
-        <button
-          onClick={handleMainWishlistToggle}
-          className="
-            absolute top-3 left-3 z-20
-            bg-white h-8 w-8 rounded-full
-            flex items-center justify-center
-            transform
-            -translate-x-6 opacity-0
-            group-hover:translate-x-0 group-hover:opacity-100
-            transition-all duration-300 ease-out
-            hover:scale-110
-          "
-        >
-          <Heart
-            className={`w-4 h-4 ${isWishlisted ? "fill-red-500 text-red-500" : "text-gray-500"}`}
-          />
-        </button>
-
         {/* Discount Badge */}
         {displayDiscount > 0 && (
-          <div className="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded text-sm font-bold">
+          <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
             {displayDiscount}% OFF
           </div>
         )}
 
-        {/* 🔥 HOVER OVERLAY - Desktop Only */}
-        <div className="hidden md:absolute md:inset-0 md:bg-black/40 md:opacity-0 md:group-hover:opacity-100 md:transition md:duration-300 md:flex md:items-center md:justify-center">
-          <div className="flex flex-col gap-3">
-            <div
-              className="
-                flex flex-col gap-3
-                opacity-0
-                group-hover:opacity-100
-                transition-opacity duration-300
-                [perspective:800px]
-              "
-            >
-              {/* QUICK VIEW - For all products */}
-              <button
-                onClick={handleQuickView}
-                className="
-                  group/quick
-                  w-44 h-11 rounded-full
-                  bg-white text-black
-                  flex items-center justify-center
-                  font-medium
-                  transform origin-bottom rotate-x-90
-                  group-hover:rotate-x-0
-                  transition-transform duration-500 ease-out
-                  hover:bg-black hover:text-white
-                "
-              >
-                <span className="group-hover/quick:hidden">Quick view</span>
-                <Eye className="w-5 h-5 hidden group-hover/quick:block" />
-              </button>
-
-              {/* VIEW OPTIONS / ADD TO CART - Based on product type */}
-              <button
-                onClick={() => {
-                  if (isVariantProduct) {
-                    setShowModal(true);
-                    if (isColorOnly || isSizeColor)
-                      setSelectedColor(colors[0] || "");
-                    if (isSizeOnly || isSizeColor)
-                      setSelectedSize(sizes[0] || "");
-                  } else {
-                    handleNonVariantAddToCart();
-                  }
-                }}
-                className="
-                  group/quick
-                  w-44 h-11 rounded-full
-                  bg-white text-black
-                  flex items-center justify-center
-                  transition-all duration-300
-                  hover:bg-black hover:text-white
-                "
-              >
-                <span className="group-hover/quick:hidden font-medium">
-                  {isVariantProduct
-                    ? "View options"
-                    : isInCart
-                      ? "Go to Cart"
-                      : "Add To Cart"}
-                </span>
-                {isVariantProduct ? (
-                  <IoOptions className="w-5 h-5 hidden group-hover/quick:block" />
-                ) : (
-                  <ShoppingCart className="w-5 h-5 hidden group-hover/quick:block" />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 🔥 MOBILE BUTTONS - Bottom Left Corner (Screenshot Style) */}
-        <div className="md:hidden absolute bottom-3 left-3 flex gap-2">
-          {/* QUICK VIEW - For all products */}
-          <button
-            onClick={handleQuickView}
-            className="
-              bg-white/90 backdrop-blur-sm
-              h-10 w-10 rounded-full
-              flex items-center justify-center
-              shadow-lg
-              transition-all duration-200
-              hover:scale-110 active:scale-95
-              hover:bg-white
-            "
-          >
-            <Eye className="w-5 h-5 text-gray-700" />
-          </button>
-
-          {/* VIEW OPTIONS / ADD TO CART - Based on product type */}
-          <button
-            onClick={() => {
-              if (isVariantProduct) {
-                setShowModal(true);
-                if (isColorOnly || isSizeColor)
-                  setSelectedColor(colors[0] || "");
-                if (isSizeOnly || isSizeColor) setSelectedSize(sizes[0] || "");
-              } else {
-                handleNonVariantAddToCart();
-              }
-            }}
-            className="
-              bg-white/90 backdrop-blur-sm
-              h-10 w-10 rounded-full
-              flex items-center justify-center
-              shadow-lg
-              transition-all duration-200
-              hover:scale-110 active:scale-95
-              hover:bg-white
-            "
-          >
-            {isVariantProduct ? (
-              <IoOptions className="w-5 h-5 text-gray-700" />
-            ) : (
-              <ShoppingCart className="w-5 h-5 text-gray-700" />
-            )}
-          </button>
-        </div>
+        {/* Wishlist Button */}
+        <button
+          onClick={handleMainWishlistToggle}
+          className="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow-sm hover:shadow-md transition-all duration-200 z-10"
+        >
+          <Heart
+            className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-400'}`}
+          />
+        </button>
       </div>
 
-      {/* Product Info */}
-      <div className="mt-4">
-        <h3 className="text-gray-800 font-medium text-base mb-1 text-center overflow-hidden text-ellipsis line-clamp-1">
-          {displayName}
-        </h3>
+      {/* PRODUCT INFO */}
+      <div className="p-3 flex flex-col flex-1">
+        {/* Category tag if available */}
+        {product.categoryTitle && (
+          <span className="text-xs text-green-700 font-medium mb-1 truncate">{product.categoryTitle}</span>
+        )}
 
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            <p className="text-bgvariant-2 font-bold text-lg">
-              Rs. {displayPrice?.toFixed(2)}
-            </p>
-            {displayDiscount > 0 && (
-              <p className="text-gray-500 hidden md:block line-through text-sm">
-                Rs. {displayCostPrice?.toFixed(2)}
-              </p>
+        {/* Product Name */}
+        <Link href={`/productdetails/?id=${productId}`}>
+          <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 leading-snug hover:text-green-700 transition-colors">
+            {displayName}
+          </h3>
+        </Link>
+
+        {/* Pack size info for variant products */}
+        {isVariantProduct && isSizeOnly && sizes.length > 0 && (
+          <p className="text-xs text-gray-500 mb-2">{sizes[0]}</p>
+        )}
+
+        {/* Rating — show if product has rating data */}
+        {product.averageRating > 0 && (
+          <div className="flex items-center gap-1 mb-2">
+            <div className="flex">
+              {[1,2,3,4,5].map(s => (
+                <svg key={s} className={`w-3 h-3 ${s <= Math.round(product.averageRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 fill-gray-300'}`} viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              ))}
+            </div>
+            {product.totalReviews > 0 && (
+              <span className="text-xs text-gray-500">({product.totalReviews})</span>
             )}
           </div>
-          <div className="flex justify-center items-center gap-5 hidden md:block">
-            <p className="text-gray-500 text-xs mt-1">Inc. Tax</p>
+        )}
+
+        {/* Price Section */}
+        <div className="mt-auto">
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className="text-base font-bold text-gray-900">₹{displayPrice?.toFixed(0)}</span>
+            {displayDiscount > 0 && (
+              <span className="text-xs text-gray-400 line-through">₹{displayCostPrice?.toFixed(0)}</span>
+            )}
+            {displayDiscount > 0 && (
+              <span className="text-xs text-green-600 font-semibold">Save {displayDiscount}%</span>
+            )}
           </div>
+
+          {/* Add to Cart Button */}
+          {isVariantProduct ? (
+            <button
+              onClick={() => {
+                setShowModal(true);
+                if (isColorOnly || isSizeColor) setSelectedColor(colors[0] || '');
+                if (isSizeOnly || isSizeColor) setSelectedSize(sizes[0] || '');
+              }}
+              className="w-full py-2 text-sm font-semibold rounded border-2 border-green-600 text-green-700 hover:bg-green-600 hover:text-white transition-all duration-200"
+            >
+              View Options
+            </button>
+          ) : isInCart ? (
+            <button
+              onClick={() => router.push('/cart')}
+              className="w-full py-2 text-sm font-semibold rounded bg-green-700 text-white hover:bg-green-800 transition-all duration-200"
+            >
+              Go to Cart
+            </button>
+          ) : (
+            <button
+              onClick={handleNonVariantAddToCart}
+              className="w-full py-2 text-sm font-semibold rounded bg-green-600 text-white hover:bg-green-700 transition-all duration-200 flex items-center justify-center gap-1.5"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Add to Cart
+            </button>
+          )}
         </div>
       </div>
 
       {/* Modals */}
-      {mounted &&
-        showLoginModal &&
-        createPortal(
-          <AuthPage onClose={() => setShowLoginModal(false)} />,
-          document.body,
-        )}
+      {mounted && showLoginModal && createPortal(
+        <AuthPage onClose={() => setShowLoginModal(false)} />,
+        document.body
+      )}
       {mounted && showModal && createPortal(modalContent, document.body)}
     </div>
   );

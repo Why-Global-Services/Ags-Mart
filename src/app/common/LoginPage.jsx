@@ -287,14 +287,14 @@ const pathname = usePathname();
         style={{ maxWidth: 780, width: "100%", maxHeight: "90vh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* -------- LEFT PANEL — Jewelry Image -------- */}
+        {/* -------- LEFT PANEL — Agriculture Branding Image -------- */}
         <div
           className="relative flex-shrink-0"
           style={{ width: "45%", minHeight: 520 }}
         >
           <img
             src={"/loginpopup.jpg"}
-            alt="Exquisite Jewelry"
+            alt="Agrowmed"
             className="absolute inset-0 w-full h-full object-cover"
           />
           {/* subtle dark gradient at bottom for depth */}

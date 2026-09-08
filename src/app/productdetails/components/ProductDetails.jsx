@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import {
-  FaStar,
   FaHeart,
-  FaShare,
   FaShoppingCart,
   FaArrowLeft,
 } from "react-icons/fa";
@@ -18,16 +16,14 @@ import Loading from "@/app/common/Loading";
 import { useAuth } from "@/context/AuthContext";
 import RecommendedProducts from "./RecommendedProducts";
 import AuthPage from "@/app/common/LoginPage";
-import ProductReviews from "./ProductsReview";
+// CUSTOMER REVIEWS TEMPORARILY DISABLED
+// Re-enable when customer reviews return.
+// import ProductReviews from "./ProductsReview";
 import { gaEvent } from "@/app/lib/ga";
 import {
-  fetchCart,
-  removeCartItem,
-  updateCartItem,
   addCartItem,
 } from "@/app/store/cartSlice";
 import {
-  fetchWishlist,
   addWishlistItem,
   removeWishlistItem,
 } from "@/app/store/wishlistSlice";
@@ -38,7 +34,7 @@ const ProductDetailsPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false); // added for completeness
@@ -62,35 +58,30 @@ const ProductDetailsPage = () => {
       if (response?.data) {
         const data = response.data;
 
-        // === PRIORITY IMAGE LOGIC ===
-        let finalImages = [];
-        if (
-          data.productType === "nonVariant" &&
-          data.nonVariant?.nonVariantImages?.length > 0
-        ) {
-          finalImages = data.nonVariant.nonVariantImages;
-        } else if (data.productImages?.length > 0) {
-          finalImages = data.productImages;
-        } else {
-          finalImages = ["https://via.placeholder.com/500"];
-        }
-
-        let variants = [];
+        // The customer product page currently supports the admin's unit-only
+        // variant system. Other legacy variant arrays are intentionally not
+        // used to choose a customer-facing variant.
+        const unitVariants =
+          data.variant?.variantType === "unitOnly"
+            ? data.variant.unitOnlyVariants || []
+            : [];
         let defaultVariant = null;
 
         if (data.productType === "variant") {
-          const v = data.variant;
-          if (v?.sizeOnlyVariants?.length > 0) variants = v.sizeOnlyVariants;
-          else if (v?.sizeColorVariants?.length > 0)
-            variants = v.sizeColorVariants;
-          else if (v?.colorOnlyVariants?.length > 0)
-            variants = v.colorOnlyVariants;
-
-          defaultVariant = variants[0] || null;
+          defaultVariant = unitVariants[0] || null;
         } else if (data.productType === "nonVariant") {
           defaultVariant = data.nonVariant;
-          variants = [data.nonVariant];
         }
+
+        const finalImages =
+          defaultVariant?.variantImages?.length > 0
+            ? defaultVariant.variantImages
+            : data.productType === "nonVariant" &&
+                data.nonVariant?.nonVariantImages?.length > 0
+              ? data.nonVariant.nonVariantImages
+              : data.productImages?.length > 0
+                ? data.productImages
+                : ["https://via.placeholder.com/500"];
 
         const transformed = {
           id: data._id,
@@ -99,16 +90,14 @@ const ProductDetailsPage = () => {
           title: data.productTitle || "Product Title",
           description: data.productDescription || "No description available",
           productType: data.productType,
-          variants,
+          variant: data.variant,
           selectedVariant: defaultVariant,
           images: finalImages,
-          rating: data.averageRating || 0,
-          reviews: data.totalReviews || 0,
           rawData: data,
         };
 
         setProduct(transformed);
-        if (defaultVariant) setSelectedSize(defaultVariant);
+        setSelectedVariantId(defaultVariant?._id || null);
       }
     } catch (error) {
       console.error("Error fetching product:", error);
@@ -124,10 +113,27 @@ const ProductDetailsPage = () => {
     }
   }, [productId]);
 
-  useEffect(() => {
-    if (!product || !selectedSize) return;
+  // The selected unit variant is the single source of truth for a variant
+  // product's visible price, stock, images, cart, wishlist, and checkout data.
+  const unitVariants = product?.variant?.unitOnlyVariants || [];
+  const isUnitOnlyProduct =
+    product?.productType === "variant" &&
+    product?.variant?.variantType === "unitOnly";
+  const selectedUnitVariant = unitVariants.find(
+    (variant) => String(variant._id) === String(selectedVariantId),
+  );
+  const selectedVariant = isUnitOnlyProduct
+    ? selectedUnitVariant || unitVariants[0] || null
+    : product?.selectedVariant || null;
+  const displayImages =
+    selectedVariant?.variantImages?.length > 0
+      ? selectedVariant.variantImages
+      : product?.images || [];
 
-    const price = selectedSize?.price?.salePrice || 0;
+  useEffect(() => {
+    if (!product || !selectedVariant) return;
+
+    const price = selectedVariant.price?.salePrice || 0;
 
     gaEvent("view_item", {
       currency: "INR",
@@ -137,52 +143,43 @@ const ProductDetailsPage = () => {
           item_id: product.productId,
           item_name: product.productName,
           item_category: product.rawData?.productCategory,
-          item_variant: selectedSize.size || selectedSize.color || "default",
+          item_variant: selectedVariant.unit || "default",
           price: price,
           quantity: 1,
         },
       ],
     });
-  }, [product, selectedSize]);
+  }, [product, selectedVariant]);
 
   // Real-time wishlist & cart status
   const isInWishlist =
-    product && selectedSize
+    product && selectedVariant
       ? wishlistItems.some(
           (item) =>
-            item.productId === product.productId &&
-            item.variantId === (selectedSize._id || selectedSize.variantId),
+            String(item.productId) === String(product.productId) &&
+            String(item.variantId) === String(selectedVariant._id),
         )
       : false;
 
   const isInCart =
-    product && selectedSize
+    product && selectedVariant
       ? cartItems.some(
           (item) =>
-            item.productId === product.productId &&
-            item.variantId === (selectedSize._id || selectedSize.variantId),
+            String(item.productId) === String(product.productId) &&
+            String(item.variantId) === String(selectedVariant._id),
         )
       : false;
 
-  const handleSizeSelect = (variant) => {
-    setSelectedSize(variant);
+  const handleUnitSelect = (variantId) => {
+    setSelectedVariantId(variantId);
     setSelectedImage(0);
-    // Update images if variant has its own
-    if (variant?.variantImages?.length > 0) {
-      setProduct((prev) => ({ ...prev, images: variant.variantImages }));
-    } else if (product.rawData.productImages?.length > 0) {
-      setProduct((prev) => ({
-        ...prev,
-        images: product.rawData.productImages,
-      }));
-    }
   };
 
   const handleAddToWishlist = async () => {
     
-    if (!product || !selectedSize) return;
+    if (!product || !selectedVariant) return;
     setAddingToWishlist(true);
-    const variantId = selectedSize._id || selectedSize.variantId;
+    const variantId = selectedVariant._id;
     const productType = product.productType;
     if (isInWishlist) {
       dispatch(
@@ -190,7 +187,7 @@ const ProductDetailsPage = () => {
           productId: product.productId,
           variantId,
           productType,
-          variantType: product.rawData.variant?.variantType || null,
+          variantType: isUnitOnlyProduct ? "unitOnly" : null,
         }),
       );
     } else {
@@ -199,7 +196,7 @@ const ProductDetailsPage = () => {
           productId: product.productId,
           variantId,
           productType,
-          variantType: product.rawData.variant?.variantType || null,
+          variantType: isUnitOnlyProduct ? "unitOnly" : null,
         }),
       );
     }
@@ -209,37 +206,38 @@ const ProductDetailsPage = () => {
     gaEvent("add_to_wishlist", {
       item_id: product.productId,
       item_name: product.productName,
-      item_variant: selectedSize.size || selectedSize.color || "default",
+      item_variant: selectedVariant.unit || "default",
     });
   };
 
   const handleAddToCart = async () => {
     // if (!isLoggedIn) return setShowLoginModal(true);
-    if (!product || !selectedSize) return;
+    if (!product || !selectedVariant) return;
     if (isInCart) {
       router.push("/cart");
       return;
     }
     setAddingToCart(true);
-    const variantId = selectedSize._id || selectedSize.variantId;
+    const variantId = selectedVariant._id;
     dispatch(
       addCartItem({
         productId: product.productId,
         variantId,
         productType: product.productType,
+        variantType: isUnitOnlyProduct ? "unitOnly" : null,
         quantity,
       }),
     );
 
     gaEvent("add_to_cart", {
       currency: "INR",
-      value: selectedSize.price.salePrice * quantity,
+      value: selectedVariant.price?.salePrice * quantity,
       items: [
         {
           item_id: product.productId,
           item_name: product.productName,
-          item_variant: selectedSize.size || selectedSize.color || "default",
-          price: selectedSize.price.salePrice,
+          item_variant: selectedVariant.unit || "default",
+          price: selectedVariant.price?.salePrice || 0,
           quantity,
         },
       ],
@@ -257,26 +255,24 @@ const ProductDetailsPage = () => {
 
   const handleBuyNow = () => {
     const action = () => {
-      if (!product || !selectedSize) return;
+      if (!product || !selectedVariant) return;
 
-      const selectedVariant = selectedSize;
       const priceBreakdown = selectedVariant.price || {};
       const displayName = product.productName;
       const displayImage =
-        product.images[0] || "https://via.placeholder.com/500";
+        displayImages[0] || "https://via.placeholder.com/500";
 
       const buyNowItemData = {
         productId: product.productId,
         variantId: selectedVariant._id,
         quantity: 1,
-        productType: "variant",
-        variantType: product.rawData.variant?.variantType || null,
+        productType: product.productType,
+        variantType: isUnitOnlyProduct ? "unitOnly" : null,
         priceBreakdown,
         productName: displayName,
         productImage: selectedVariant.variantImages?.[0] || displayImage,
         variantDetails: {
-          size: selectedVariant.size || null,
-          color: selectedVariant.color || null,
+          unit: selectedVariant.unit || null,
         },
         stockCount: selectedVariant.stockCount || 0,
       };
@@ -305,8 +301,7 @@ const ProductDetailsPage = () => {
           {
             item_id: product.productId,
             item_name: product.productName,
-            item_variant:
-              selectedVariant.size || selectedVariant.color || "default",
+            item_variant: selectedVariant.unit || "default",
             price: selectedVariant.price?.salePrice || 0,
             quantity: 1,
           },
@@ -320,10 +315,10 @@ const ProductDetailsPage = () => {
   };
 
   const getStockStatus = () => {
-    if (!selectedSize) return "Select Option";
-    if (selectedSize.stockCount >= 10) return "In Stock";
-    if (selectedSize.stockCount > 0)
-      return `Only ${selectedSize.stockCount} left`;
+    if (!selectedVariant) return "Select Unit";
+    if (selectedVariant.stockCount >= 10) return "In Stock";
+    if (selectedVariant.stockCount > 0)
+      return `Only ${selectedVariant.stockCount} left`;
     return "Out of Stock";
   };
 
@@ -332,15 +327,21 @@ const ProductDetailsPage = () => {
   if (!product)
     return <div className="text-center py-20 text-xl">Product not found</div>;
 
-  const isVariantProduct =
-    product.productType === "variant" && product.variants?.length > 1;
-
   return (
     <>
+      {/* Breadcrumb */}
+      <nav className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-500 flex items-center gap-1">
+        <Link href="/" className="hover:text-green-700">Home</Link>
+        <span>/</span>
+        <Link href="/shoppage" className="hover:text-green-700">Products</Link>
+        <span>/</span>
+        <span className="text-gray-800 font-medium line-clamp-1">{product?.productName}</span>
+      </nav>
+
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Link
           href="/shoppage"
-          className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-6"
+          className="inline-flex items-center gap-2 text-green-700 hover:underline mb-6"
         >
           <FaArrowLeft /> Back to Shop
         </Link>
@@ -351,7 +352,7 @@ const ProductDetailsPage = () => {
             <div className="relative  aspect-square rounded-2xl overflow-hidden bg-gray-50">
               <Image
                 src={
-                  product.images[selectedImage] ||
+                  displayImages[selectedImage] ||
                   "https://via.placeholder.com/800"
                 }
                 alt={product.productName}
@@ -361,11 +362,11 @@ const ProductDetailsPage = () => {
             </div>
 
             <div className="grid grid-cols-4 gap-3">
-              {product.images.map((img, i) => (
+              {displayImages.map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setSelectedImage(i)}
-                  className={`border-2 rounded-xl overflow-hidden ${selectedImage === i ? "border-emerald-500" : "border-gray-200"}`}
+                  className={`border-2 rounded-xl overflow-hidden ${selectedImage === i ? "border-green-600" : "border-gray-200"}`}
                 >
                   <Image
                     src={img}
@@ -384,19 +385,8 @@ const ProductDetailsPage = () => {
             <h1 className="text-3xl font-bold">{product.productName}</h1>
 
             <div className="flex items-center gap-4">
-              <div className="flex">
-                {[...Array(5)].map((_, i) => (
-                  <FaStar
-                    key={i}
-                    className={
-                      i < Math.floor(product.rating)
-                        ? "text-yellow-400"
-                        : "text-gray-300"
-                    }
-                  />
-                ))}
-              </div>
-              {/* <span className="text-gray-600">({product.reviews} reviews)</span> */}
+              {/* CUSTOMER RATINGS TEMPORARILY DISABLED
+                  Re-enable when customer ratings return. */}
               <span
                 className={`ml-auto px-3 py-1 rounded-full text-sm font-medium ${
                   getStockStatus() === "In Stock"
@@ -413,18 +403,18 @@ const ProductDetailsPage = () => {
             </div>
 
             <div className="text-4xl font-bold">
-              ₹{selectedSize?.price?.salePrice?.toLocaleString() || "0"}
-              {selectedSize?.price?.costPrice >
-                selectedSize?.price?.salePrice && (
+              ₹{selectedVariant?.price?.salePrice?.toLocaleString() || "0"}
+              {selectedVariant?.price?.costPrice >
+                selectedVariant?.price?.salePrice && (
                 <>
                   <span className="text-2xl text-gray-500 line-through ml-4">
-                    ₹{selectedSize.price.costPrice.toLocaleString()}
+                    ₹{selectedVariant.price.costPrice.toLocaleString()}
                   </span>
                   <span className="text-emerald-600 ml-4">
                     {Math.round(
-                      ((selectedSize.price.costPrice -
-                        selectedSize.price.salePrice) /
-                        selectedSize.price.costPrice) *
+                      ((selectedVariant.price.costPrice -
+                        selectedVariant.price.salePrice) /
+                        selectedVariant.price.costPrice) *
                         100,
                     )}
                     % OFF
@@ -435,26 +425,24 @@ const ProductDetailsPage = () => {
             </div>
 
             {/* Variant Selector */}
-            {isVariantProduct && (
+            {isUnitOnlyProduct && unitVariants.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold mb-3">Select Size:</h3>
+                <h3 className="text-lg font-semibold mb-3">Select Unit:</h3>
                 <div className="flex flex-wrap gap-3">
-                  {product.variants.map((v) => (
+                  {unitVariants.map((v) => (
                     <button
                       key={v._id}
-                      onClick={() => handleSizeSelect(v)}
+                      onClick={() => handleUnitSelect(v._id)}
                       disabled={v.stockCount === 0}
                       className={`px-6 py-3 rounded-lg border-2 font-medium transition ${
-                        selectedSize?._id === v._id
+                        selectedVariant?._id === v._id
                           ? "border-emerald-600 bg-emerald-50 text-bgvariant-2"
                           : v.stockCount === 0
                             ? "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
                             : "border-gray-300 hover:border-emerald-400"
                       }`}
                     >
-                      {v.size && v.color
-                        ? `${v.size} - ${v.color}`
-                        : v.size || v.color || "Standard"}
+                      {v.unit || "Unit"}
                     </button>
                   ))}
                 </div>
@@ -466,7 +454,7 @@ const ProductDetailsPage = () => {
               <button
                 onClick={handleAddToCart}
                 disabled={
-                  addingToCart || !selectedSize || selectedSize.stockCount === 0
+                  addingToCart || !selectedVariant || selectedVariant.stockCount === 0
                 }
                 className="flex-1 bg-emerald-600 text-white py-4 rounded-xl font-semibold hover:bg-bgvariant-2 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
@@ -480,7 +468,7 @@ const ProductDetailsPage = () => {
 
               <button
                 onClick={handleBuyNow}
-                disabled={!selectedSize || selectedSize.stockCount === 0}
+                disabled={!selectedVariant || selectedVariant.stockCount === 0}
                 className="flex-1 bg-orange-500 text-white py-4 rounded-xl font-semibold hover:bg-orange-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Buy Now
@@ -598,10 +586,12 @@ const ProductDetailsPage = () => {
                 )} */}
             </div>
 
+            {/* CUSTOMER REVIEWS TEMPORARILY DISABLED
+                Re-enable when customer reviews return.
             <ProductReviews
               averageRating={product.rawData.averageRating}
               reviews={product.rawData.productReviews}
-            />
+            /> */}
           </div>
         </div>
       </div>

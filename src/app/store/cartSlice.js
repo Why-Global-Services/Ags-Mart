@@ -28,8 +28,17 @@ export const fetchCart = createAsyncThunk(
 
 export const addCartItem = createAsyncThunk(
   "cart/add",
-  async ({ productId, variantId, productType, quantity }, { dispatch }) => {
-    await addToCart({ productId, variantId, productType, quantity });
+  async (
+    { productId, variantId, productType, variantType, quantity },
+    { dispatch },
+  ) => {
+    await addToCart({
+      productId,
+      variantId,
+      productType,
+      variantType,
+      quantity,
+    });
 
     // reload cart
     dispatch(fetchCart());

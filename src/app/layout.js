@@ -1,8 +1,8 @@
-import { Playfair_Display, Poppins } from "next/font/google";
+import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import Topbar from "./common/Topbar";
 import Footer from "./common/Footer";
-import Navbar from "./common/navbar";
+import Navbar from "./common/Navbar";
 import NavbarBottom from "./common/NavbarBottom";
 import { Toaster } from "react-hot-toast";
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -11,7 +11,7 @@ import Script from "next/script";
 import { FaWhatsapp } from "react-icons/fa";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { Suspense } from "react"; // ← ADD THIS
+import { Suspense } from "react";
 import AdminProfileProvider from "./provider/AdminProfileProvider";
 import WhatsappButton from "./common/WhatsAppButton";
 import { GA_TRACKING_ID } from "../app/lib/ga";
@@ -23,10 +23,10 @@ import WelcomePopup from "./common/CouponPopup";
 
 
 
-const playfair = Playfair_Display({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-fonttitle",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter",
 });
 
 const poppins = Poppins({
@@ -37,33 +37,33 @@ const poppins = Poppins({
 
 export const metadata = {
   title: {
-    default: "Povi Collections | Trendy Covering & Fashion Jewellery Online",
-    template: "%s | Povi Collections",
+    default: "Agrowmed | Agriculture Products Online",
+    template: "%s | Agrowmed",
   },
 
   description:
-    "Shop stylish covering jewellery, imitation jewellery and fashion accessories at Povi Collections. Discover trendy designs for weddings, parties and daily wear.",
+    "Buy Agriculture Products Online at Agrowmed. Wide range of Seeds, Crop Protection, Plant Nutrition, Fertilizers and Agricultural Equipment. Fast delivery across India.",
 
   keywords: [
-    "Povi Collections",
-    "covering jewellery",
-    "imitation jewellery",
-    "artificial jewellery",
-    "fashion jewellery online",
-    "party wear jewellery",
-    "bridal imitation jewellery",
-    "temple imitation jewellery",
-    "traditional covering jewellery",
-    "designer artificial jewellery",
-    "cheap jewellery online india",
-    "jewellery shop online",
+    "Agrowmed",
+    "agriculture products online",
+    "buy seeds online",
+    "crop protection",
+    "plant nutrition",
+    "fertilizers online",
+    "agricultural equipment",
+    "farming supplies",
+    "organic farming",
+    "pesticides online india",
+    "agri inputs",
+    "agro products",
   ],
 
-  authors: [{ name: "Povi Collections" }],
+  authors: [{ name: "Agrowmed" }],
 
-  creator: "Povi Collections",
+  creator: "Agrowmed",
 
-  metadataBase: new URL("https://povicollections.in"), // 🔁 Change if needed
+  metadataBase: new URL("https://agsmart.in"),
 
   icons: {
     icon: "/favicon.png",
@@ -72,40 +72,34 @@ export const metadata = {
   },
 
   openGraph: {
-    title: "Povi Collections | Covering & Imitation Jewellery Store",
+    title: "Agrowmed | Agriculture Products Online",
     description:
-      "Buy premium quality covering and artificial jewellery online from Povi Collections. Perfect for weddings, festivals and daily fashion.",
-
-    url: "https://povicollections.in",
-    siteName: "Povi Collections",
-
+      "Buy premium quality seeds, fertilizers, crop protection products and agricultural equipment online at Agrowmed.",
+    url: "https://agsmart.in",
+    siteName: "Agrowmed",
     images: [
       {
-        url: "https://facesync.blr1.digitaloceanspaces.com/Websetting/NATURESHUNT_1770095195323_povi-logo.jpeg", // 🔁 Replace with real image
+        url: "/logo.png",
         width: 1200,
         height: 630,
-        alt: "Povi Collections Covering Jewellery",
+        alt: "Agrowmed Agriculture Products",
       },
     ],
-
     locale: "en_IN",
     type: "website",
   },
 
   twitter: {
     card: "summary_large_image",
-
-    title: "Povi Collections | Covering Jewellery Online",
+    title: "Agrowmed | Agriculture Products Online",
     description:
-      "Trendy covering and imitation jewellery collections at affordable prices.",
-
-    images: ["https://facesync.blr1.digitaloceanspaces.com/Websetting/NATURESHUNT_1770095195323_povi-logo.jpeg"], // 🔁 Replace
+      "Seeds, fertilizers, crop protection and agricultural equipment at best prices.",
+    images: ["/logo.png"],
   },
 
   robots: {
     index: true,
     follow: true,
-
     googleBot: {
       index: true,
       follow: true,
@@ -120,7 +114,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${poppins.variable}`}>
+    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
             <head>
         {/* Google Analytics */}
         {/* <Script

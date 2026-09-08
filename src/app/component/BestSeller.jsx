@@ -7,6 +7,7 @@ import ProductCard from "./CartUI";
 import Image from "next/image";
 import { useSelector } from "react-redux";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { AgroCardSkeleton } from "../common/Loading";
 
 const BestSeller = () => {
   const [wishlist, setWishlist] = useState([]);
@@ -19,7 +20,14 @@ const BestSeller = () => {
   const { homeData, loading } = useSelector((state) => state.home);
 
   // Get products from backend data
-  const products = homeData?.bestSellingProductsData?.data || [];
+  const rawProducts = homeData?.bestSellingProductsData;
+  const products = Array.isArray(rawProducts)
+    ? rawProducts
+    : Array.isArray(rawProducts?.data)
+    ? rawProducts.data
+    : Array.isArray(rawProducts?.products)
+    ? rawProducts.products
+    : [];
 
   // 🔹 Initialize AOS & load wishlist
   // useEffect(() => {
@@ -100,6 +108,7 @@ const BestSeller = () => {
   const getDisplayImage = (product) => {
     if (product.productType === "variant") {
       const firstVariant =
+        product.variant?.unitOnlyVariants?.[0] ||
         product.variant?.sizeColorVariants?.[0] ||
         product.variant?.colorOnlyVariants?.[0] ||
         product.variant?.sizeOnlyVariants?.[0];
@@ -116,6 +125,7 @@ const BestSeller = () => {
   const getDisplayPrice = (product) => {
     if (product.productType === "variant") {
       const firstVariant =
+        product.variant?.unitOnlyVariants?.[0] ||
         product.variant?.sizeColorVariants?.[0] ||
         product.variant?.colorOnlyVariants?.[0] ||
         product.variant?.sizeOnlyVariants?.[0];
@@ -136,28 +146,14 @@ const BestSeller = () => {
   if (loading) {
     return (
       <div className="bg-[#fefefb] py-8 px-6 sm:px-12">
-        <div className="flex items-center justify-center mb-6 ">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-4xl font-normal font-fonttitle  text-bgvariant-3 mb-3 px-4">
+        <div className="flex flex-col items-center justify-center mb-6">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-4xl font-normal font-fonttitle text-bgvariant-3 mb-3 px-4">
             Best <span className="text-bgvariant-1">Seller</span>
           </h2>
-          <div className="w-20 sm:w-24 h-1 sm:h-1.5 bg-gradient-to-r from-bgvariant-1  via-bgvariant-4 to-bgvariant-2 mx-auto rounded-full"></div>
+          <div className="w-20 sm:w-24 h-1 sm:h-1.5 bg-gradient-to-r from-bgvariant-1 via-bgvariant-4 to-bgvariant-2 mx-auto rounded-full"></div>
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[...Array(4)].map((_, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-lg overflow-hidden shadow-md animate-pulse"
-            >
-              <div className="h-80 bg-gray-200"></div>
-              <div className="p-4">
-                <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded mb-3"></div>
-                <div className="h-8 bg-gray-200 rounded"></div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <AgroCardSkeleton count={4} />
       </div>
     );
   }
@@ -186,10 +182,10 @@ const BestSeller = () => {
   lg:grid-cols-3
   xl:grid-cols-4
   2xl:grid-cols-6 gap-2 md:gap-6 pb-4">
-          {products?.map((item, index) => (
-            <div className="flex-shrink-0">
+          {products.map((item, index) => (
+            <div key={item._id || item.id || index} className="flex-shrink-0">
             <ProductCard
-            key={item._id}
+              key={item._id || item.id || index}
               product= {item.product} // Pass the actual product data from backend
             />
             </div>

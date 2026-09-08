@@ -17,27 +17,27 @@ const Topbar = () => {
     fetchTopbar();
   }, []);
 
-  // 🔒 If no active messages, don't show topbar
+  // If no active messages, don't show topbar
   if (!messages.length) return null;
 
   return (
-    <div className="text-center text-white bg-gradient-to-r from-[#DCAE59] to-[#DCAF5E] hidden md:block py-2.5">
+    <div className="text-center text-white bg-[#1a4a13] hidden md:block py-2 w-full max-w-full overflow-hidden">
       <marquee
-        className="font-medium tracking-wide"
+        className="font-medium tracking-wide text-sm"
         behavior="scroll"
         direction="left"
         scrollamount="3"
       >
         {messages.map((item, index) => (
           <span key={item._id} className="mx-2">
-            <span className="font-medium text-white">
+            <span className="font-semibold text-green-300">
               {item.highlightText}
             </span>{" "}
             {item.text}
 
             {/* Dot separator except last item */}
             {index !== messages.length - 1 && (
-              <span className="mx-6">•</span>
+              <span className="mx-6 text-green-400">•</span>
             )}
           </span>
         ))}

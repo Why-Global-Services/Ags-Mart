@@ -536,7 +536,7 @@ const Review = ({
         key: razorpayKey,
         amount: razorpayOrderAmount,
         currency: razorpayOrderCurrency,
-        name: "Povi Collections",
+        name: "Agrowmed",
         description: "Order Payment",
         order_id: razorpayOrderId,
         handler: async function (response) {
@@ -704,6 +704,18 @@ const Review = ({
                   {item?.selectedVariant?.varientValue && (
                     <div className="flex items-center text-xs text-gray-600">
                       <span>{item.selectedVariant.varientValue}</span>
+                    </div>
+                  )}
+
+                  {item?.variantDetails?.unit && (
+                    <div className="flex items-center text-xs text-gray-600">
+                      <span>Unit: {item.variantDetails.unit}</span>
+                    </div>
+                  )}
+
+                  {item?.selectedUnit && (
+                    <div className="flex items-center text-xs text-gray-600">
+                      <span>Unit: {item.selectedUnit}</span>
                     </div>
                   )}
 

@@ -87,7 +87,9 @@ const ShippingPolicy = () => {
               If you have any questions about our Shipping Policy, please contact:
             </p>
             <p className="text-bgvariant-2 font-semibold mt-2">
-              support@povi.com
+              <a href="mailto:sales@agrowmed.com" className="hover:underline">
+                sales@agrowmed.com
+              </a>
             </p>
           </div>
         </section>

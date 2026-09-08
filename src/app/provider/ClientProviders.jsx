@@ -6,13 +6,23 @@ import { store } from "../store";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 export default function ClientProviders({ children }) {
-  return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
-      <AuthProvider>
-        <Provider store={store}>
-          {children}
-        </Provider>
-      </AuthProvider>
-    </GoogleOAuthProvider>
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  const content = (
+    <AuthProvider>
+      <Provider store={store}>
+        {children}
+      </Provider>
+    </AuthProvider>
   );
+
+  if (clientId) {
+    return (
+      <GoogleOAuthProvider clientId={clientId}>
+        {content}
+      </GoogleOAuthProvider>
+    );
+  }
+
+  return content;
 }

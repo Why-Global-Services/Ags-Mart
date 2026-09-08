@@ -2,35 +2,35 @@
 import { useEffect } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
-import { FiTruck, FiHeadphones, FiGift, FiLock } from "react-icons/fi";
+import { FiTruck, FiHeadphones, FiCheckCircle, FiShield } from "react-icons/fi";
 
 const features = [
   {
     id: 1,
-    icon: <FiTruck className="text-5xl text-emerald-800" />,
-    title: "On Time Delivery",
-    desc: "Get your orders delivered on time, every time.",
+    icon: <FiCheckCircle className="text-4xl text-bgvariant-1" />,
+    title: "100% Genuine Products",
+    desc: "Certified seeds, authentic crop protection & nutrients.",
     aos: "fade-up",
   },
   {
     id: 2,
-    icon: <FiHeadphones className="text-5xl text-emerald-800" />,
-    title: "24x7 Support",
-    desc: "We’re here for you 24/7 to assist with any queries.",
+    icon: <FiTruck className="text-4xl text-bgvariant-1" />,
+    title: "Fast Farm Delivery",
+    desc: "Quick, reliable delivery directly to your doorstep.",
     aos: "fade-up",
   },
   {
     id: 3,
-    icon: <FiGift className="text-5xl text-emerald-800" />,
-    title: "Coupons",
-    desc: "Apply coupons at checkout and enjoy instant savings on your order.",
+    icon: <FiHeadphones className="text-4xl text-bgvariant-1" />,
+    title: "Agri Expert Support",
+    desc: "Expert advisory for crops, pests & plant health.",
     aos: "fade-up",
   },
   {
     id: 4,
-    icon: <FiLock className="text-5xl text-emerald-800" />,
-    title: "Secure Payment",
-    desc: "Enjoy safe and encrypted transactions every time.",
+    icon: <FiShield className="text-4xl text-bgvariant-1" />,
+    title: "Secure & Trusted",
+    desc: "Safe payments and transparent pricing guaranteed.",
     aos: "fade-up",
   },
 ];

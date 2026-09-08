@@ -53,6 +53,7 @@ const CartPage = () => {
     const discountAmount = priceBreakdown?.discountAmount || 0;
 
     // Extract selected variant details
+    const selectedUnit = product?.selectedUnit || product?.selectedVariant?.unit || null;
     const selectedSize = product?.selectedSize || null;
     const selectedColor = product?.selectedColor || null;
 
@@ -69,6 +70,7 @@ const CartPage = () => {
       img: productImages[0] || "https://via.placeholder.com/150",
       quantity,
       status: status === "active" ? "In Stock" : "Out of Stock",
+      selectedUnit,
       selectedSize,
       selectedColor,
       rawData: product,
@@ -290,9 +292,14 @@ const CartPage = () => {
                           {item.name}
                         </h3>
 
-                        {/* Selected Size & Color */}
-                        {(item.selectedSize || item.selectedColor) && (
+                        {/* Selected Unit, Size & Color */}
+                        {(item.selectedUnit || item.selectedSize || item.selectedColor) && (
                           <div className="flex flex-wrap gap-2 mb-3">
+                            {item.selectedUnit && (
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-medium px-3 py-1.5 rounded-full">
+                                Unit: {item.selectedUnit}
+                              </span>
+                            )}
                             {item.selectedSize && (
                               <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs font-medium px-3 py-1.5 rounded-full">
                                 {item.selectedSize}

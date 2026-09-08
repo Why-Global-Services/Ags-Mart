@@ -9,6 +9,7 @@ import Loading from "@/app/common/Loading";
 import { BsGrid3X3Gap } from "react-icons/bs";
 import { HiOutlineViewGrid, HiOutlineViewList } from "react-icons/hi";
 import { Eye, Heart, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 
 const ShopPage = () => {
   const [products, setProducts] = useState([]);
@@ -27,6 +28,11 @@ const ShopPage = () => {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
   const categoryQuery = searchParams.get("category") || "";
+  const subQuery =
+    searchParams.get("sub") ||
+    searchParams.get("subCategory") ||
+    searchParams.get("subcategory") ||
+    "";
 
   // Open mobile filters with animation
   const openMobileFilters = () => {
@@ -50,6 +56,10 @@ const ShopPage = () => {
       const apiCategories = data.data.findCategory.map((cat) => ({
         name: cat.categoryTitle,
         path: `/shoppage?category=${encodeURIComponent(cat.categoryTitle)}`,
+        subCategories: (cat.subCategory || []).map((sub) => ({
+          _id: sub._id,
+          name: sub.subCategoryTitle || sub.title || sub.name || "",
+        })),
       }));
       setSideBar(apiCategories);
     } catch (err) {
@@ -69,7 +79,7 @@ const ShopPage = () => {
     try {
       const filters = {};
 
-      // ✅ FIX: Only add search query if it exists and is not "all"
+      // ✅ Only add search query if it exists and is not "all"
       if (
         searchQuery &&
         searchQuery.trim() &&
@@ -87,6 +97,17 @@ const ShopPage = () => {
         filters.category = categoryQuery.trim();
       }
 
+      // ✅ Add subcategory filter if provided
+      if (
+        subQuery &&
+        subQuery.trim() &&
+        subQuery.toLowerCase() !== "all" &&
+        subQuery.toLowerCase() !== "all products"
+      ) {
+        filters.subCategory = subQuery.trim();
+        filters.sub = subQuery.trim();
+      }
+
       // Add other filters
       if (priceRange < 1000) {
         filters.maxPrice = priceRange;
@@ -97,13 +118,12 @@ const ShopPage = () => {
 
       let data;
 
-      // ✅ FIX: Better condition check
       if (Object.keys(filters).length > 0) {
         console.log("🔍 Searching with filters:", filters);
         data = await SearchAPI.searchWithFilters(filters);
       } else {
         console.log("📦 Fetching all products");
-        data = await SearchAPI.search(""); // Pass empty string or remove parameter
+        data = await SearchAPI.search("");
       }
 
       const productsArray = Array.isArray(data) ? data : data?.data || [];
@@ -123,14 +143,14 @@ const ShopPage = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [searchQuery, categoryQuery]);
+  }, [searchQuery, categoryQuery, subQuery]);
 
   // ✅ Update selectedCategory based on URL
   useEffect(() => {
     if (searchQuery) setSelectedCategory("");
     else if (categoryQuery) setSelectedCategory(categoryQuery);
     else setSelectedCategory("all");
-  }, [searchQuery, categoryQuery]);
+  }, [searchQuery, categoryQuery, subQuery]);
 
   // ✅ Handle Price Range Change
   const handlePriceChange = async (value) => {
@@ -150,19 +170,23 @@ const ShopPage = () => {
     setSelectedRating(newRating);
   };
 
-  // ✅ Clear all filters
+  // ✅ Clear all filters (preserves category context if on category page)
   const clearFilters = async () => {
     setPriceRange(1000);
     setSelectedRating(null);
-    // Reset URL parameters but keep search/category if present
-    const newParams = new URLSearchParams();
-    if (searchQuery) newParams.set("search", searchQuery);
-    if (categoryQuery) newParams.set("category", categoryQuery);
 
-    const newUrl = "/shoppage";
+    const newParams = new URLSearchParams();
+    if (categoryQuery && categoryQuery.toLowerCase() !== "all") {
+      newParams.set("category", categoryQuery);
+    }
+    if (searchQuery && searchQuery.toLowerCase() !== "all") {
+      newParams.set("search", searchQuery);
+    }
+
+    const queryString = newParams.toString();
+    const newUrl = queryString ? `/shoppage?${queryString}` : "/shoppage";
     router.push(newUrl);
 
-    // Refetch products after a short delay
     setTimeout(() => {
       fetchProducts();
     }, 100);
@@ -194,6 +218,36 @@ const ShopPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-black">
+      {/* Breadcrumb */}
+      <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+        <nav className="text-xs text-gray-500 flex items-center gap-1.5 flex-wrap">
+          <Link href="/" className="hover:text-green-700">Home</Link>
+          <span>/</span>
+          <Link href="/shoppage" className="hover:text-green-700">Products</Link>
+          {categoryQuery && categoryQuery.toLowerCase() !== "all" && (
+            <>
+              <span>/</span>
+              {subQuery && subQuery.toLowerCase() !== "all" && subQuery.toLowerCase() !== "all products" ? (
+                <Link
+                  href={`/shoppage?category=${encodeURIComponent(categoryQuery)}`}
+                  className="hover:text-green-700 font-medium"
+                >
+                  {categoryQuery}
+                </Link>
+              ) : (
+                <span className="text-gray-800 font-semibold">{categoryQuery}</span>
+              )}
+            </>
+          )}
+          {subQuery && subQuery.toLowerCase() !== "all" && subQuery.toLowerCase() !== "all products" && (
+            <>
+              <span>/</span>
+              <span className="text-gray-800 font-semibold">{subQuery}</span>
+            </>
+          )}
+        </nav>
+      </div>
+
       {/* Mobile Filter Button */}
       <div className="lg:hidden bg-white p-4 border-b border-gray-200 sticky top-0 z-40">
         <button
@@ -242,17 +296,23 @@ const ShopPage = () => {
                     : "opacity-0 translate-y-4"
                 }`}
               >
-                <h3 className="font-semibold mb-4 text-lg text-bgvariant-3 border-l-4 border-bgvariant-3 pl-3">
+                <h3 className="font-semibold mb-4 text-lg text-bgvariant-3 border-l-4 border-green-600 pl-3">
                   Categories
                 </h3>
                 <div className="space-y-3">
+                  {/* Top All Products button */}
                   <button
                     onClick={() => {
-                      router.push("/shoppage");
+                      if (categoryQuery && categoryQuery.toLowerCase() !== "all") {
+                        router.push(`/shoppage?category=${encodeURIComponent(categoryQuery)}`);
+                      } else {
+                        router.push("/shoppage");
+                      }
                       closeMobileFilters();
                     }}
                     className={`w-full text-left p-4 rounded-xl transition-all duration-300 transform hover:scale-102 ${
-                      selectedCategory === "all"
+                      ((!categoryQuery || categoryQuery === "all") && !searchQuery) ||
+                      (categoryQuery && categoryQuery.toLowerCase() !== "all" && !subQuery)
                         ? "bg-bgvariant-3 text-white shadow-lg"
                         : "bg-gray-100 hover:bg-gray-200 hover:shadow-md"
                     }`}
@@ -260,35 +320,94 @@ const ShopPage = () => {
                     <div className="flex items-center space-x-3">
                       <FiShoppingBag
                         className={`text-lg ${
-                          selectedCategory === "all"
+                          ((!categoryQuery || categoryQuery === "all") && !searchQuery) ||
+                          (categoryQuery && categoryQuery.toLowerCase() !== "all" && !subQuery)
                             ? "text-white"
                             : "text-gray-600"
                         }`}
                       />
-                      <span className="font-medium">All Products</span>
+                      <span className="font-medium">
+                        {categoryQuery && categoryQuery.toLowerCase() !== "all"
+                          ? `All ${categoryQuery}`
+                          : "All Products"}
+                      </span>
                     </div>
                   </button>
-                  {sideBar.map((cat, index) => (
-                    <button
-                      key={cat.name}
-                      onClick={() => {
-                        router.push(cat.path);
-                        closeMobileFilters();
-                      }}
-                      className={`w-full text-left p-4 rounded-xl transition-all duration-300 transform hover:scale-102 ${
-                        selectedCategory === cat.name
-                          ? "bg-bgvariant-3 text-white shadow-lg"
-                          : "bg-gray-100 hover:bg-gray-200 hover:shadow-md"
-                      }`}
-                      style={{
-                        transitionDelay: isAnimating
-                          ? `${index * 100}ms`
-                          : "0ms",
-                      }}
-                    >
-                      <span className="font-medium">{cat.name}</span>
-                    </button>
-                  ))}
+                  {sideBar.map((cat, index) => {
+                    const isCatActive =
+                      categoryQuery?.toLowerCase() === cat.name?.toLowerCase();
+                    const hasSubCategories =
+                      Array.isArray(cat.subCategories) && cat.subCategories.length > 0;
+
+                    return (
+                      <div key={cat.name} className="space-y-1">
+                        <button
+                          onClick={() => {
+                            router.push(cat.path);
+                            closeMobileFilters();
+                          }}
+                          className={`w-full text-left p-4 rounded-xl transition-all duration-300 transform hover:scale-102 ${
+                            isCatActive && !subQuery
+                              ? "bg-bgvariant-3 text-white shadow-lg"
+                              : isCatActive
+                              ? "bg-green-50 text-bgvariant-1 font-semibold border-l-4 border-green-600"
+                              : "bg-gray-100 hover:bg-gray-200 hover:shadow-md"
+                          }`}
+                          style={{
+                            transitionDelay: isAnimating
+                              ? `${index * 100}ms`
+                              : "0ms",
+                          }}
+                        >
+                          <span className="font-medium">{cat.name}</span>
+                        </button>
+
+                        {/* Subcategories in mobile */}
+                        {isCatActive && hasSubCategories && (
+                          <div className="pl-4 pt-1 space-y-1">
+                            <button
+                              onClick={() => {
+                                router.push(`/shoppage?category=${encodeURIComponent(cat.name)}`);
+                                closeMobileFilters();
+                              }}
+                              className={`w-full text-left text-xs py-2 px-3 rounded-lg transition font-medium ${
+                                !subQuery
+                                  ? "bg-bgvariant-1 text-white font-bold"
+                                  : "text-gray-700 hover:bg-green-50 hover:text-bgvariant-1"
+                              }`}
+                            >
+                              • All {cat.name}
+                            </button>
+                            {cat.subCategories.map((sub) => {
+                              const isSubActive =
+                                subQuery?.toLowerCase() === sub.name?.toLowerCase();
+
+                              return (
+                                <button
+                                  key={sub._id || sub.name}
+                                  onClick={() => {
+                                    router.push(
+                                      `/shoppage?category=${encodeURIComponent(
+                                        cat.name
+                                      )}&sub=${encodeURIComponent(sub.name)}`
+                                    );
+                                    closeMobileFilters();
+                                  }}
+                                  className={`w-full text-left text-xs py-2 px-3 rounded-lg transition ${
+                                    isSubActive
+                                      ? "bg-bgvariant-1 text-white font-bold"
+                                      : "text-gray-600 hover:bg-green-50 hover:text-bgvariant-1"
+                                  }`}
+                                >
+                                  • {sub.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -300,7 +419,7 @@ const ShopPage = () => {
                     : "opacity-0 translate-y-4"
                 }`}
               >
-                <h3 className="font-semibold flex items-center text-lg text-bgvariant-3 mb-4 border-l-4 border-bgvariant-3 pl-3">
+                <h3 className="font-semibold flex items-center text-lg text-bgvariant-3 mb-4 border-l-4 border-green-600 pl-3">
                   <FaRupeeSign className="mr-2" /> Price Range
                 </h3>
                 <div className="bg-gray-50 p-4 rounded-xl">
@@ -329,7 +448,7 @@ const ShopPage = () => {
                     : "opacity-0 translate-y-4"
                 }`}
               >
-                <h3 className="font-semibold flex items-center text-lg text-bgvariant-3 mb-4 border-l-4 border-bgvariant-3 pl-3">
+                <h3 className="font-semibold flex items-center text-lg text-bgvariant-3 mb-4 border-l-4 border-green-600 pl-3">
                   <FaStar className="mr-2 text-yellow-500" /> Customer Ratings
                 </h3>
                 <div className="space-y-2">
@@ -397,52 +516,116 @@ const ShopPage = () => {
         )}
 
         {/* ===== Desktop Sidebar ===== */}
-        <aside className="hidden lg:block w-80 min-h-screen border-r border-gray-100 bg-white p-7 sticky top-0 overflow-y-auto">
+        <aside className="hidden lg:block w-72 min-h-screen border-r border-gray-100 bg-white p-7 sticky top-0 overflow-y-auto">
           <h2 className="text-xl font-bold mb-6 text-bgvariant-3">
-            Categories
+            Filter By
           </h2>
 
           {/* Categories */}
           <div className="space-y-3 mb-10">
+            {/* Top All Products / All [Category] button */}
             <button
-              onClick={() => router.push("/shoppage")}
+              onClick={() => {
+                if (categoryQuery && categoryQuery.toLowerCase() !== "all") {
+                  router.push(`/shoppage?category=${encodeURIComponent(categoryQuery)}`);
+                } else {
+                  router.push("/shoppage");
+                }
+              }}
               className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-300 transform hover:scale-102 ${
-                selectedCategory === "all"
-                  ? "bg-bgvariant-1 text-white shadow-lg"
+                ((!categoryQuery || categoryQuery === "all") && !searchQuery) ||
+                (categoryQuery && categoryQuery.toLowerCase() !== "all" && !subQuery)
+                  ? "bg-bgvariant-1 text-white shadow-lg border-l-4 border-green-600"
                   : "hover:bg-bgvariant-2/20 text-gray-800 hover:shadow-md"
               }`}
             >
               <div className="flex items-center space-x-3">
                 <FiShoppingBag
                   className={`text-xl transition-transform duration-300 ${
-                    selectedCategory === "all" ? "text-white" : "text-gray-700"
+                    ((!categoryQuery || categoryQuery === "all") && !searchQuery) ||
+                    (categoryQuery && categoryQuery.toLowerCase() !== "all" && !subQuery)
+                      ? "text-white"
+                      : "text-gray-700"
                   }`}
                 />
-                <span className="font-medium">All Products</span>
+                <span className="font-medium">
+                  {categoryQuery && categoryQuery.toLowerCase() !== "all"
+                    ? `All ${categoryQuery}`
+                    : "All Products"}
+                </span>
               </div>
             </button>
 
-            {sideBar.map((cat) => (
-              <button
-                key={cat.name}
-                onClick={() => router.push(cat.path)}
-                className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-300 transform hover:scale-102 ${
-                  selectedCategory === cat.name
-                    ? "bg-bgvariant-1 text-white shadow-lg"
-                    : "hover:bg-bgvariant-2/20 text-black hover:shadow-md"
-                }`}
-              >
-                <span
-                  className={`font-medium transition-colors duration-300 ${
-                    selectedCategory === cat.name
-                      ? "text-white"
-                      : "text-gray-800"
-                  }`}
-                >
-                  {cat.name}
-                </span>
-              </button>
-            ))}
+            {sideBar.map((cat) => {
+              const isCatActive =
+                categoryQuery?.toLowerCase() === cat.name?.toLowerCase();
+              const hasSubCategories =
+                Array.isArray(cat.subCategories) && cat.subCategories.length > 0;
+
+              return (
+                <div key={cat.name} className="space-y-1">
+                  <button
+                    onClick={() => router.push(cat.path)}
+                    className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-300 transform hover:scale-102 ${
+                      isCatActive && !subQuery
+                        ? "bg-bgvariant-1 text-white shadow-lg border-l-4 border-green-600"
+                        : isCatActive
+                        ? "bg-green-50 text-bgvariant-1 font-semibold border-l-4 border-green-600"
+                        : "hover:bg-bgvariant-2/20 text-black hover:shadow-md"
+                    }`}
+                  >
+                    <span
+                      className={`font-medium transition-colors duration-300 ${
+                        isCatActive && !subQuery ? "text-white" : isCatActive ? "text-bgvariant-1" : "text-gray-800"
+                      }`}
+                    >
+                      {cat.name}
+                    </span>
+                  </button>
+
+                  {/* If this category is currently active, show its subcategories + All Products */}
+                  {isCatActive && hasSubCategories && (
+                    <div className="pl-4 pt-1 space-y-1">
+                      <button
+                        onClick={() => router.push(`/shoppage?category=${encodeURIComponent(cat.name)}`)}
+                        className={`w-full text-left text-xs py-2 px-3 rounded-lg transition font-medium ${
+                          !subQuery
+                            ? "bg-bgvariant-1 text-white font-bold shadow-sm"
+                            : "text-gray-700 hover:bg-green-50 hover:text-bgvariant-1"
+                        }`}
+                      >
+                        • All {cat.name}
+                      </button>
+
+                      {cat.subCategories.map((sub) => {
+                        const isSubActive =
+                          subQuery?.toLowerCase() === sub.name?.toLowerCase();
+
+                        return (
+                          <button
+                            key={sub._id || sub.name}
+                            onClick={() =>
+                              router.push(
+                                `/shoppage?category=${encodeURIComponent(
+                                  cat.name
+                                )}&sub=${encodeURIComponent(sub.name)}`
+                              )
+                            }
+                            className={`w-full text-left text-xs py-2 px-3 rounded-lg transition ${
+                              isSubActive
+                                ? "bg-bgvariant-1 text-white font-bold shadow-sm"
+                                : "text-gray-600 hover:bg-green-50 hover:text-bgvariant-1"
+                            }`}
+                          >
+                            • {sub.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Price Range Filter */}
@@ -526,14 +709,27 @@ const ShopPage = () => {
                 searchQuery.trim() &&
                 searchQuery.toLowerCase() !== "all"
                   ? `Search: "${searchQuery}"`
+                  : subQuery &&
+                    subQuery.toLowerCase() !== "all" &&
+                    subQuery.toLowerCase() !== "all products"
+                  ? subQuery
                   : categoryQuery && categoryQuery.toLowerCase() !== "all"
                   ? categoryQuery
                   : "All Products"}
               </h2>
               <p className="text-gray-500 text-sm lg:text-base">
-                {filteredProducts.length}{" "}
-                {filteredProducts.length === 1 ? "Product" : "Products"} Found
+                {filteredProducts.length} Products Found
               </p>
+            </div>
+            {/* Sort bar — UI only, no new logic */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 hidden sm:inline">Sort by:</label>
+              <select className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="relevance">Relevance</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="newest">Newest First</option>
+              </select>
             </div>
           </div>
 
@@ -588,17 +784,34 @@ const ShopPage = () => {
           {/* ✅ Product Grid - Responsive */}
           {filteredProducts.length === 0 ? (
             <div className="text-center py-20 text-gray-700">
-              <FiShoppingBag className="mx-auto text-6xl lg:text-8xl mb-4 opacity-50" />
-              <p className="text-lg mb-2">No products found.</p>
-              <p className="text-gray-500 mb-6">
-                Try adjusting your filters or search terms
+              <FiShoppingBag className="mx-auto text-6xl lg:text-8xl mb-4 opacity-50 text-green-600" />
+              <p className="text-lg mb-2 font-semibold">
+                {categoryQuery && categoryQuery.toLowerCase() !== "all"
+                  ? subQuery && subQuery.toLowerCase() !== "all" && subQuery.toLowerCase() !== "all products"
+                    ? `No products available in "${subQuery}" yet.`
+                    : `No products available in "${categoryQuery}" yet.`
+                  : "No agriculture products found."}
               </p>
-              <button
-                onClick={clearFilters}
-                className="px-6 py-3 bg-bgvariant-1 text-white rounded-lg hover:bg-bgvariant-4 transition-all duration-300 transform hover:scale-105"
-              >
-                Clear Filters
-              </button>
+              <p className="text-gray-500 mb-6">
+                {categoryQuery && categoryQuery.toLowerCase() !== "all"
+                  ? "Be the first — check back soon or browse other categories."
+                  : "Try adjusting your search or category filters"}
+              </p>
+              {categoryQuery && categoryQuery.toLowerCase() !== "all" ? (
+                <Link
+                  href="/shoppage"
+                  className="px-6 py-3 bg-bgvariant-1 text-white rounded-lg hover:bg-bgvariant-4 transition-all duration-300 transform hover:scale-105 inline-block font-semibold"
+                >
+                  Browse Global Products
+                </Link>
+              ) : (
+                <button
+                  onClick={clearFilters}
+                  className="px-6 py-3 bg-bgvariant-1 text-white rounded-lg hover:bg-bgvariant-4 transition-all duration-300 transform hover:scale-105"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className={`grid ${gridClass}`}>

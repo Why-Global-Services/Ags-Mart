@@ -35,6 +35,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.15",
     "autoprefixer": "^10.4.21",
+    "baseline-browser-mapping": "^2.11.20",
     "eslint": "^9",
     "eslint-config-next": "16.0.0",
     "postcss": "^8.5.6",

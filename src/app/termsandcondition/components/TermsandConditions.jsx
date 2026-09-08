@@ -102,7 +102,9 @@ const TermsandCondition = () => {
                 please contact us at:
               </p>
               <p className="text-bgvariant-2 font-semibold mt-2">
-                dina_d123@yahoo.co.in
+                <a href="mailto:sales@agrowmed.com" className="hover:underline">
+                  sales@agrowmed.com
+                </a>
               </p>
             </div>
           </section>

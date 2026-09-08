@@ -8,11 +8,11 @@ import { FaStar, FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { useSelector } from "react-redux";
 
 const StarRating = ({ rating }) => (
-  <div className="flex justify-center space-x-2 mb-4">
+  <div className="flex justify-center space-x-1.5 mb-3">
     {[...Array(5)].map((_, i) => (
       <FaStar
         key={i}
-        className={`w-6 h-6 ${i < rating ? "text-emerald-600" : "text-gray-200"}`}
+        className={`w-5 h-5 ${i < rating ? "text-amber-400" : "text-gray-200"}`}
       />
     ))}
   </div>
@@ -21,7 +21,7 @@ const StarRating = ({ rating }) => (
 // Custom Arrow Components
 const NextArrow = ({ onClick }) => (
   <div
-    className="absolute -right-4 top-1/2 transform -translate-y-1/2 z-10 cursor-pointer text-[#4A2C2A] bg-white rounded-full p-2 shadow-lg hover:bg-[#FFE8E0]"
+    className="absolute -right-4 top-1/2 transform -translate-y-1/2 z-10 cursor-pointer text-gray-700 bg-white rounded-full p-2.5 shadow-md hover:bg-green-50 hover:text-green-700 transition"
     onClick={onClick}
   >
     <FaArrowRight />
@@ -30,7 +30,7 @@ const NextArrow = ({ onClick }) => (
 
 const PrevArrow = ({ onClick }) => (
   <div
-    className="absolute -left-4 top-1/2 transform -translate-y-1/2 z-10 cursor-pointer text-[#4A2C2A] bg-white rounded-full p-2 shadow-lg hover:bg-[#FFE8E0]"
+    className="absolute -left-4 top-1/2 transform -translate-y-1/2 z-10 cursor-pointer text-gray-700 bg-white rounded-full p-2.5 shadow-md hover:bg-green-50 hover:text-green-700 transition"
     onClick={onClick}
   >
     <FaArrowLeft />
@@ -39,8 +39,13 @@ const PrevArrow = ({ onClick }) => (
 
 const Testimonials = () => {
   
-  const {homeData} = useSelector((state) => state.home);
-  const testimonials = homeData.getTetimonialData || [];
+  const { homeData } = useSelector((state) => state.home);
+  const rawTestimonials = homeData?.getTetimonialData;
+  const testimonials = Array.isArray(rawTestimonials)
+    ? rawTestimonials
+    : Array.isArray(rawTestimonials?.data)
+    ? rawTestimonials.data
+    : [];
 
   const [isMobile, setIsMobile] = useState(false);
 
@@ -76,14 +81,14 @@ const Testimonials = () => {
   };
 
   return (
-    <section className="py-8 sm:py-10 lg:py-16 relative bg-[#FFF9F7]">
+    <section className="py-8 sm:py-10 lg:py-16 relative bg-gray-50/60">
       <div className="container mx-auto px-4">
        <div
   className="mb-6 flex flex-col items-center text-center"
   data-aos="fade-up"
 >
-  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-4xl font-normal font-fonttitle text-bgvariant-3 mb-3 px-4">
-    Customer <span className="text-bgvariant-1">Testimonials</span>
+  <h2 className="text-2xl sm:text-3xl md:text-4xl font-normal font-fonttitle text-bgvariant-3 mb-2 px-4">
+    What Our <span className="text-bgvariant-1">Farmers Say</span>
   </h2>
   <div className="w-20 sm:w-24 h-1 sm:h-1.5 bg-gradient-to-r from-bgvariant-1 via-bgvariant-4 to-bgvariant-2 rounded-full"></div>
 </div>
@@ -95,8 +100,8 @@ const Testimonials = () => {
             <>
               <Slider {...settings}>
                 {testimonials.map((testimonial) => (
-                  <div key={testimonial._id} className="px-3 my-6"> {/* Reduced margin and padding */}
-                    <div className="text-[#4A2C2A] rounded-[16px] shadow-lg py-8 px-6 text-center bg-white hover:shadow-xl w-full min-h-[240px] max-h-[280px] flex flex-col justify-between"> {/* Reduced padding, added height constraints and flex column */}
+                  <div key={testimonial._id} className="px-3 my-6">
+                    <div className="text-gray-800 rounded-[16px] shadow-md border border-gray-100 py-8 px-6 text-center bg-white hover:shadow-lg w-full min-h-[240px] max-h-[280px] flex flex-col justify-between">
                       <div>
                         <StarRating rating={testimonial.rating} />
                         <p className="text-gray-700 text-base leading-relaxed mb-4 line-clamp-4 px-2"> {/* Added line clamp */}

@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --font-fonttitle: var(--font-playfair);
+  --font-fonttitle: var(--font-inter);
   --font-fontcontent: var(--font-poppins);
-  --foreground: #111827;
+  --foreground: #1a2e1a;
   --text-bgcolour: linear-gradient(
     to right,
-    var(--color-iconcolor),
+    var(--color-bgvariant-3),
     var(--color-bgvariant-1)
   );
-  --color-bgvariant-1: #dcaf5e;
-  --color-bgvariant-2: #f4d68d;
-  --color-bgvariant-3: #111b30;
-  --color-bgvariant-4: #dcae59;
-  --color-iconcolor: #f5339b;
-  --color-button: #f5339b;
+  /* Agrowmed Agriculture Green Palette */
+  --color-bgvariant-1: #2d7a22;   /* Primary green - CTAs, highlights */
+  --color-bgvariant-2: #5aab4e;   /* Light green - hover states */
+  --color-bgvariant-3: #1a4a13;   /* Dark green - navbar/header */
+  --color-bgvariant-4: #4c9d40;   /* Medium green - secondary actions */
+  --color-iconcolor: #f59e0b;     /* Amber - accent icons, badges */
+  --color-button: #2d7a22;        /* Primary button */
 }
+
 
 body {
   background: var(--background);

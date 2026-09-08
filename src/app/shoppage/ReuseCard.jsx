@@ -1696,6 +1696,7 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
   const isVariantProduct = product.productType === "variant";
   const isNonVariantProduct = product.productType === "nonVariant";
   const variantType = product.variant?.variantType;
+  const isUnitOnly = variantType === "unitOnly";
   const isColorOnly = variantType === "colorOnly";
   const isSizeOnly = variantType === "sizeOnly";
   const isSizeColor = variantType === "sizeColor";
@@ -1717,7 +1718,20 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
   if (isVariantProduct) {
     displayName = product.productName;
 
-    if (isColorOnly) {
+    if (isUnitOnly) {
+      variants = product.variant?.unitOnlyVariants || [];
+      const firstVariant = variants[0];
+      displayImage =
+        firstVariant?.variantImages?.[0] || product.productImages?.[0];
+      displayPrice = firstVariant?.price?.salePrice || 0;
+      displayCostPrice = firstVariant?.price?.costPrice || displayPrice;
+      displayDiscount = firstVariant?.price?.discount || 0;
+      priceBreakdown = firstVariant?.price;
+      productId = product._id;
+      variantId = firstVariant?._id;
+      productType = product.productType;
+      varaintType = product.variant?.variantType;
+    } else if (isColorOnly) {
       variants = product.variant?.colorOnlyVariants || [];
       colors = variants.map((v) => v.color);
       const firstVariant = variants[0];

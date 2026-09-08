@@ -1,408 +1,378 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { FiChevronDown, FiMenu, FiX, FiHome, FiUser, FiMail } from "react-icons/fi";
-import { HiSparkles } from "react-icons/hi";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { FiChevronDown, FiHome, FiMail, FiMenu, FiUser, FiX } from "react-icons/fi";
+import { FaLeaf } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchNavbarData } from "@/app/store/navbarSlice";
+
+const categoryPath = (title) => `/shoppage?category=${encodeURIComponent(title)}`;
+const subcategoryPath = (category, subcategory) =>
+  `${categoryPath(category)}&sub=${encodeURIComponent(subcategory)}`;
+const getSubcategoryTitle = (subcategory) =>
+  subcategory?.subCategoryTitle || subcategory?.title || subcategory?.name || "";
 
 const CategoryNavbar = () => {
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openMobileCategory, setOpenMobileCategory] = useState(null);
-
-  const router = useRouter();
+  const dispatch = useDispatch();
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const activeCategory = searchParams?.get("category") || "";
+  const activeSubcategory = searchParams?.get("sub") || "";
+  const rawCategories = useSelector((state) => state.navbar.categories);
+  const categories = Array.isArray(rawCategories)
+    ? rawCategories.filter(
+        (category) =>
+          typeof category?.categoryTitle === "string" && category.categoryTitle.trim()
+      )
+    : [];
 
-  const dispatch = useDispatch();
-  const categories = useSelector((state) => state.navbar.categories);
+  const staticItems = [
+    { title: "Home", path: "/", icon: FiHome },
+    { title: "About Us", path: "/aboutuspage", icon: FiUser },
+    { title: "Contact", path: "/contactpage", icon: FiMail },
+  ];
 
   useEffect(() => {
     dispatch(fetchNavbarData());
   }, [dispatch]);
 
-  const isPathActive = (target) =>
-    pathname === target || pathname.startsWith(`${target}/`);
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
 
-  const categoryOrder = ["Body Care", "Hair Care", "Face Care"];
-  const orderedCategories = categoryOrder
-    .map((title) => categories.find((c) => c.categoryTitle === title))
-    .filter(Boolean);
-  const remainingCategories = categories.filter(
-    (c) => !categoryOrder.includes(c.categoryTitle)
-  );
-  const allCategories = [...orderedCategories, ...remainingCategories];
+  const isPageActive = (path) =>
+    path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(`${path}/`);
+  const isCategoryActive = (category) =>
+    pathname.startsWith("/shoppage") &&
+    activeCategory.toLowerCase() === category.categoryTitle?.toLowerCase();
+
+  const renderCategory = (category) => {
+    const title = category.categoryTitle;
+    const subcategories = Array.isArray(category.subCategories)
+      ? category.subCategories.filter((sub) => getSubcategoryTitle(sub))
+      : [];
+    const hasSubcategories = subcategories.length > 0;
+    const categoryKey = category._id || title;
+    const active = isCategoryActive(category);
+
+    return (
+      <li
+        key={categoryKey}
+        className="relative group font-fontcontent"
+        onMouseEnter={() => hasSubcategories && setHoveredCategory(categoryKey)}
+        onMouseLeave={() => setHoveredCategory(null)}
+      >
+        <Link
+          href={categoryPath(title)}
+          className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide transition-colors py-2 whitespace-nowrap ${
+            active
+              ? "text-bgvariant-1 font-bold"
+              : "text-gray-700 hover:text-bgvariant-1"
+          }`}
+        >
+          {active && <FaLeaf className="text-bgvariant-2 text-xs shrink-0" />}
+          <span>{title}</span>
+          {hasSubcategories && (
+            <FiChevronDown
+              className={`text-xs transition-transform duration-200 shrink-0 ${
+                hoveredCategory === categoryKey ? "rotate-180" : ""
+              }`}
+            />
+          )}
+        </Link>
+        <span
+          className={`absolute left-0 -bottom-1 h-0.5 bg-bgvariant-1 rounded-full transition-all duration-300 ${
+            active ? "w-full" : "w-0 group-hover:w-full"
+          }`}
+        />
+        <AnimatePresence>
+          {hasSubcategories && hoveredCategory === categoryKey && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.18 }}
+              className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-72 bg-white shadow-2xl rounded-xl border border-green-100 overflow-hidden z-50"
+            >
+              <div className="py-2 max-h-96 overflow-y-auto">
+                {subcategories.map((sub, index) => {
+                  const label = getSubcategoryTitle(sub);
+                  const subActive =
+                    active && activeSubcategory.toLowerCase() === label.toLowerCase();
+                  return (
+                    <motion.button
+                      key={sub._id || label}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.025 }}
+                      onClick={() => {
+                        router.push(subcategoryPath(title, label));
+                        setHoveredCategory(null);
+                      }}
+                      className={`w-full text-left px-5 py-2.5 text-sm font-medium transition-all border-l-4 ${
+                        subActive
+                          ? "bg-green-50 text-bgvariant-1 border-bgvariant-1 font-semibold"
+                          : "text-gray-700 hover:bg-green-50 hover:text-bgvariant-1 border-transparent"
+                      }`}
+                    >
+                      {label}
+                    </motion.button>
+                  );
+                })}
+                <Link
+                  href={categoryPath(title)}
+                  onClick={() => setHoveredCategory(null)}
+                  className="block border-t border-green-100 px-5 py-2.5 text-sm font-semibold text-bgvariant-1 hover:bg-green-50"
+                >
+                  All Products
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </li>
+    );
+  };
 
   return (
     <>
-      <div className="bg-white border-b-2 border-purple-100 sticky top-24 z-40 shadow-sm">
-        <div className=" px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Mobile Menu Button */}
+      {/* Category Navigation Bar */}
+      <nav
+        aria-label="Category Navigation"
+        className="bg-white border-b-2 border-green-100 sticky top-20 sm:top-22 md:top-24 lg:top-24 z-40 shadow-sm w-full max-w-full overflow-x-clip"
+      >
+        <div className="w-full max-w-full px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-12 sm:h-14 lg:h-16">
+            {/* Mobile / Tablet Menu Button (< lg) */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden flex items-center gap-2 px-4 py-2 bg-bgvariant-3 text-white rounded-lg transition font-semibold text-sm"
+              className="lg:hidden flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-bgvariant-1 text-white rounded-lg font-semibold text-xs sm:text-sm hover:bg-bgvariant-4 transition shadow-sm shrink-0"
+              aria-label="Open Navigation Menu"
             >
-              <FiMenu className="text-lg" />
-              <span>All Categories</span>
+              <FiMenu className="text-base sm:text-lg" />
+              <span>Categories & Menu</span>
             </button>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center w-full justify-center">
-              <ul className="flex items-center gap-10">
-                <li className="relative group">
+            {/* Desktop Navigation List (lg breakpoint and up) */}
+            <div className="hidden lg:flex items-center w-full justify-center">
+              <ul className="flex items-center gap-4 xl:gap-7 flex-wrap justify-center">
+                <li>
                   <Link
                     href="/"
-                    className={`flex font-fontcontent items-center gap-2 text-sm font-medium cursor-pointer uppercase tracking-wider transition-colors ${
-                      isPathActive("/")
-                        ? "text-gray-700 "
-                        : "text-gray-700 hover:text-purple-700"
+                    className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 transition-colors ${
+                      isPageActive("/")
+                        ? "text-bgvariant-1 font-bold"
+                        : "text-gray-700 hover:text-bgvariant-1"
                     }`}
                   >
-                    {isPathActive("/") && <HiSparkles className="text-bgvariant-2" />}
                     Home
                   </Link>
-                  <span
-                    className={`absolute left-0 -bottom-2 h-1 bg-gradient-to-r from-[#F4D68D] to-[#DCAF5E] rounded-full transition-all ${
-                      isPathActive("/") ? "w-full" : "w-0 group-hover:w-full"
-                    }`}
-                  />
                 </li>
-
-                {allCategories.map((category) => {
-                  const hasSub =
-                    Array.isArray(category.subCategories) &&
-                    category.subCategories.length > 0;
-                  const isCategoryActive =
-                    pathname.startsWith("/shoppage") &&
-                    activeCategory === category.categoryTitle;
-
-                  return (
-                    <li
-                      key={category._id}
-                      className="relative group font-fontcontent"
-                      onMouseEnter={() => hasSub && setHoveredCategory(category._id)}
-                      onMouseLeave={() => setHoveredCategory(null)}
+                {categories.map(renderCategory)}
+                {staticItems.slice(1).map((item) => (
+                  <li key={item.title}>
+                    <Link
+                      href={item.path}
+                      className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 transition-colors ${
+                        isPageActive(item.path)
+                          ? "text-bgvariant-1 font-bold"
+                          : "text-gray-700 hover:text-bgvariant-1"
+                      }`}
                     >
-                      <button
-                        onClick={() => {
-                          if (!hasSub) {
-                            router.push(
-                              `/shoppage?category=${encodeURIComponent(
-                                category.categoryTitle
-                              )}`
-                            );
-                          }
-                        }}
-                        className={`flex items-center gap-2 text-sm cursor-pointer font-medium uppercase tracking-wider transition-colors ${
-                          isCategoryActive
-                            ? "text-gray-700"
-                            : "text-gray-700 "
-                        }`}
-                      >
-                        {isCategoryActive && <HiSparkles className="text-bgvariant-2" />}
-                        {category.categoryTitle}
-                        {hasSub && (
-                          <FiChevronDown
-                            className={`text-sm transition-transform ${
-                              hoveredCategory === category._id ? "rotate-180" : ""
-                            }`}
-                          />
-                        )}
-                      </button>
-
-                      <span
-                        className={`absolute left-0 -bottom-2 h-1  bg-gradient-to-r from-[#F4D68D] to-[#DCAF5E] rounded-full transition-all ${
-                          isCategoryActive ? "w-full" : "w-0 group-hover:w-full"
-                        }`}
-                      />
-
-                      {/* Mega Menu Dropdown */}
-                      <AnimatePresence>
-                        {hasSub && hoveredCategory === category._id && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 15 }}
-                            transition={{ duration: 0.25 }}
-                            className="absolute left-1/2 -translate-x-1/2 top-full mt-6 w-72  bg-white shadow-2xl border-2 border-bgvariant-3/15 overflow-hidden"
-                          >
-                            {/* <div className="bg-gradient-to-r from-purple-700 to-pink-600 text-white px-5 py-3">
-                              <h3 className="font-bold text-sm uppercase tracking-wider">
-                                {category.categoryTitle}
-                              </h3>
-                            </div> */}
-                            <div className="py-2 max-h-96 overflow-y-auto ">
-                              {category.subCategories.map((sub, index) => {
-                                const label =
-                                  sub.subCategoryTitle ||
-                                  sub.title ||
-                                  sub.name ||
-                                  "Subcategory";
-                                const isSubActive =
-                                  pathname.startsWith("/shoppage") &&
-                                  activeCategory === category.categoryTitle &&
-                                  searchParams?.get("sub") === label;
-
-                                return (
-                                  <motion.button
-                                    key={sub._id || label}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.05 }}
-                                    onClick={() => {
-                                      router.push(
-                                        `/shoppage?category=${encodeURIComponent(
-                                          category.categoryTitle
-                                        )}&sub=${encodeURIComponent(label)}`
-                                      );
-                                      setHoveredCategory(null);
-                                    }}
-                                    className={`w-full text-left px-5 py-3.5 text-sm font-semibold transition-all border-l-4 ${
-                                      isSubActive
-                                        ? "bg-gradient-to-r from-purple-50 to-pink-50 text-gray-700 border-bgvariant-1"
-                                        : "text-gray-700 hover:bg-gradient-to-r hover:from-bgvariant-1/10 hover:to-bgvariant-2/20 hover:text-gray-700 cursor-pointer border-transparent"
-                                    }`}
-                                  >
-                                    {label}
-                                  </motion.button>
-                                );
-                              })}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </li>
-                  );
-                })}
-
-                <li className="relative group">
-                  <Link
-                    href="/aboutuspage"
-                    className={`flex items-center font-fontcontent gap-2 text-sm font-medium uppercase tracking-wider transition-colors ${
-                      isPathActive("/aboutuspage")
-                        ? "text-gray-700"
-                        : "text-gray-700 "
-                    }`}
-                  >
-                    {isPathActive("/aboutuspage") && <HiSparkles className="text-bgvariant-2" />}
-                    About
-                  </Link>
-                  <span
-                    className={`absolute left-0 -bottom-2 h-1  bg-gradient-to-r from-[#F4D68D] to-[#DCAF5E]  rounded-full transition-all ${
-                      isPathActive("/aboutuspage")
-                        ? "w-full"
-                        : "w-0 group-hover:w-full"
-                    }`}
-                  />
-                </li>
-
-                <li className="relative group">
-                  <Link
-                    href="/contactpage"
-                    className={`flex items-center font-fontcontent gap-2 text-sm font-medium uppercase tracking-wider transition-colors ${
-                      isPathActive("/contactpage")
-                        ? "text-gray-700"
-                        : "text-gray-700 "
-                    }`}
-                  >
-                    {isPathActive("/contactpage") && <HiSparkles className="text-bgvariant-2" />}
-                    Contact
-                  </Link>
-                  <span
-                    className={`absolute left-0 -bottom-2 h-1  bg-gradient-to-r from-[#F4D68D] to-[#DCAF5E] rounded-full transition-all ${
-                      isPathActive("/contactpage")
-                        ? "w-full"
-                        : "w-0 group-hover:w-full"
-                    }`}
-                  />
-                </li>
+                      {item.title}
+                    </Link>
+                  </li>
+                ))}
               </ul>
-            </nav>
+            </div>
 
-            {/* Mobile - Placeholder */}
+            {/* Spacer on mobile to keep layout clean */}
             <div className="lg:hidden flex-1" />
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* Mobile Sidebar Menu */}
+      {/* Mobile Drawer Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black z-[998]"
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[998]"
               onClick={() => setIsMobileMenuOpen(false)}
             />
-            <motion.div
+
+            {/* Sliding Drawer */}
+            <motion.aside
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed top-0 left-0 w-80 max-w-[85vw] h-full bg-white shadow-2xl z-[999] flex flex-col"
+              transition={{ type: "spring", damping: 28, stiffness: 280 }}
+              className="fixed top-0 left-0 w-80 max-w-[85vw] h-full bg-white shadow-2xl z-[999] flex flex-col overflow-hidden"
+              aria-label="Mobile navigation"
             >
-              <div className="flex items-center justify-between px-6 h-20 bg-bgvariant-3 text-white">
-                <div>
-                  <h2 className="text-lg font-bold">Categories</h2>
-                  <p className="text-xs text-purple-100">Browse our collection</p>
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between px-5 h-16 bg-[#1a4a13] text-white shrink-0">
+                <div className="flex items-center gap-2">
+                  <FaLeaf className="text-green-400 text-lg" />
+                  <h2 className="text-base font-bold tracking-wide">Agrowmed Menu</h2>
                 </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition"
+                  className="p-1.5 hover:bg-white/20 rounded-lg transition"
+                  aria-label="Close menu"
                 >
                   <FiX className="text-2xl" />
                 </button>
               </div>
 
-              <nav className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-purple-50/30 to-white">
-                <button
-                  onClick={() => {
-                    router.push("/");
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 text-left px-4 py-3.5 rounded-xl font-bold transition mb-2  ${
-                    isPathActive("/")
-                      ? "bg-bgvariant-3 text-white shadow-lg"
-                      : "hover:bg-purple-50 text-gray-900"
-                  }`}
-                >
-                  <FiHome className="text-lg" />
-                   <span>Home</span>
-                </button>
+              {/* Drawer Navigation Content */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-1">
+                {/* Home Link */}
+                {staticItems.slice(0, 1).map((item) => (
+                  <button
+                    key={item.title}
+                    onClick={() => {
+                      router.push(item.path);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl font-semibold text-sm transition ${
+                      isPageActive(item.path)
+                        ? "bg-bgvariant-1 text-white shadow-sm"
+                        : "hover:bg-green-50 text-gray-800"
+                    }`}
+                  >
+                    <item.icon className="text-lg" />
+                    <span>{item.title}</span>
+                  </button>
+                ))}
 
-                <div className="mt-4">
-                  <p className="text-xs font-bold text-gray-500 mb-3 px-2 uppercase tracking-wider">Shop by Category</p>
-                  {allCategories.map((category) => {
-                    const hasSub =
-                      Array.isArray(category.subCategories) &&
-                      category.subCategories.length > 0;
-                    const isOpen = openMobileCategory === category._id;
-                    const isCategoryActive =
-                      pathname.startsWith("/shoppage") &&
-                      activeCategory === category.categoryTitle;
+                {/* Categories Section Heading */}
+                <div className="pt-3 pb-1 px-4">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    Categories
+                  </p>
+                </div>
 
-                    return (
-                      <div key={category._id} className="mb-2">
-                        <button
-                          onClick={() => {
-                            if (hasSub) {
-                              setOpenMobileCategory(isOpen ? null : category._id);
-                            } else {
-                              router.push(
-                                `/shoppage?category=${encodeURIComponent(
-                                  category.categoryTitle
-                                )}`
-                              );
+                {/* Dynamic Categories with Accordion Subcategories */}
+                {categories.map((category) => {
+                  const title = category.categoryTitle;
+                  const subcategories = Array.isArray(category.subCategories)
+                    ? category.subCategories.filter((sub) => getSubcategoryTitle(sub))
+                    : [];
+                  const hasSubcategories = subcategories.length > 0;
+                  const categoryKey = category._id || title;
+                  const open = openMobileCategory === categoryKey;
+                  const active = isCategoryActive(category);
+
+                  return (
+                    <div key={categoryKey} className="space-y-0.5">
+                      <button
+                        onClick={() =>
+                          hasSubcategories
+                            ? setOpenMobileCategory(open ? null : categoryKey)
+                            : (router.push(categoryPath(title)),
+                              setIsMobileMenuOpen(false))
+                        }
+                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-semibold text-sm transition ${
+                          active
+                            ? "bg-bgvariant-1 text-white shadow-sm"
+                            : "hover:bg-green-50 text-gray-800"
+                        }`}
+                      >
+                        <span className="truncate">{title}</span>
+                        {hasSubcategories && (
+                          <FiChevronDown
+                            className={`text-sm transition-transform duration-200 shrink-0 ${
+                              open ? "rotate-180" : ""
+                            }`}
+                          />
+                        )}
+                      </button>
+
+                      {/* Expandable Subcategories */}
+                      {hasSubcategories && open && (
+                        <div className="ml-3 border-l-2 border-green-200 pl-2 py-1 space-y-0.5">
+                          <button
+                            onClick={() => {
+                              router.push(categoryPath(title));
                               setIsMobileMenuOpen(false);
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between px-4 py-3.5 text-left rounded-xl font-bold transition ${
-                            isCategoryActive
-                              ? "bg-bgvariant-3 text-white shadow-lg"
-                              : "hover:bg-purple-50 text-gray-900"
-                          }`}
-                        >
-                          <span>{category.categoryTitle}</span>
-                          {hasSub && (
-                            <FiChevronDown
-                              className={`text-lg transition-transform ${
-                                isOpen ? "rotate-180" : ""
-                              }`}
-                            />
-                          )}
-                        </button>
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-xs font-semibold text-bgvariant-1 hover:bg-green-50 rounded-lg transition"
+                          >
+                            All {title}
+                          </button>
+                          {subcategories.map((sub) => {
+                            const label = getSubcategoryTitle(sub);
+                            return (
+                              <button
+                                key={sub._id || label}
+                                onClick={() => {
+                                  router.push(subcategoryPath(title, label));
+                                  setIsMobileMenuOpen(false);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-green-50 hover:text-bgvariant-1 rounded-lg transition truncate"
+                              >
+                                • {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
-                        <AnimatePresence>
-                          {hasSub && isOpen && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="pl-4 pt-2 space-y-1">
-                                {category.subCategories.map((sub) => {
-                                  const label =
-                                    sub.subCategoryTitle ||
-                                    sub.title ||
-                                    sub.name ||
-                                    "Subcategory";
-                                  const isSubActive =
-                                    pathname.startsWith("/shoppage") &&
-                                    activeCategory === category.categoryTitle &&
-                                    searchParams?.get("sub") === label;
-
-                                  return (
-                                    <button
-                                      key={sub._id || label}
-                                      onClick={() => {
-                                        router.push(
-                                          `/shoppage?category=${encodeURIComponent(
-                                            category.categoryTitle
-                                          )}&sub=${encodeURIComponent(label)}`
-                                        );
-                                        setIsMobileMenuOpen(false);
-                                      }}
-                                      className={`w-full text-left text-sm py-3 px-4 rounded-lg transition border-l-4 ${
-                                        isSubActive
-                                          ? "bg-bgvariant-1 text-white font-bold"
-                                          : "text-gray-700 hover:bg-purple-50 border-transparent"
-                                      }`}
-                                    >
-                                      • {label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
+                {/* Other Static Links */}
+                <div className="pt-3 pb-1 px-4">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    Company
+                  </p>
                 </div>
-
-                <div className="mt-6 pt-4 border-t border-gray-200">
+                {staticItems.slice(1).map((item) => (
                   <button
+                    key={item.title}
                     onClick={() => {
-                      router.push("/aboutuspage");
+                      router.push(item.path);
                       setIsMobileMenuOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 text-left px-4 py-3.5 rounded-xl font-bold transition mb-2 ${
-                      isPathActive("/aboutuspage")
-                        ? "bg-bgvariant-3 text-white shadow-lg"
-                        : "hover:bg-purple-50 text-gray-900"
+                    className={`w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl font-semibold text-sm transition ${
+                      isPageActive(item.path)
+                        ? "bg-bgvariant-1 text-white shadow-sm"
+                        : "hover:bg-green-50 text-gray-800"
                     }`}
                   >
-                    <FiUser className="text-lg" />
-                    <span>Aboutus</span>
+                    <item.icon className="text-lg" />
+                    <span>{item.title}</span>
                   </button>
+                ))}
+              </div>
 
-                  <button
-                    onClick={() => {
-                      router.push("/contactpage");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 text-left px-4 py-3.5 rounded-xl font-bold transition mb-2 ${
-                      isPathActive("/contactpage")
-                        ? "bg-bgvariant-3 text-white shadow-lg"
-                        : "hover:bg-purple-50 text-gray-900"
-                    }`}
-                  >
-                     <FiMail className="text-lg" />
-                    <span>Contact</span>
-                  </button>
-                </div>
-              </nav>
-            </motion.div>
+              {/* Drawer Footer */}
+              <div className="border-t border-gray-100 p-4 bg-gray-50/80 shrink-0">
+                <p className="text-xs text-gray-500 text-center font-medium">
+                  © 2026 Agrowmed. Agriculture Products.
+                </p>
+              </div>
+            </motion.aside>
           </>
         )}
       </AnimatePresence>

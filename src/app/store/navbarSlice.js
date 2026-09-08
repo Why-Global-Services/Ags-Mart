@@ -54,7 +54,9 @@ const navbarSlice = createSlice({
       })
 
       .addCase(fetchNavbarData.fulfilled, (state, action) => {
-        const raw = action.payload?.data?.findCategory || [];
+        const raw = Array.isArray(action.payload?.data?.findCategory)
+          ? action.payload.data.findCategory
+          : [];
 
         state.categories = raw.map((cat) => ({
           _id: cat._id,

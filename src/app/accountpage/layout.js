@@ -54,26 +54,33 @@ export default function MyAccountLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50 p-3 md:p-6 lg:p-8">
       <div className="container mx-auto px-4">
-        <div className="mb-8 flex justify-between items-center">
-          <div className="lg:text-center w-full">
-            <h1 className="text-4xl font-bold text-bgvariant-3">
+        <div className="mb-6 sm:mb-8 flex items-center gap-3 sm:gap-4 lg:block">
+          {/* Mobile/Tablet Menu Button (LEFT on < lg, hidden on lg+) */}
+          <div className="shrink-0 lg:hidden">
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="group relative"
+              aria-label="Open Account Menu"
+            >
+              <div className="flex items-center gap-2 sm:gap-3 px-3.5 sm:px-5 py-2.5 sm:py-3 bg-bgvariant-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
+                <div className="relative shrink-0">
+                  <FiMenu size={18} className="text-white transition-transform duration-300 group-hover:rotate-90" />
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full animate-ping"></div>
+                </div>
+                <span className="text-white text-xs sm:text-sm font-semibold">Menu</span>
+              </div>
+            </button>
+          </div>
+
+          {/* My Account Heading & Subtitle (RIGHT on < lg, CENTERED on lg+) */}
+          <div className="flex-1 min-w-0 lg:w-full lg:text-center">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-bgvariant-3 truncate sm:whitespace-normal">
               My Account
             </h1>
-            <p className="text-black mt-2">Manage your profile and preferences</p>
+            <p className="text-xs sm:text-sm lg:text-base text-gray-700 mt-0.5 sm:mt-2 leading-tight sm:leading-normal">
+              Manage your profile and preferences
+            </p>
           </div>
-          
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="lg:hidden group relative"
-          >
-            <div className="flex items-center gap-3 px-5 py-3 bg-bgvariant-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              <div className="relative">
-                <FiMenu size={20} className="text-white transition-transform duration-300 group-hover:rotate-90" />
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full animate-ping"></div>
-              </div>
-              <span className="text-white font-semibold">Menu</span>
-            </div>
-          </button>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">

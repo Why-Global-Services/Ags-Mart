@@ -29,12 +29,15 @@ const HairCare = () => {
     setWishlist(savedWishlist);
   }, []);
 
-  // const { homeData } = useHomeStore();
-console.log(homeData.getAllProductsGroupedByCategory?.categories?.[1]?.products, "data");
-
-const category  = homeData.getAllProductsGroupedByCategory?.categories?.[1]?.category;
-
-const products = homeData.getAllProductsGroupedByCategory?.categories?.[1]?.products;
+  const category = homeData?.getAllProductsGroupedByCategory?.categories?.[1]?.category;
+  const rawProducts = homeData?.getAllProductsGroupedByCategory?.categories?.[1]?.products;
+  const products = Array.isArray(rawProducts)
+    ? rawProducts
+    : Array.isArray(rawProducts?.data)
+    ? rawProducts.data
+    : Array.isArray(rawProducts?.products)
+    ? rawProducts.products
+    : [];
 
 
   const handleAddToCart = (item) => {
@@ -91,8 +94,12 @@ const products = homeData.getAllProductsGroupedByCategory?.categories?.[1]?.prod
   className="mb-6 flex flex-col items-center text-center"
   data-aos="fade-up"
 >
-  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-4xl font-normal font-fonttitle text-bgvariant-3 mb-3 px-4">
-    Bridal <span className="text-bgvariant-1">Jewellery</span>
+  <h2 className="text-2xl sm:text-3xl md:text-4xl font-normal font-fonttitle text-bgvariant-3 mb-3 px-4">
+    {category?.categoryTitle ? (
+      category.categoryTitle
+    ) : (
+      <>Seeds & <span className="text-bgvariant-1">Planting Essentials</span></>
+    )}
   </h2>
   <div className="w-20 sm:w-24 h-1 sm:h-1.5 bg-gradient-to-r from-bgvariant-1 via-bgvariant-4 to-bgvariant-2 rounded-full"></div>
 </div>
@@ -107,10 +114,10 @@ const products = homeData.getAllProductsGroupedByCategory?.categories?.[1]?.prod
   lg:grid-cols-3
   xl:grid-cols-4
   2xl:grid-cols-6 gap-2 md:gap-6 pb-4">
-        {products?.map((item, index) => (
-          <div className="flex-shrink-0">
+        {products.map((item, index) => (
+          <div key={item._id || item.id || index} className="flex-shrink-0">
           <ProductCard
-          key={item._id}
+            key={item._id || item.id || index}
             product= {item}
           />
           </div>

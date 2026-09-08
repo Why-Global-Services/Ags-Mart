@@ -195,7 +195,7 @@ const Wishlist = () => {
               You will find a lot of interesting products on our "Shop" page.
             </p>
             <Link href="/shoppage">
-              <button className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-all duration-300">
+              <button className="px-8 py-3 bg-bgvariant-1 hover:bg-bgvariant-4 text-white font-semibold rounded-lg shadow-md transition-all duration-300">
                 Continue Shopping
               </button>
             </Link>
@@ -278,7 +278,7 @@ const Wishlist = () => {
                         className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           item.status === "Out of Stock"
                             ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-purple-600 text-white hover:bg-purple-700"
+                            : "bg-bgvariant-1 text-white hover:bg-bgvariant-4"
                         }`}
                       >
                         <FiShoppingCart className="text-base" />

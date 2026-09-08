@@ -8,6 +8,7 @@ import { FaUser, FaShoppingBag, FaLocationArrow, FaSignOutAlt, FaStopwatch, FaSp
 import { FaRegFaceGrinStars } from "react-icons/fa6";
 import { FaLocationDot } from "react-icons/fa6";
 import { TiShoppingCart } from "react-icons/ti";
+import Loading from "@/app/common/Loading";
 
 const AccountPage = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -165,14 +166,7 @@ const AccountPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4 flex items-center justify-center">
-        <div className="text-center">
-          <FaSpinner className="animate-spin text-4xl text-emerald-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading return policy...</p>
-        </div>
-      </div>
-    );
+    return <Loading text="Loading account details..." subtext="Accessing your profile & farm orders" />;
   }
 
   return (
