@@ -58,6 +58,20 @@ const shippingSchema = new mongoose.Schema(
 
 
 
+// 🎨 Unit-Only Variant Schema
+const unitOnlyVariantSchema = new mongoose.Schema(
+  {
+    unit: { type: String, required: true, trim: true, maxlength: 50 },
+    stockCount: { type: Number, default: 0 },
+    skuCode: String,
+    productCode: String,
+    variantImages: { type: [String], default: [] },
+    price: priceSchema,
+    _id: { type: String, default: uuidv4 },
+  },
+  { _id: false }
+);
+
 // 🎨 NEW: Size-Color Combination Schema
 const sizeColorVariantSchema = new mongoose.Schema(
   {
@@ -78,8 +92,22 @@ const variantSchema = new mongoose.Schema(
   {
     variantType: {
       type: String,
-      enum: ["sizeColor", "colorOnly", "sizeOnly"],
+      enum: ["unitOnly", "sizeColor", "colorOnly", "sizeOnly"],
       required: true,
+    },
+
+    // For unit-only variants
+    unitOnlyVariants: {
+      type: [unitOnlyVariantSchema],
+      validate: {
+        validator: function (val) {
+          if (this.variantType === "unitOnly") {
+            return Array.isArray(val) && val.length > 0;
+          }
+          return true;
+        },
+        message: "Unit variants are required when variantType is 'unitOnly'.",
+      },
     },
 
     // For size + color combinations (e.g., Small-Red, Medium-Blue)
@@ -167,10 +195,14 @@ const ProductSchema = new mongoose.Schema(
     category_id: { type: String, required: true },
     productSubCategory: {
       type: String,
-      required: true,
+      // SUBCATEGORY TEMPORARILY DISABLED for new product creation.
+      // Keep this optional field for legacy products and future re-enablement.
+      required: false,
       trim: true
     },
-    subcategory_id: { type: String, required: true },
+    // SUBCATEGORY TEMPORARILY DISABLED for new product creation.
+    // Keep this optional field for legacy products and future re-enablement.
+    subcategory_id: { type: String, required: false },
 
     // ⚙️ Product Type
     productType: {

@@ -64,7 +64,29 @@ const getLuxuryCollectionProducts = async (req, res) => {
     if (product.productType === "variant" && updatedVariant) {
       const variantType = updatedVariant.variantType;
 
-      if (variantType === "sizeColor") {
+      if (variantType === "unitOnly") {
+        updatedVariant.unitOnlyVariants = (updatedVariant.unitOnlyVariants || []).map(
+          (variant) => {
+            const variantId = variant._id?.toString();
+            const variantInCart = cartItems.some(
+              (item) =>
+                item.productId === productIdStr &&
+                item.variantId === variantId
+            );
+            const variantInWishlist = wishlistItems.some(
+              (item) =>
+                item.productId === productIdStr &&
+                item.variantId === variantId
+            );
+
+            return {
+              ...variant,
+              isInCart: variantInCart,
+              isInWishlist: variantInWishlist,
+            };
+          }
+        );
+      } else if (variantType === "sizeColor") {
         updatedVariant.sizeColorVariants = updatedVariant.sizeColorVariants.map(
           (variant) => {
             const variantId = variant._id?.toString();

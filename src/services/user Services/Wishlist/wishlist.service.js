@@ -33,7 +33,11 @@ const addWishlist = async (req) => {
   if (productType === "variant") {
     variantType = variant?.variantType;
 
-    if (variantType === "sizeColor") {
+    if (variantType === "unitOnly") {
+      matchedVariant = variant.unitOnlyVariants?.find(
+        (v) => v._id?.toString() === variantId?.toString(),
+      );
+    } else if (variantType === "sizeColor") {
       matchedVariant = variant.sizeColorVariants.find(
         (v) => v._id === variantId,
       );
@@ -181,6 +185,29 @@ const getWishlist = async (req) => {
         selectedVariant: {
           $switch: {
             branches: [
+              {
+                case: { $eq: ["$items.variantType", "unitOnly"] },
+                then: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: {
+                          $cond: [
+                            { $isArray: "$product.variant.unitOnlyVariants" },
+                            "$product.variant.unitOnlyVariants",
+                            [],
+                          ],
+                        },
+                        as: "v",
+                        cond: {
+                          $eq: [{ $toString: "$$v._id" }, "$items.variantId"],
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
               {
                 case: { $eq: ["$items.variantType", "colorOnly"] },
                 then: {

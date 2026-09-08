@@ -48,6 +48,9 @@ const Search = async (req) => {
       { "otherAttributes.pattern": { $regex: query, $options: "i" } },
       { "otherAttributes.occasion": { $regex: query, $options: "i" } },
 
+      { "variant.unitOnlyVariants.unit": { $regex: query, $options: "i" } },
+      { "variant.unitOnlyVariants.productCode": { $regex: query, $options: "i" } },
+
       { "variant.sizeOnlyVariants.color": { $regex: query, $options: "i" } },
       { "variant.sizeOnlyVariants.size": { $regex: query, $options: "i" } },
       { "variant.sizeOnlyVariants.productCode": { $regex: query, $options: "i" } },
@@ -88,6 +91,7 @@ const Search = async (req) => {
     searchFilter.$or = searchFilter.$or || [];
     searchFilter.$or.push(
       { "nonVariant.price.salePrice": priceFilter },
+      { "variant.unitOnlyVariants.price.salePrice": priceFilter },
       { "variant.colorOnlyVariants.price.salePrice": priceFilter },
       { "variant.sizeOnlyVariants.price.salePrice": priceFilter },
       { "variant.sizeColorVariants.price.salePrice": priceFilter }
@@ -102,6 +106,7 @@ if (discount) {
     // All products with any discount > 0
     searchFilter.$or.push(
       { "nonVariant.price.discount": { $gt: 0 } },
+      { "variant.unitOnlyVariants.price.discount": { $gt: 0 } },
       { "variant.colorOnlyVariants.price.discount": { $gt: 0 } },
       { "variant.sizeOnlyVariants.price.discount": { $gt: 0 } },
       { "variant.sizeColorVariants.price.discount": { $gt: 0 } }
@@ -111,6 +116,7 @@ if (discount) {
     const discountValue = parseFloat(discount);
     searchFilter.$or.push(
       { "nonVariant.price.discount": { $gte: discountValue } },
+      { "variant.unitOnlyVariants.price.discount": { $gte: discountValue } },
       { "variant.colorOnlyVariants.price.discount": { $gte: discountValue } },
       { "variant.sizeOnlyVariants.price.discount": { $gte: discountValue } },
       { "variant.sizeColorVariants.price.discount": { $gte: discountValue } }
@@ -185,7 +191,11 @@ if (minRating) {
           };
         });
 
-      if (variantType === "colorOnly") {
+      if (variantType === "unitOnly") {
+        updatedVariant.unitOnlyVariants = addFlags(
+          updatedVariant.unitOnlyVariants
+        );
+      } else if (variantType === "colorOnly") {
         updatedVariant.colorOnlyVariants = addFlags(
           updatedVariant.colorOnlyVariants
         );

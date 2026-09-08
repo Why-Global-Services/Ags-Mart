@@ -77,7 +77,11 @@ const getJustForYouProduct = async (req, res) => {
           };
         });
 
-      if (variantType === "sizeColor") {
+      if (variantType === "unitOnly") {
+        updatedVariant.unitOnlyVariants = addFlagsToVariant(
+          updatedVariant.unitOnlyVariants || []
+        );
+      } else if (variantType === "sizeColor") {
         updatedVariant.sizeColorVariants = addFlagsToVariant(
           updatedVariant.sizeColorVariants || []
         );

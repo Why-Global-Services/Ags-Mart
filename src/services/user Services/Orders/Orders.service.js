@@ -1058,6 +1058,18 @@ const validatedCartItems = cartItems.map((item) => {
                         branches: [
                           {
                             case: {
+                              $eq: ["$variant.variantType", "unitOnly"],
+                            },
+                            then: {
+                              $filter: {
+                                input: "$variant.unitOnlyVariants",
+                                as: "v",
+                                cond: { $eq: ["$$v._id", "$$variantId"] },
+                              },
+                            },
+                          },
+                          {
+                            case: {
                               $eq: ["$variant.variantType", "sizeColor"],
                             },
                             then: {
@@ -1290,24 +1302,31 @@ const validatedCartItems = cartItems.map((item) => {
       if (product.variant) {
         let foundVariant = null;
 
+        // Search in unit-only variants
+        if (!foundVariant && product.variant.unitOnlyVariants) {
+          foundVariant = product.variant.unitOnlyVariants.find(
+            (v) => v._id?.toString() === variantId?.toString()
+          );
+        }
+
         // Search in size-color variants
-        if (product.variant.sizeColorVariants) {
+        if (!foundVariant && product.variant.sizeColorVariants) {
           foundVariant = product.variant.sizeColorVariants.find(
-            (v) => v._id.toString() === variantId?.toString()
+            (v) => v._id?.toString() === variantId?.toString()
           );
         }
 
         // Search in color-only variants
         if (!foundVariant && product.variant.colorOnlyVariants) {
           foundVariant = product.variant.colorOnlyVariants.find(
-            (v) => v._id.toString() === variantId?.toString()
+            (v) => v._id?.toString() === variantId?.toString()
           );
         }
 
         // Search in size-only variants
         if (!foundVariant && product.variant.sizeOnlyVariants) {
           foundVariant = product.variant.sizeOnlyVariants.find(
-            (v) => v._id.toString() === variantId?.toString()
+            (v) => v._id?.toString() === variantId?.toString()
           );
         }
 
@@ -1322,6 +1341,11 @@ const validatedCartItems = cartItems.map((item) => {
       variantId,
       productType,
       availableNonVariantId: product.nonVariant?._id,
+      availableUnitOnlyVariants:
+        product.variant?.unitOnlyVariants?.map((v) => ({
+          id: v._id,
+          unit: v.unit,
+        })) || [],
       availableSizeColorVariants:
         product.variant?.sizeColorVariants?.map((v) => v._id) || [],
       availableColorOnlyVariants:

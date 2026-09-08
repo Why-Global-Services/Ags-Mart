@@ -101,10 +101,12 @@ const createProduct = async (req, res) => {
   });
 
   // 1️⃣ Validate required fields
-  if (!productName || !productCategory || !productSubCategory || !productType) {
+  // SUBCATEGORY TEMPORARILY DISABLED: productSubCategory is intentionally
+  // omitted from the Product Create required-field check.
+  if (!productName || !productCategory || !productType) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Missing required fields: productName, productCategory, productSubCategory, productType"
+      "Missing required fields: productName, productCategory, productType"
     );
   }
 
@@ -169,8 +171,6 @@ const createProduct = async (req, res) => {
     productTitle: productTitle || productName, // Fallback to productName if title is empty
     productCategory: productCategory,
     category_id,
-    productSubCategory: productSubCategory,
-    subcategory_id,
     productType,
     productImages: productImageUrls,
     productDescription,
@@ -183,6 +183,12 @@ const createProduct = async (req, res) => {
     isReturnable: isReturnable === "true" || isReturnable === true,
     isTodaySpecial: isTodaySpecial === "true" || isTodaySpecial === true,
   };
+
+  // SUBCATEGORY TEMPORARILY DISABLED
+  // Preserve support for a future optional payload without inventing an empty
+  // subcategory for newly-created products.
+  if (productSubCategory) productData.productSubCategory = productSubCategory;
+  if (subcategory_id) productData.subcategory_id = subcategory_id;
 
   console.log("🧱 Base Product Data:", productData);
 
@@ -216,7 +222,14 @@ const createProduct = async (req, res) => {
     console.log("📦 Variant images by index:", variantImagesByIndex);
 
     // Assign images based on variant type
-    if (variantData.variantType === "colorOnly" && variantData.colorOnlyVariants) {
+    if (variantData.variantType === "unitOnly" && variantData.unitOnlyVariants) {
+      variantData.unitOnlyVariants.forEach((v, index) => {
+        const key = index + 1;
+        if (variantImagesByIndex[key]) {
+          v.variantImages = variantImagesByIndex[key];
+        }
+      });
+    } else if (variantData.variantType === "colorOnly" && variantData.colorOnlyVariants) {
       variantData.colorOnlyVariants.forEach((v, index) => {
         const key = index + 1;
         if (variantImagesByIndex[key]) {
@@ -503,9 +516,7 @@ const updateProduct = async (req, res) => {
     "status",
     "updatedBy",
     "category_id",
-    "subcategory_id",
     "productCategory",
-    "productSubCategory",
     "productUsage",
     "isReturnable",
     "isTodaySpecial"
@@ -513,10 +524,16 @@ const updateProduct = async (req, res) => {
     if (key === "isReturnable" || key === "isTodaySpecial") {
       updateFields[key] =
         updateData[key] === "true" || updateData[key] === true;
-    } else {
+    } else if (updateData[key] !== undefined) {
       updateFields[key] = updateData[key];
     }
   });
+
+  // SUBCATEGORY TEMPORARILY DISABLED
+  // Omitted fields must not erase values stored on existing legacy products.
+  // Re-enable these assignments with the Product Create/Edit subcategory UI.
+  // if (updateData.subcategory_id !== undefined) updateFields.subcategory_id = updateData.subcategory_id;
+  // if (updateData.productSubCategory !== undefined) updateFields.productSubCategory = updateData.productSubCategory;
 
   if (updateData.productBenifits) {
     updateFields.productBenifits = safeParse(updateData.productBenifits);
@@ -622,7 +639,8 @@ const updateProduct = async (req, res) => {
     }
 
     const variantType = variantData.variantType;
-    const variantKey = `${variantType}Variants`;
+    // unitOnly uses "unitOnlyVariants" key — all other types follow the "${type}Variants" pattern
+    const variantKey = variantType === "unitOnly" ? "unitOnlyVariants" : `${variantType}Variants`;
 
     const existingVariants =
       existingProduct.variant?.[variantKey] || [];
@@ -677,6 +695,8 @@ const updateProduct = async (req, res) => {
 
     updateFields.variant = {
       variantType,
+      unitOnlyVariants:
+        variantType === "unitOnly" ? finalVariants : [],
       sizeColorVariants:
         variantType === "sizeColor" ? finalVariants : [],
       sizeOnlyVariants:
@@ -862,6 +882,44 @@ const bulkUpdateStock = async (req, res) => {
   };
 };
 
+// Delete specific variant from a product
+const deleteVariant = async (req, res) => {
+  const { productId, variantId } = req.params;
+
+  const product = await Product.findById(productId);
+  if (!product) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Product not found');
+  }
+
+  if (product.productType !== 'variant' || !product.variant) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Product is not a variant product');
+  }
+
+  const vType = product.variant.variantType;
+  const vKey = vType === 'unitOnly' ? 'unitOnlyVariants' : `${vType}Variants`;
+
+  if (!product.variant[vKey] || !Array.isArray(product.variant[vKey])) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'No variants found for product');
+  }
+
+  const initialLength = product.variant[vKey].length;
+  product.variant[vKey] = product.variant[vKey].filter(
+    (v) => v._id?.toString() !== variantId && v.id?.toString() !== variantId
+  );
+
+  if (product.variant[vKey].length === initialLength) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Variant not found');
+  }
+
+  await product.save();
+
+  return {
+    success: true,
+    message: 'Variant deleted successfully',
+    data: product,
+  };
+};
+
 module.exports = {
   createProduct,
   getActiveProducts,
@@ -872,4 +930,5 @@ module.exports = {
   softDeleteProduct,
   hardDeleteProduct,
   bulkUpdateStock,
+  deleteVariant,
 };

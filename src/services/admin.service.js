@@ -3342,8 +3342,7 @@ const createprivacypolicy = async (req) => {
 
 const getprivacypolicy = async () => {
   const posts = await PrivacyPolicy.findOne();
-  if (!posts) throw new Error("No posts found!");
-  return { success: true, data: posts };
+  return { success: true, data: posts || null };
 };
 
 const createtermsandcondition = async (req) => {
@@ -3371,8 +3370,7 @@ const createtermsandcondition = async (req) => {
 
 const gettermsandcondition = async () => {
   const posts = await TermsandCondition.findOne();
-  if (!posts) throw new Error("No posts found!");
-  return { success: true, message: "Data fetched successfully", data: posts };
+  return { success: true, message: "Data fetched successfully", data: posts || null };
 };
 
 const createreturnpolicy = async (req) => {
@@ -3400,8 +3398,7 @@ const createreturnpolicy = async (req) => {
 
 const getreturnpolicy = async () => {
   const posts = await ReturnPolicy.findOne();
-  if (!posts) throw new Error("No posts found!");
-  return { success: true, data: posts };
+  return { success: true, data: posts || null };
 };
 
 const createshippingpolicy = async (req) => {
@@ -3429,8 +3426,7 @@ const createshippingpolicy = async (req) => {
 
 const getshippingpolicy = async () => {
   const posts = await ShippingPolicy.findOne();
-  if (!posts) throw new Error("No posts found!");
-  return { success: true, data: posts };
+  return { success: true, data: posts || null };
 };
 
 const createadminpolicy = async (req) => {

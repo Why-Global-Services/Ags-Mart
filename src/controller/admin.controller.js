@@ -203,6 +203,11 @@ const postProduct = catchAsync(async (req, res) => {
   res.status(200).send(data);
 });
 
+const removeVariant = catchAsync(async (req, res) => {
+  const data = await productSerives.deleteVariant(req, res);
+  res.status(200).send(data);
+});
+
 const getReport = catchAsync(async (req, res) => {
   const data = await adminService.getReport(req);
 
@@ -753,6 +758,7 @@ module.exports = {
   fetchAllProducts,
   fetchSingleProducts,
   removeProducts,
+  removeVariant,
   addNotification,
   fetchNotification,
   createFeaturedSection,

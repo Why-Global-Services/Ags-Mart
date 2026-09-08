@@ -14,6 +14,9 @@ const isProductDiscounted = (product, item) => {
       const v = product.variant;
       if (!v) return null;
 
+      if (v.variantType === "unitOnly") {
+        return v.unitOnlyVariants?.find(x => x._id == item.variantId);
+      }
       if (v.variantType === "sizeColor") {
         return v.sizeColorVariants.find(x => x._id == item.variantId);
       }
@@ -146,6 +149,12 @@ if (hasAnyDiscountedItem) {
 
         const { variantType } = product.variant || {};
 
+        if (variantType === "unitOnly") {
+          found = product.variant.unitOnlyVariants?.find(
+            (v) => v._id == item.variantId
+          );
+        }
+
         if (variantType === "sizeColor") {
           found = product.variant.sizeColorVariants.find(
             (v) => v._id == item.variantId
@@ -255,7 +264,17 @@ if (hasAnyDiscountedItem) {
         const variant = product.variant;
         let selectedVariant = null;
 
-        if (variant?.variantType === "sizeColor") {
+        if (variant?.variantType === "unitOnly") {
+          selectedVariant = variant.unitOnlyVariants?.find(
+            (v) => v._id?.toString() === free.variantId?.toString()
+          );
+          if (selectedVariant) {
+            freeProduct.variantDetails = {
+              unit: selectedVariant.unit,
+              displayName: selectedVariant.unit,
+            };
+          }
+        } else if (variant?.variantType === "sizeColor") {
           selectedVariant = variant.sizeColorVariants?.find(
             (v) => v._id === free.variantId
           );

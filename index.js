@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 const app = require("./app");
 const config = require("./src/config/config");
 const logger = require("./src/config/logger");
+const dns =require("dns")
+
+
+dns.setDefaultResultOrder('ipv4first');
+dns.setServers(['8.8.8.8','8.8.4.4']);
 
 let server;
 

@@ -60,7 +60,29 @@ const getNewProducts = async (req, res) => {
       const variantType = updatedVariant.variantType;
 
       // Apply flags inside each variant type
-      if (variantType === "sizeColor") {
+      if (variantType === "unitOnly") {
+        updatedVariant.unitOnlyVariants = (updatedVariant.unitOnlyVariants || []).map(
+          (variant) => {
+            const variantId = variant._id?.toString();
+            const variantInCart = cartItems.some(
+              (item) =>
+                item.productId === productIdStr &&
+                item.variantId === variantId
+            );
+            const variantInWishlist = wishlistItems.some(
+              (item) =>
+                item.productId === productIdStr &&
+                item.variantId === variantId
+            );
+
+            return {
+              ...variant,
+              isInCart: variantInCart,
+              isInWishlist: variantInWishlist,
+            };
+          }
+        );
+      } else if (variantType === "sizeColor") {
         updatedVariant.sizeColorVariants = updatedVariant.sizeColorVariants.map(
           (variant) => {
             const variantId = variant._id?.toString();

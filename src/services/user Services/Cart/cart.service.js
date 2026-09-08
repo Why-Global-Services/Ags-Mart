@@ -29,6 +29,7 @@ const addToCart = async (req) => {
 
   if (productType === "variant") {
     const variantGroups = {
+      unitOnly: variant?.unitOnlyVariants,
       sizeColor: variant?.sizeColorVariants,
       colorOnly: variant?.colorOnlyVariants,
       sizeOnly: variant?.sizeOnlyVariants,
@@ -131,6 +132,7 @@ const getCart = async (req) => {
               $filter: {
                 input: {
                   $concatArrays: [
+                    { $ifNull: ["$product.variant.unitOnlyVariants", []] },
                     { $ifNull: ["$product.variant.sizeColorVariants", []] },
                     { $ifNull: ["$product.variant.colorOnlyVariants", []] },
                     { $ifNull: ["$product.variant.sizeOnlyVariants", []] },
@@ -164,9 +166,10 @@ const getCart = async (req) => {
       },
     },
 
-    // ✅ Third: now we can safely read color/size from selectedVariant
+    // ✅ Third: now we can safely read unit/color/size from selectedVariant
     {
       $addFields: {
+        selectedUnit: "$selectedVariant.unit",
         selectedColor: "$selectedVariant.color",
         selectedSize: "$selectedVariant.size",
       },
@@ -247,6 +250,7 @@ const getCart = async (req) => {
         },
 
         selectedVariant: 1,
+        selectedUnit: 1,
         selectedColor: 1, // ✅
         selectedSize: 1, // ✅
         status: "$product.status",

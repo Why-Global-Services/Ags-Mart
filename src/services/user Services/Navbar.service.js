@@ -23,6 +23,9 @@ const Navbar = async (req) => {
         from: "subCategory",
         localField: "_id",
         foreignField: "category",
+        pipeline: [
+          { $match: { status: "active" } },
+        ],
         as: "subCategory",
       },
     },

@@ -152,6 +152,7 @@ AdminRouter.route("/editProductStatus/:_id").put(
   adminController.editProductStatus
 );
 AdminRouter.route("/deleteProduct/:_id").delete(adminController.removeProducts);
+AdminRouter.route("/deleteVariant/:productId/:variantId").delete(adminController.removeVariant);
 
 //Orders
 AdminRouter.route("/getOrders").get(adminController.getOrder);

@@ -63,7 +63,17 @@ const checkOut = async (req) => {
               const variant = product.variant;
               let selectedVariant = null;
 
-              if (variant?.variantType === "sizeColor") {
+              if (variant?.variantType === "unitOnly") {
+                selectedVariant = variant.unitOnlyVariants?.find(
+                  (v) => v._id?.toString() === coupon.freeProduct.variantId?.toString()
+                );
+                if (selectedVariant) {
+                  freeProductDetails.variantDetails = {
+                    unit: selectedVariant.unit,
+                    displayName: selectedVariant.unit,
+                  };
+                }
+              } else if (variant?.variantType === "sizeColor") {
                 selectedVariant = variant.sizeColorVariants?.find(
                   (v) => v._id === coupon.freeProduct.variantId
                 );
@@ -160,7 +170,17 @@ const checkOut = async (req) => {
         const variant = product.variant || {};
         let selectedVariant = null;
 
-        if (variant.variantType === "sizeColor") {
+        if (variant.variantType === "unitOnly") {
+          selectedVariant = variant.unitOnlyVariants?.find(
+            (v) => v._id.toString() === item.variantId
+          );
+
+          if (selectedVariant) {
+            variantDetails = {
+              unit: selectedVariant.unit,
+            };
+          }
+        } else if (variant.variantType === "sizeColor") {
           selectedVariant = variant.sizeColorVariants?.find(
             (v) => v._id.toString() === item.variantId
           );
