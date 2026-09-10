@@ -123,6 +123,7 @@ const BestSeller = () => {
 
   // Helper function to get display price
   const getDisplayPrice = (product) => {
+    if (product?.basePrice) return product.basePrice;
     if (product.productType === "variant") {
       const firstVariant =
         product.variant?.unitOnlyVariants?.[0] ||

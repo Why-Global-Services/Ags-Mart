@@ -1723,7 +1723,7 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
       const firstVariant = variants[0];
       displayImage =
         firstVariant?.variantImages?.[0] || product.productImages?.[0];
-      displayPrice = firstVariant?.price?.salePrice || 0;
+      displayPrice = product.basePrice || firstVariant?.price?.salePrice || 0;
       displayCostPrice = firstVariant?.price?.costPrice || displayPrice;
       displayDiscount = firstVariant?.price?.discount || 0;
       priceBreakdown = firstVariant?.price;
@@ -1961,8 +1961,7 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
           productName: displayName,
           productImage: selectedVariant.variantImages?.[0] || displayImage,
           variantDetails: {
-            size: selectedVariant.size || selectedSize,
-            color: selectedVariant.color || selectedColor,
+            unit: selectedVariant.unit || null,
           },
           stockCount: selectedVariant.stockCount || 0,
         };
@@ -2128,7 +2127,7 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
             {/* PRICE SECTION */}
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <p className={`${getPriceClass()} font-bold text-bgvariant-2`}>
-                Rs. {displayPrice?.toFixed(2)}
+                {isVariantProduct ? "From " : ""}Rs. {displayPrice?.toFixed(2)}
               </p>
               {displayDiscount > 0 && (
                 <p className="text-gray-500 line-through text-sm sm:text-base">

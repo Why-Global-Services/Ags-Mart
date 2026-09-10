@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
 import {
   XCircleIcon,
   CheckCircleIcon,
@@ -22,6 +23,7 @@ import { gaEvent } from "@/app/lib/ga";
 import { showToast } from "@/app/utils/toast";
 import { useAuth } from "@/context/AuthContext";
 import AuthPage from "@/app/common/LoginPage";
+import { resetCart } from "@/app/store/cartSlice";
 
 const Review = ({
   buyNowItem,
@@ -30,7 +32,8 @@ const Review = ({
   billingAddressId,
 }) => {
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const dispatch = useDispatch();
+  const { isLoggedIn, user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -49,7 +52,9 @@ const Review = ({
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [showLoginModal, setShowLoginModal] = useState(false);
   const[showAuth, setShowAuth]=useState(false)
-  // const user=useAuth(); // added for completeness
+  const [completedOrderId, setCompletedOrderId] = useState(null);
+  const razorpayOrderRef = useRef(null);
+  const isSubmittingRef = useRef(false);
 
   // Define Razorpay key directly or use environment variable with fallback
   const razorpayKey = "rzp_test_S3g71UVxt2B922";
@@ -80,27 +85,34 @@ const Review = ({
   const firePurchaseEvent = (order) => {
     if (!order) return;
 
-    const totalValue =
-      order.pricingSummary?.finalTotal ?? order.totalPrice ?? 0;
+    try {
+      const totalValue =
+        order.pricingSummary?.finalTotal ?? order.totalPrice ?? 0;
+      const orderedProducts = (order.orderDetails || []).flatMap((detail) =>
+        Array.isArray(detail.products) ? detail.products : [detail],
+      );
 
-    gaEvent("purchase", {
-      transaction_id: order.orderId,
-      value: totalValue,
-      currency: "INR",
-      payment_type: order.paymentMethod,
-      shipping: order.pricingSummary?.shipping ?? 0,
-      coupon:
-        order.pricingSummary?.couponDiscount > 0
-          ? appliedCoupons[0]?.code
-          : undefined,
-      items: order.orderDetails.map((item) => ({
-        item_id: item.productId,
-        item_name: item.productName,
-        item_variant: item.variantDetails?.size || item.variantDetails?.color,
-        price: item.price?.salePrice || 0,
-        quantity: item.quantity || 1,
-      })),
-    });
+      gaEvent("purchase", {
+        transaction_id: order.orderId,
+        value: totalValue,
+        currency: "INR",
+        payment_type: order.paymentMethod,
+        shipping: order.pricingSummary?.shipping ?? 0,
+        coupon:
+          order.pricingSummary?.couponDiscount > 0
+            ? appliedCoupons[0]?.code
+            : undefined,
+        items: orderedProducts.map((item) => ({
+          item_id: item.productId,
+          item_name: item.productName,
+          item_variant: item.variantDetails?.unit || null,
+          price: item.price?.salePrice ?? item.price ?? 0,
+          quantity: item.quantity || 1,
+        })),
+      });
+    } catch (error) {
+      console.warn("Purchase analytics failed after order creation:", error);
+    }
   };
 
   // Check if Razorpay is already loaded
@@ -146,6 +158,8 @@ const Review = ({
           ? [buyNowItem.productImage]
           : ["/combo.jpg"],
         selectedVariant: {
+          _id: buyNowItem.variantId || null,
+          unit: buyNowItem.variantDetails?.unit || null,
           varientValue: buyNowItem.variantDetails?.displaySize || "",
           price: {
             salePrice:
@@ -501,10 +515,13 @@ const Review = ({
         };
       }
 
-      console.log("Creating Razorpay order with payload:", orderPayload);
-      const orderResponse = await placeOrder(orderPayload);
-
-      const orderData = orderResponse?.data ?? orderResponse;
+      let orderData = razorpayOrderRef.current;
+      if (!orderData) {
+        console.log("Creating Razorpay order with payload:", orderPayload);
+        const orderResponse = await placeOrder(orderPayload);
+        orderData = orderResponse?.data ?? orderResponse;
+        razorpayOrderRef.current = orderData;
+      }
 
       const razorpayOrderId = orderData?.razorpayOrder?.id;
       const razorpayOrderAmount =
@@ -525,13 +542,6 @@ const Review = ({
         throw new Error("Razorpay SDK not loaded");
       }
 
-      if (!user) {
-         
-        return <AuthPage />;
-        
-      }
-
-
       const options = {
         key: razorpayKey,
         amount: razorpayOrderAmount,
@@ -549,18 +559,20 @@ const Review = ({
 
             const confirmedOrder = verifyRes.data.order;
             firePurchaseEvent(confirmedOrder);
-            handlePaymentSuccess();
+            handlePaymentSuccess(confirmedOrder);
           } catch (error) {
             console.error("Error after payment success:", error);
             setPaymentError(
-              "Order placement failed after payment. Please contact support.",
+              "Payment was received, but confirmation could not be completed. Please contact support with your order ID.",
             );
+            isSubmittingRef.current = false;
+            setLoading(false);
           }
         },
         prefill: {
-          name: orderData?.user?.name || "Customer",
-          email: orderData?.user?.email || "customer@example.com",
-          contact: orderData?.user?.phone || "",
+          name: user?.fullName || user?.name || "Customer",
+          email: user?.email || "",
+          contact: user?.phone || user?.contactNumber || "",
         },
         theme: {
           color: "#047857",
@@ -568,6 +580,7 @@ const Review = ({
         modal: {
           ondismiss: function () {
             console.log("Razorpay modal closed by user");
+            isSubmittingRef.current = false;
             setLoading(false);
           },
         },
@@ -591,6 +604,7 @@ const Review = ({
 
   const handlePayNow = async () => {
     console.log("first");
+    if (loading || isSubmittingRef.current) return;
     if (!isLoggedIn) {
       setShowLoginModal(true);
       return false;
@@ -602,6 +616,7 @@ const Review = ({
     }
 
     setAddressError(null);
+    isSubmittingRef.current = true;
     setLoading(true);
     setPaymentError(null);
 
@@ -620,25 +635,31 @@ const Review = ({
           pricingSummary: res.pricingSummary,
         });
 
-        handlePaymentSuccess();
+        handlePaymentSuccess(res.userOrder);
       } else {
         setPaymentError("Payment gateway integration required");
+        isSubmittingRef.current = false;
         setLoading(false);
       }
     } catch (error) {
       console.error("Payment error:", error);
       setPaymentError(error.message || "Payment failed. Please try again.");
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (order) => {
+    setCompletedOrderId(order?.orderId || order?._id || null);
     setIsModalOpen(true);
     setLoading(false);
+    razorpayOrderRef.current = null;
     localStorage.removeItem("selectedDeliveryAddress");
     localStorage.removeItem("selectedBillingAddress");
     if (isBuyNow) {
       localStorage.removeItem("buyNowItem");
+    } else {
+      dispatch(resetCart());
     }
   };
 
@@ -665,10 +686,6 @@ const Review = ({
     return totalPrice >= (coupon.minPurchaseAmount || 0);
   };
 
-
-//   if (!user) {
-//   return <AuthPage />;
-// }
 
   return (
     <div className="w-full max-w-4xl mx-auto px-6 md:px-6 mb-5">
@@ -1046,6 +1063,8 @@ const Review = ({
           <div className="relative">
             <input
               type="text"
+              id="coupon-code"
+              name="couponCode"
               placeholder="Enter coupon code"
               value={couponCode}
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
@@ -1214,6 +1233,12 @@ const Review = ({
               Your order has been created successfully. You can track order
               status and updates anytime from your orders page.
             </p>
+
+            {completedOrderId && (
+              <p className="mb-6 text-sm font-semibold text-emerald-800">
+                Order ID: {completedOrderId}
+              </p>
+            )}
 
             <button
               onClick={closeModal}

@@ -128,7 +128,9 @@ const ProductDetailsPage = () => {
   const displayImages =
     selectedVariant?.variantImages?.length > 0
       ? selectedVariant.variantImages
-      : product?.images || [];
+      : product?.rawData?.productImages?.length > 0
+        ? product.rawData.productImages
+        : product?.images || [];
 
   useEffect(() => {
     if (!product || !selectedVariant) return;
@@ -175,33 +177,49 @@ const ProductDetailsPage = () => {
     setSelectedImage(0);
   };
 
+  const getSelectedUnitRequest = () => {
+    const variantId = selectedVariant?._id;
+    const isValidUnitVariant = isUnitOnlyProduct
+      ? unitVariants.some((variant) => String(variant._id) === String(variantId))
+      : Boolean(variantId);
+
+    const payload = {
+      productId: product?.productId,
+      variantId,
+      productType: product?.productType,
+      variantType: product?.variant?.variantType || null,
+      selectedUnit: selectedVariant?.unit || null,
+    };
+
+    console.debug("AGS Mart selected variant", payload);
+    if (!isValidUnitVariant) {
+      throw new Error("Please select a valid unit before continuing.");
+    }
+
+    return payload;
+  };
+
   const handleAddToWishlist = async () => {
     
     if (!product || !selectedVariant) return;
     setAddingToWishlist(true);
-    const variantId = selectedVariant._id;
-    const productType = product.productType;
-    if (isInWishlist) {
-      dispatch(
-        removeWishlistItem({
-          productId: product.productId,
-          variantId,
-          productType,
-          variantType: isUnitOnlyProduct ? "unitOnly" : null,
-        }),
-      );
-    } else {
-      dispatch(
-        addWishlistItem({
-          productId: product.productId,
-          variantId,
-          productType,
-          variantType: isUnitOnlyProduct ? "unitOnly" : null,
-        }),
-      );
-    }
+    try {
+      const { productId, variantId, productType, variantType } = getSelectedUnitRequest();
+      if (isInWishlist) {
+        await dispatch(
+          removeWishlistItem({ productId, variantId, productType, variantType }),
+        ).unwrap();
+      } else {
+        await dispatch(
+          addWishlistItem({ productId, variantId, productType, variantType }),
+        ).unwrap();
+      }
     // await toggleWishlistStore(product.productId, variantId, productType);
-    setAddingToWishlist(false);
+    } catch (error) {
+      console.error("Wishlist update failed:", error);
+    } finally {
+      setAddingToWishlist(false);
+    }
 
     gaEvent("add_to_wishlist", {
       item_id: product.productId,
@@ -218,16 +236,11 @@ const ProductDetailsPage = () => {
       return;
     }
     setAddingToCart(true);
-    const variantId = selectedVariant._id;
-    dispatch(
-      addCartItem({
-        productId: product.productId,
-        variantId,
-        productType: product.productType,
-        variantType: isUnitOnlyProduct ? "unitOnly" : null,
-        quantity,
-      }),
-    );
+    try {
+      const { productId, variantId, productType, variantType } = getSelectedUnitRequest();
+      await dispatch(
+        addCartItem({ productId, variantId, productType, variantType, quantity }),
+      ).unwrap();
 
     gaEvent("add_to_cart", {
       currency: "INR",
@@ -242,7 +255,11 @@ const ProductDetailsPage = () => {
         },
       ],
     });
-    setAddingToCart(false);
+    } catch (error) {
+      console.error("Add to cart failed:", error);
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
   const requireLogin = (actionCallback) => {
@@ -257,22 +274,24 @@ const ProductDetailsPage = () => {
     const action = () => {
       if (!product || !selectedVariant) return;
 
+      const { productId: selectedProductId, variantId, productType, variantType, selectedUnit } =
+        getSelectedUnitRequest();
       const priceBreakdown = selectedVariant.price || {};
       const displayName = product.productName;
       const displayImage =
         displayImages[0] || "https://via.placeholder.com/500";
 
       const buyNowItemData = {
-        productId: product.productId,
-        variantId: selectedVariant._id,
+        productId: selectedProductId,
+        variantId,
         quantity: 1,
-        productType: product.productType,
-        variantType: isUnitOnlyProduct ? "unitOnly" : null,
+        productType,
+        variantType,
         priceBreakdown,
         productName: displayName,
         productImage: selectedVariant.variantImages?.[0] || displayImage,
         variantDetails: {
-          unit: selectedVariant.unit || null,
+          unit: selectedUnit,
         },
         stockCount: selectedVariant.stockCount || 0,
       };
@@ -403,7 +422,7 @@ const ProductDetailsPage = () => {
             </div>
 
             <div className="text-4xl font-bold">
-              ₹{selectedVariant?.price?.salePrice?.toLocaleString() || "0"}
+              ₹{selectedVariant?.price?.salePrice?.toLocaleString() || (product?.rawData?.basePrice ? product.rawData.basePrice.toLocaleString() : "0")}
               {selectedVariant?.price?.costPrice >
                 selectedVariant?.price?.salePrice && (
                 <>

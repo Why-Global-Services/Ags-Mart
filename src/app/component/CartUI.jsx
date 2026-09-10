@@ -1740,8 +1740,7 @@ export default function ProductCard({ product }) {
           productName: displayName,
           productImage: selectedVariant.variantImages?.[0] || displayImage,
           variantDetails: {
-            size: selectedVariant.size || selectedSize,
-            color: selectedVariant.color || selectedColor,
+            unit: selectedVariant.unit || null,
           },
           stockCount: selectedVariant.stockCount || 0,
         };
