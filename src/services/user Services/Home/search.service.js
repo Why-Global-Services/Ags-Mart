@@ -4,6 +4,35 @@ const { cart } = require("../../../models/cart.model");
 const { wishlistSchema } = require("../../../models/wishlist.model");
 const ApiError = require("../../../utils/apiError");
 
+const ensureBasePrice = (product) => {
+  if (!product) return product;
+  const prodObj = product.toObject ? product.toObject() : { ...product };
+  if (!prodObj.basePrice || prodObj.basePrice === 0) {
+    if (prodObj.price?.salePrice && prodObj.price.salePrice > 0) {
+      prodObj.basePrice = prodObj.price.salePrice;
+    } else if (prodObj.productType === "variant") {
+      const v =
+        prodObj.variant?.unitOnlyVariants ||
+        prodObj.variant?.sizeColorVariants ||
+        prodObj.variant?.colorOnlyVariants ||
+        prodObj.variant?.sizeOnlyVariants ||
+        [];
+      const prices = v
+        .map((item) => item.price?.salePrice || item.price?.costPrice)
+        .filter((p) => typeof p === "number" && p > 0);
+      if (prices.length > 0) {
+        prodObj.basePrice = Math.min(...prices);
+      }
+    } else if (prodObj.productType === "nonVariant" && prodObj.nonVariant?.price) {
+      prodObj.basePrice =
+        prodObj.nonVariant.price.salePrice ||
+        prodObj.nonVariant.price.costPrice ||
+        0;
+    }
+  }
+  return prodObj;
+};
+
 const Search = async (req) => {
   const userId = req.user?._id;
   const { query, category, minPrice, maxPrice, discount, minRating } = req.query;
@@ -90,6 +119,7 @@ const Search = async (req) => {
 
     searchFilter.$or = searchFilter.$or || [];
     searchFilter.$or.push(
+      { basePrice: priceFilter },
       { "nonVariant.price.salePrice": priceFilter },
       { "variant.unitOnlyVariants.price.salePrice": priceFilter },
       { "variant.colorOnlyVariants.price.salePrice": priceFilter },
@@ -210,12 +240,12 @@ if (minRating) {
       }
     }
 
-    return {
+    return ensureBasePrice({
       ...product.toObject(),
       isInCart,
       isInWishlist,
       variant: updatedVariant,
-    };
+    });
   });
 
   // ✅ Return

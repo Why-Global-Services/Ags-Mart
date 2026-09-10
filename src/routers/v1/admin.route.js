@@ -3,7 +3,10 @@ const AdminRouter = express.Router();
 const adminController = require("../../controller/admin.controller");
 const userController = require("../../controller/user.controller");
 const { uploads } = require("../../middlwares/multer");
-const { verifyToken } = require("../../middlwares/authentication");
+const {
+  verifyToken,
+  requireProductManager,
+} = require("../../middlwares/authentication");
 
 // Banner
 AdminRouter.route("/createUpdateBanner").post(
@@ -151,7 +154,11 @@ AdminRouter.route("/editProduct/:_id").put(
 AdminRouter.route("/editProductStatus/:_id").put(
   adminController.editProductStatus
 );
-AdminRouter.route("/deleteProduct/:_id").delete(adminController.removeProducts);
+AdminRouter.route("/deleteProduct/:_id").delete(
+  verifyToken,
+  requireProductManager,
+  adminController.removeProducts
+);
 AdminRouter.route("/deleteVariant/:productId/:variantId").delete(adminController.removeVariant);
 
 //Orders

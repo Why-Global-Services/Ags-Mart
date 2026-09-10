@@ -12,6 +12,11 @@ const sendOrderCreatedWhatsApp = async ({
   shippingStatus,
 }) => {
   try {
+    if (!phone) {
+      console.error("❌ AiSensy Error: customer phone is missing");
+      return { success: false };
+    }
+
     const destination = phone.startsWith("91") ? phone : `91${phone}`;
 
     // Sanitize userName for AiSensy
@@ -21,7 +26,6 @@ const sendOrderCreatedWhatsApp = async ({
     if (!userName || userName.length < 3) {
       throw new Error("Invalid userName after sanitization");
     }
-    console.log(process.env.AISENSY_API_KEY);
     await axios.post("https://backend.aisensy.com/campaign/t1/api/v2", {
       apiKey: process.env.AISENSY_API_KEY,
       campaignName: "order_confirmed_v1", // EXACT copied name
@@ -44,8 +48,10 @@ const sendOrderCreatedWhatsApp = async ({
   );
 
     console.log("✅ WhatsApp Order Created message sent");
+    return { success: true };
   } catch (err) {
     console.error("❌ AiSensy Error:", err.response?.data || err.message);
+    return { success: false };
   }
 };
 

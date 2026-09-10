@@ -1,7 +1,36 @@
+
 const { Product } = require("../../../models/Product.model");
 const httpStatus = require('http-status');
 const ApiError = require("../../../utils/apiError");
 const { uploadToCloud } = require("../../../utils/uploadFileToS3");
+
+const ensureBasePrice = (product) => {
+  if (!product) return product;
+  if (!product.basePrice || product.basePrice === 0) {
+    if (product.price?.salePrice && product.price.salePrice > 0) {
+      product.basePrice = product.price.salePrice;
+    } else if (product.productType === "variant") {
+      const v =
+        product.variant?.unitOnlyVariants ||
+        product.variant?.sizeColorVariants ||
+        product.variant?.colorOnlyVariants ||
+        product.variant?.sizeOnlyVariants ||
+        [];
+      const prices = v
+        .map((item) => item.price?.salePrice || item.price?.costPrice)
+        .filter((p) => typeof p === "number" && p > 0);
+      if (prices.length > 0) {
+        product.basePrice = Math.min(...prices);
+      }
+    } else if (product.productType === "nonVariant" && product.nonVariant?.price) {
+      product.basePrice =
+        product.nonVariant.price.salePrice ||
+        product.nonVariant.price.costPrice ||
+        0;
+    }
+  }
+  return product;
+};
 
 const getActiveProducts = async (req, res) => {
   const { categoryId } = req.query;
@@ -15,9 +44,9 @@ const getActiveProducts = async (req, res) => {
   return {
     success: true,
     message: "Active Products fetched successfully",
-    data: products,
+    data: products.map(ensureBasePrice),
   };
-}
+};
 
 const createProduct = async (req, res) => {
   console.log("🟢 Incoming product creation request");
@@ -140,11 +169,7 @@ const createProduct = async (req, res) => {
 
   // 2️⃣ Validate product type
   if (productType === "variant" && !variant) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Variant data required");
-  }
-
-  if (productType === "nonVariant" && !nonVariant) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "NonVariant data required");
+    throw new ApiError(httpStatus.BAD_REQUEST, "Variant data is required for variant products");
   }
 
   // 3️⃣ Upload main product images
@@ -184,13 +209,59 @@ const createProduct = async (req, res) => {
     isTodaySpecial: isTodaySpecial === "true" || isTodaySpecial === true,
   };
 
+  // Base Price handling at product level
+  const basePriceInput =
+    req.body.basePrice !== undefined && req.body.basePrice !== ""
+      ? parseFloat(req.body.basePrice)
+      : undefined;
+  const priceInput = safeParse(req.body.price);
+
+  if (basePriceInput !== undefined && !isNaN(basePriceInput)) {
+    productData.basePrice = basePriceInput;
+    productData.price = {
+      costPrice:
+        priceInput?.costPrice !== undefined && priceInput?.costPrice !== ""
+          ? parseFloat(priceInput.costPrice)
+          : basePriceInput,
+      salePrice:
+        priceInput?.salePrice !== undefined && priceInput?.salePrice !== ""
+          ? parseFloat(priceInput.salePrice)
+          : basePriceInput,
+      realPrice:
+        priceInput?.realPrice !== undefined && priceInput?.realPrice !== ""
+          ? parseFloat(priceInput.realPrice)
+          : 0,
+      discount:
+        priceInput?.discount !== undefined && priceInput?.discount !== ""
+          ? parseFloat(priceInput.discount)
+          : 0,
+      tax:
+        priceInput?.tax !== undefined && priceInput?.tax !== ""
+          ? parseFloat(priceInput.tax)
+          : 0,
+    };
+  } else if (
+    priceInput &&
+    (priceInput.salePrice !== undefined || priceInput.costPrice !== undefined)
+  ) {
+    const sPrice = parseFloat(
+      priceInput.salePrice ?? priceInput.costPrice ?? 0
+    );
+    productData.basePrice = sPrice;
+    productData.price = {
+      costPrice: parseFloat(priceInput.costPrice ?? sPrice),
+      salePrice: sPrice,
+      realPrice: parseFloat(priceInput.realPrice ?? 0),
+      discount: parseFloat(priceInput.discount ?? 0),
+      tax: parseFloat(priceInput.tax ?? 0),
+    };
+  }
+
   // SUBCATEGORY TEMPORARILY DISABLED
   // Preserve support for a future optional payload without inventing an empty
   // subcategory for newly-created products.
   if (productSubCategory) productData.productSubCategory = productSubCategory;
   if (subcategory_id) productData.subcategory_id = subcategory_id;
-
-  console.log("🧱 Base Product Data:", productData);
 
   // 5️⃣ Handle VARIANT products
   if (productType === "variant") {
@@ -252,6 +323,21 @@ const createProduct = async (req, res) => {
       });
     }
 
+    // Fallback basePrice for variant in createProduct
+    if ((productData.basePrice === undefined || productData.basePrice === 0) && variantData) {
+      const vList = variantData.unitOnlyVariants || variantData.sizeColorVariants || variantData.colorOnlyVariants || variantData.sizeOnlyVariants || [];
+      const firstVPrice = vList[0]?.price?.salePrice || vList[0]?.price?.costPrice || 0;
+      if (firstVPrice) {
+        productData.basePrice = firstVPrice;
+        productData.price = {
+          costPrice: vList[0]?.price?.costPrice || firstVPrice,
+          salePrice: firstVPrice,
+          discount: vList[0]?.price?.discount || 0,
+          tax: vList[0]?.price?.tax || 0,
+        };
+      }
+    }
+
     productData.variant = variantData;
   }
 
@@ -291,6 +377,12 @@ const createProduct = async (req, res) => {
       productCode: nonVariantData.productCode || "",
       nonVariantImages: nonVariantImageUrls,
     };
+
+    // Fallback basePrice for nonVariant in createProduct
+    if (productData.basePrice === undefined || productData.basePrice === 0) {
+      productData.basePrice = productData.nonVariant.price?.salePrice || productData.nonVariant.price?.costPrice || 0;
+      productData.price = productData.nonVariant.price;
+    }
 
     console.log("✅ NonVariant data:", productData.nonVariant);
   }
@@ -370,6 +462,9 @@ const getAllProducts = async (req, res) => {
     if (maxPrice) priceFilter.$lte = Number(maxPrice);
 
     filter.$or = [
+      { 'basePrice': priceFilter },
+      { 'price.salePrice': priceFilter },
+      { 'variant.unitOnlyVariants.price.salePrice': priceFilter },
       { 'nonVariant.price.salePrice': priceFilter },
       { 'variant.sizeColorVariants.price.salePrice': priceFilter },
       { 'variant.colorOnlyVariants.price.salePrice': priceFilter },
@@ -393,7 +488,7 @@ const getAllProducts = async (req, res) => {
 
   return {
     success: true,
-    data: products,
+    data: products.map(ensureBasePrice),
     pagination: {
       currentPage: Number(page),
       totalPages: Math.ceil(total / Number(limit)),
@@ -415,7 +510,7 @@ const getProductById = async (req, res) => {
 
   return {
     success: true,
-    data: product,
+    data: ensureBasePrice(product),
   }
 };
 
@@ -543,6 +638,55 @@ const updateProduct = async (req, res) => {
     updateFields.productIngrediants = safeParse(updateData.productIngrediants);
   }
 
+  // Base Price handling in updateProduct
+  if (updateData.basePrice !== undefined && updateData.basePrice !== "") {
+    const parsedBasePrice = parseFloat(updateData.basePrice);
+    if (!isNaN(parsedBasePrice)) {
+      updateFields.basePrice = parsedBasePrice;
+      const parsedPrice = safeParse(updateData.price) || {};
+      updateFields.price = {
+        costPrice:
+          parsedPrice.costPrice !== undefined && parsedPrice.costPrice !== ""
+            ? parseFloat(parsedPrice.costPrice)
+            : parsedBasePrice,
+        salePrice:
+          parsedPrice.salePrice !== undefined && parsedPrice.salePrice !== ""
+            ? parseFloat(parsedPrice.salePrice)
+            : parsedBasePrice,
+        realPrice:
+          parsedPrice.realPrice !== undefined && parsedPrice.realPrice !== ""
+            ? parseFloat(parsedPrice.realPrice)
+            : 0,
+        discount:
+          parsedPrice.discount !== undefined && parsedPrice.discount !== ""
+            ? parseFloat(parsedPrice.discount)
+            : 0,
+        tax:
+          parsedPrice.tax !== undefined && parsedPrice.tax !== ""
+            ? parseFloat(parsedPrice.tax)
+            : 0,
+      };
+    }
+  } else if (updateData.price) {
+    const parsedPrice = safeParse(updateData.price);
+    if (
+      parsedPrice &&
+      (parsedPrice.salePrice !== undefined || parsedPrice.costPrice !== undefined)
+    ) {
+      const sPrice = parseFloat(
+        parsedPrice.salePrice ?? parsedPrice.costPrice ?? 0
+      );
+      updateFields.basePrice = sPrice;
+      updateFields.price = {
+        costPrice: parseFloat(parsedPrice.costPrice ?? sPrice),
+        salePrice: sPrice,
+        realPrice: parseFloat(parsedPrice.realPrice ?? 0),
+        discount: parseFloat(parsedPrice.discount ?? 0),
+        tax: parseFloat(parsedPrice.tax ?? 0),
+      };
+    }
+  }
+
   // =========================================================
   // 🖼️ PRODUCT MAIN IMAGES
   // =========================================================
@@ -617,6 +761,12 @@ const updateProduct = async (req, res) => {
       ...cleanNonVariantData,
       nonVariantImages: finalNonVariantImages, // Set this LAST
     };
+
+    // Sync nonVariant price to product-level basePrice
+    if (updateFields.nonVariant.price && (updateFields.basePrice === undefined || updateFields.basePrice === 0)) {
+      updateFields.basePrice = updateFields.nonVariant.price.salePrice || updateFields.nonVariant.price.costPrice || 0;
+      updateFields.price = updateFields.nonVariant.price;
+    }
     console.log("Final NonVariant:", updateFields.nonVariant);
   }
 

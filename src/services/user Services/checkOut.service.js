@@ -3,6 +3,7 @@ const { User } = require("../../models/users.model");
 const { getCart } = require("./Cart/cart.service");
 const ApiError = require("../../utils/apiError");
 const { Product } = require("../../models/Product.model");
+const { findProductVariant } = require("../../utils/productVariant");
 
 // Main Checkout Service
 const checkOut = async (req) => {
@@ -60,50 +61,15 @@ const checkOut = async (req) => {
 
             // Get variant-specific details
             if (coupon.freeProduct.productType === "variant" && coupon.freeProduct.variantId) {
-              const variant = product.variant;
-              let selectedVariant = null;
-
-              if (variant?.variantType === "unitOnly") {
-                selectedVariant = variant.unitOnlyVariants?.find(
-                  (v) => v._id?.toString() === coupon.freeProduct.variantId?.toString()
-                );
-                if (selectedVariant) {
-                  freeProductDetails.variantDetails = {
-                    unit: selectedVariant.unit,
-                    displayName: selectedVariant.unit,
-                  };
-                }
-              } else if (variant?.variantType === "sizeColor") {
-                selectedVariant = variant.sizeColorVariants?.find(
-                  (v) => v._id === coupon.freeProduct.variantId
-                );
-                if (selectedVariant) {
-                  freeProductDetails.variantDetails = {
-                    size: selectedVariant.size,
-                    color: selectedVariant.color,
-                    displayName: `${selectedVariant.size} - ${selectedVariant.color}`,
-                  };
-                }
-              } else if (variant?.variantType === "colorOnly") {
-                selectedVariant = variant.colorOnlyVariants?.find(
-                  (v) => v._id === coupon.freeProduct.variantId
-                );
-                if (selectedVariant) {
-                  freeProductDetails.variantDetails = {
-                    color: selectedVariant.color,
-                    displayName: selectedVariant.color,
-                  };
-                }
-              } else if (variant?.variantType === "sizeOnly") {
-                selectedVariant = variant.sizeOnlyVariants?.find(
-                  (v) => v._id === coupon.freeProduct.variantId
-                );
-                if (selectedVariant) {
-                  freeProductDetails.variantDetails = {
-                    size: selectedVariant.size,
-                    displayName: selectedVariant.size,
-                  };
-                }
+              const selectedVariant = findProductVariant(
+                product,
+                coupon.freeProduct.variantId,
+              );
+              if (selectedVariant) {
+                freeProductDetails.variantDetails = {
+                  unit: selectedVariant.unit,
+                  displayName: selectedVariant.unit,
+                };
               }
 
               // Get variant image or fallback to product images
@@ -170,47 +136,10 @@ const checkOut = async (req) => {
         const variant = product.variant || {};
         let selectedVariant = null;
 
-        if (variant.variantType === "unitOnly") {
-          selectedVariant = variant.unitOnlyVariants?.find(
-            (v) => v._id.toString() === item.variantId
-          );
+        selectedVariant = findProductVariant(product, item.variantId);
 
-          if (selectedVariant) {
-            variantDetails = {
-              unit: selectedVariant.unit,
-            };
-          }
-        } else if (variant.variantType === "sizeColor") {
-          selectedVariant = variant.sizeColorVariants?.find(
-            (v) => v._id.toString() === item.variantId
-          );
-
-          if (selectedVariant) {
-            variantDetails = {
-              size: selectedVariant.size,
-              color: selectedVariant.color,
-            };
-          }
-        } else if (variant.variantType === "colorOnly") {
-          selectedVariant = variant.colorOnlyVariants?.find(
-            (v) => v._id.toString() === item.variantId
-          );
-
-          if (selectedVariant) {
-            variantDetails = {
-              color: selectedVariant.color,
-            };
-          }
-        } else if (variant.variantType === "sizeOnly") {
-          selectedVariant = variant.sizeOnlyVariants?.find(
-            (v) => v._id.toString() === item.variantId
-          );
-
-          if (selectedVariant) {
-            variantDetails = {
-              size: selectedVariant.size,
-            };
-          }
+        if (selectedVariant) {
+          variantDetails = { unit: selectedVariant.unit };
         }
 
         if (!selectedVariant) {
@@ -253,6 +182,7 @@ const checkOut = async (req) => {
 
       return {
         productId: product._id,
+        variantId: item.variantId,
         productName: product.productName,
         productCategory: product.productCategory,
         quantity,

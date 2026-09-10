@@ -213,6 +213,10 @@ const ProductSchema = new mongoose.Schema(
 
     productImages: { type: [String], default: [] },
 
+    // 🏷️ Product-level Base Price
+    basePrice: { type: Number, default: 0 },
+    price: { type: priceSchema, required: false },
+
     // 🧩 Variant Products (Fixed spelling and structure)
     variant: {
       type: variantSchema,

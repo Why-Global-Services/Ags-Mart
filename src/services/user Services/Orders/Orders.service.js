@@ -17,6 +17,7 @@ const ApiError = require("../../../utils/apiError");
 const logger = require("../../../config/logger");
 const { performance } = require("perf_hooks");
 const { sendOrderCreatedWhatsApp } = require("../../../utils/aiSensy");
+const { findProductVariant } = require("../../../utils/productVariant");
 
 class OrderService {
   constructor() {
@@ -1068,40 +1069,6 @@ const validatedCartItems = cartItems.map((item) => {
                               },
                             },
                           },
-                          {
-                            case: {
-                              $eq: ["$variant.variantType", "sizeColor"],
-                            },
-                            then: {
-                              $filter: {
-                                input: "$variant.sizeColorVariants",
-                                as: "v",
-                                cond: { $eq: ["$$v._id", "$$variantId"] },
-                              },
-                            },
-                          },
-                          {
-                            case: {
-                              $eq: ["$variant.variantType", "colorOnly"],
-                            },
-                            then: {
-                              $filter: {
-                                input: "$variant.colorOnlyVariants",
-                                as: "v",
-                                cond: { $eq: ["$$v._id", "$$variantId"] },
-                              },
-                            },
-                          },
-                          {
-                            case: { $eq: ["$variant.variantType", "sizeOnly"] },
-                            then: {
-                              $filter: {
-                                input: "$variant.sizeOnlyVariants",
-                                as: "v",
-                                cond: { $eq: ["$$v._id", "$$variantId"] },
-                              },
-                            },
-                          },
                         ],
                         default: [],
                       },
@@ -1279,82 +1246,8 @@ const validatedCartItems = cartItems.map((item) => {
   /**
    * Enhanced variant finding for new product structure
    */
-  findProductVariant(product, variantId, productType) {
-    console.log("🔍 Finding product variant:", {
-      productId: product._id,
-      variantId,
-      productType,
-      hasVariant: !!product.variant,
-      hasNonVariant: !!product.nonVariant,
-    });
-
-    if (productType === "nonVariation" || productType === "nonVariant") {
-      // For non-variant products
-      if (
-        product.nonVariant &&
-        product.nonVariant._id.toString() === variantId?.toString()
-      ) {
-        console.log("✅ Found non-variant product");
-        return product.nonVariant;
-      }
-    } else {
-      // For variant products - search through all variant types
-      if (product.variant) {
-        let foundVariant = null;
-
-        // Search in unit-only variants
-        if (!foundVariant && product.variant.unitOnlyVariants) {
-          foundVariant = product.variant.unitOnlyVariants.find(
-            (v) => v._id?.toString() === variantId?.toString()
-          );
-        }
-
-        // Search in size-color variants
-        if (!foundVariant && product.variant.sizeColorVariants) {
-          foundVariant = product.variant.sizeColorVariants.find(
-            (v) => v._id?.toString() === variantId?.toString()
-          );
-        }
-
-        // Search in color-only variants
-        if (!foundVariant && product.variant.colorOnlyVariants) {
-          foundVariant = product.variant.colorOnlyVariants.find(
-            (v) => v._id?.toString() === variantId?.toString()
-          );
-        }
-
-        // Search in size-only variants
-        if (!foundVariant && product.variant.sizeOnlyVariants) {
-          foundVariant = product.variant.sizeOnlyVariants.find(
-            (v) => v._id?.toString() === variantId?.toString()
-          );
-        }
-
-        if (foundVariant) {
-          console.log("✅ Found variant product:", foundVariant._id);
-          return foundVariant;
-        }
-      }
-    }
-
-    console.error("❌ Variant not found:", {
-      variantId,
-      productType,
-      availableNonVariantId: product.nonVariant?._id,
-      availableUnitOnlyVariants:
-        product.variant?.unitOnlyVariants?.map((v) => ({
-          id: v._id,
-          unit: v.unit,
-        })) || [],
-      availableSizeColorVariants:
-        product.variant?.sizeColorVariants?.map((v) => v._id) || [],
-      availableColorOnlyVariants:
-        product.variant?.colorOnlyVariants?.map((v) => v._id) || [],
-      availableSizeOnlyVariants:
-        product.variant?.sizeOnlyVariants?.map((v) => v._id) || [],
-    });
-
-    return null;
+  findProductVariant(product, variantId) {
+    return findProductVariant(product, variantId);
   }
 
   /**

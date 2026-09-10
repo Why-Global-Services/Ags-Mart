@@ -57,4 +57,24 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken };
+const requireProductManager = (req, res, next) => {
+  const adminUser = req.Admin || req.super_admin;
+
+  if (!adminUser) {
+    return res.status(403).json({ message: "Admin access is required" });
+  }
+
+  const isSuperAdmin =
+    adminUser.userRole === "super_admin" ||
+    String(adminUser.role).toLowerCase() === "super_admin";
+
+  if (!isSuperAdmin && !adminUser.permissions?.products) {
+    return res
+      .status(403)
+      .json({ message: "You do not have permission to manage products" });
+  }
+
+  next();
+};
+
+module.exports = { verifyToken, requireProductManager };

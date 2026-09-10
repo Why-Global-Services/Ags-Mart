@@ -4,6 +4,35 @@ const { reviewsRatings } = require("../../models/reviewRating.model");
 const { wishlistSchema } = require("../../models/wishlist.model");
 const ApiError = require("../../utils/apiError");
 
+const ensureBasePrice = (product) => {
+  if (!product) return product;
+  const prodObj = product.toObject ? product.toObject() : { ...product };
+  if (!prodObj.basePrice || prodObj.basePrice === 0) {
+    if (prodObj.price?.salePrice && prodObj.price.salePrice > 0) {
+      prodObj.basePrice = prodObj.price.salePrice;
+    } else if (prodObj.productType === "variant") {
+      const v =
+        prodObj.variant?.unitOnlyVariants ||
+        prodObj.variant?.sizeColorVariants ||
+        prodObj.variant?.colorOnlyVariants ||
+        prodObj.variant?.sizeOnlyVariants ||
+        [];
+      const prices = v
+        .map((item) => item.price?.salePrice || item.price?.costPrice)
+        .filter((p) => typeof p === "number" && p > 0);
+      if (prices.length > 0) {
+        prodObj.basePrice = Math.min(...prices);
+      }
+    } else if (prodObj.productType === "nonVariant" && prodObj.nonVariant?.price) {
+      prodObj.basePrice =
+        prodObj.nonVariant.price.salePrice ||
+        prodObj.nonVariant.price.costPrice ||
+        0;
+    }
+  }
+  return prodObj;
+};
+
 const ProductDetials = async (req) => {
   const { _id } = req.params;
   const userId = req?.user?._id || null;
@@ -147,7 +176,7 @@ const ProductDetials = async (req) => {
   return {
     success: true,
     message: "Product found successfully",
-    data: product,
+    data: ensureBasePrice(product),
   };
 };
 

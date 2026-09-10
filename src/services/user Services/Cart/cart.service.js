@@ -2,6 +2,7 @@ const { Product } = require("../../../models/Product.model");
 const { cart } = require("../../../models/cart.model");
 const ApiError = require("../../../utils/apiError");
 const httpStatus = require("http-status");
+const { findProductVariant } = require("../../../utils/productVariant");
 
 const addToCart = async (req) => {
   const { quantity = 1 } = req.body;
@@ -24,20 +25,11 @@ const addToCart = async (req) => {
   const product = await Product.findById(productId);
   if (!product) throw new ApiError(404, "Product not found");
 
-  const { productType, variant, nonVariant } = product;
+  const { productType, nonVariant } = product;
   let selectedVariant;
 
   if (productType === "variant") {
-    const variantGroups = {
-      unitOnly: variant?.unitOnlyVariants,
-      sizeColor: variant?.sizeColorVariants,
-      colorOnly: variant?.colorOnlyVariants,
-      sizeOnly: variant?.sizeOnlyVariants,
-    };
-
-    selectedVariant = variantGroups[variant?.variantType]?.find(
-      (v) => String(v._id) === String(variantId),
-    );
+    selectedVariant = findProductVariant(product, variantId);
 
     if (!selectedVariant) throw new ApiError(404, "Variant not found");
     if (selectedVariant.stockCount < quantity)
@@ -130,14 +122,7 @@ const getCart = async (req) => {
           $arrayElemAt: [
             {
               $filter: {
-                input: {
-                  $concatArrays: [
-                    { $ifNull: ["$product.variant.unitOnlyVariants", []] },
-                    { $ifNull: ["$product.variant.sizeColorVariants", []] },
-                    { $ifNull: ["$product.variant.colorOnlyVariants", []] },
-                    { $ifNull: ["$product.variant.sizeOnlyVariants", []] },
-                  ],
-                },
+                input: { $ifNull: ["$product.variant.unitOnlyVariants", []] },
                 as: "v",
                 cond: {
                   $eq: [

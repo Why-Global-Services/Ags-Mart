@@ -2,6 +2,7 @@ const { Product } = require("../../../models/Product.model");
 const { wishlistSchema } = require("../../../models/wishlist.model");
 const ApiError = require("../../../utils/apiError");
 const httpStatus = require("http-status");
+const { findProductVariant } = require("../../../utils/productVariant");
 
 const addWishlist = async (req) => {
   const { productId, variantId } = req.query;
@@ -26,32 +27,11 @@ const addWishlist = async (req) => {
   if (!findProduct)
     throw new ApiError(httpStatus.NOT_FOUND, "Product not found");
 
-  const { productType, variant } = findProduct;
-  let variantType = null;
-  let matchedVariant = null;
+  const { productType } = findProduct;
+  const variantType = findProduct.variant?.variantType || null;
 
   if (productType === "variant") {
-    variantType = variant?.variantType;
-
-    if (variantType === "unitOnly") {
-      matchedVariant = variant.unitOnlyVariants?.find(
-        (v) => v._id?.toString() === variantId?.toString(),
-      );
-    } else if (variantType === "sizeColor") {
-      matchedVariant = variant.sizeColorVariants.find(
-        (v) => v._id === variantId,
-      );
-    } else if (variantType === "colorOnly") {
-      matchedVariant = variant.colorOnlyVariants.find(
-        (v) => v._id === variantId,
-      );
-    } else if (variantType === "sizeOnly") {
-      matchedVariant = variant.sizeOnlyVariants.find(
-        (v) => v._id === variantId,
-      );
-    }
-
-    if (!matchedVariant)
+    if (!findProductVariant(findProduct, variantId))
       throw new ApiError(
         httpStatus.NOT_FOUND,
         "Variant not found for this product",
@@ -195,75 +175,6 @@ const getWishlist = async (req) => {
                           $cond: [
                             { $isArray: "$product.variant.unitOnlyVariants" },
                             "$product.variant.unitOnlyVariants",
-                            [],
-                          ],
-                        },
-                        as: "v",
-                        cond: {
-                          $eq: [{ $toString: "$$v._id" }, "$items.variantId"],
-                        },
-                      },
-                    },
-                    0,
-                  ],
-                },
-              },
-              {
-                case: { $eq: ["$items.variantType", "colorOnly"] },
-                then: {
-                  $arrayElemAt: [
-                    {
-                      $filter: {
-                        input: {
-                          $cond: [
-                            { $isArray: "$product.variant.colorOnlyVariants" },
-                            "$product.variant.colorOnlyVariants",
-                            [], // fallback empty array
-                          ],
-                        },
-                        as: "v",
-                        cond: {
-                          $eq: [{ $toString: "$$v._id" }, "$items.variantId"],
-                        },
-                      },
-                    },
-                    0,
-                  ],
-                },
-              },
-              {
-                case: { $eq: ["$items.variantType", "sizeOnly"] },
-                then: {
-                  $arrayElemAt: [
-                    {
-                      $filter: {
-                        input: {
-                          $cond: [
-                            { $isArray: "$product.variant.sizeOnlyVariants" },
-                            "$product.variant.sizeOnlyVariants",
-                            [],
-                          ],
-                        },
-                        as: "v",
-                        cond: {
-                          $eq: [{ $toString: "$$v._id" }, "$items.variantId"],
-                        },
-                      },
-                    },
-                    0,
-                  ],
-                },
-              },
-              {
-                case: { $eq: ["$items.variantType", "sizeColor"] },
-                then: {
-                  $arrayElemAt: [
-                    {
-                      $filter: {
-                        input: {
-                          $cond: [
-                            { $isArray: "$product.variant.sizeColorVariants" },
-                            "$product.variant.sizeColorVariants",
                             [],
                           ],
                         },
