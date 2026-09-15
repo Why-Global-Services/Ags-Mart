@@ -1975,10 +1975,10 @@ export default function ProductCard({ product }) {
   );
 
   return (
-    <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col">
+    <div className="group relative bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col">
       {/* IMAGE SECTION */}
       <div
-        className="relative overflow-hidden bg-gray-50"
+        className="relative overflow-hidden bg-[#fafbfa] p-3"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -1986,13 +1986,13 @@ export default function ProductCard({ product }) {
           <img
             src={currentImage || displayImage}
             alt={displayName}
-            className="w-full aspect-square object-contain p-2 transition-transform duration-300 group-hover:scale-105"
+            className="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-105"
           />
         </Link>
 
         {/* Discount Badge */}
         {displayDiscount > 0 && (
-          <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+          <div className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
             {displayDiscount}% OFF
           </div>
         )}
@@ -2000,58 +2000,70 @@ export default function ProductCard({ product }) {
         {/* Wishlist Button */}
         <button
           onClick={handleMainWishlistToggle}
-          className="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow-sm hover:shadow-md transition-all duration-200 z-10"
+          className="absolute top-2.5 right-2.5 bg-white/90 hover:bg-white rounded-full p-2 shadow-xs hover:shadow-sm transition-all duration-200 z-10 border border-gray-100"
+          aria-label="Wishlist toggle"
         >
           <Heart
-            className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-400'}`}
+            className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-500'}`}
           />
         </button>
       </div>
 
       {/* PRODUCT INFO */}
-      <div className="p-3 flex flex-col flex-1">
+      <div className="p-3.5 flex flex-col flex-1">
         {/* Category tag if available */}
-        {product.categoryTitle && (
-          <span className="text-xs text-green-700 font-medium mb-1 truncate">{product.categoryTitle}</span>
+        {(product.categoryTitle || product.productCategory) && (
+          <div>
+            <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full inline-block mb-1.5 truncate max-w-full">
+              {product.categoryTitle || product.productCategory}
+            </span>
+          </div>
         )}
 
         {/* Product Name */}
         <Link href={`/productdetails/?id=${productId}`}>
-          <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 leading-snug hover:text-green-700 transition-colors">
+          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 leading-snug hover:text-emerald-700 transition-colors">
             {displayName}
           </h3>
         </Link>
 
         {/* Pack size info for variant products */}
+        {isVariantProduct && isUnitOnly && variants.length > 0 && (
+          <p className="text-xs text-gray-500 mb-2">{variants[0]?.unit}</p>
+        )}
         {isVariantProduct && isSizeOnly && sizes.length > 0 && (
           <p className="text-xs text-gray-500 mb-2">{sizes[0]}</p>
         )}
 
-        {/* Rating — show if product has rating data */}
+        {/* Rating */}
         {product.averageRating > 0 && (
-          <div className="flex items-center gap-1 mb-2">
+          <div className="flex items-center gap-1 mb-2.5">
             <div className="flex">
-              {[1,2,3,4,5].map(s => (
-                <svg key={s} className={`w-3 h-3 ${s <= Math.round(product.averageRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 fill-gray-300'}`} viewBox="0 0 20 20">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <svg
+                  key={s}
+                  className={`w-3 h-3 ${s <= Math.round(product.averageRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`}
+                  viewBox="0 0 20 20"
+                >
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
               ))}
             </div>
-            {product.totalReviews > 0 && (
-              <span className="text-xs text-gray-500">({product.totalReviews})</span>
-            )}
+            <span className="text-[11px] text-gray-500 font-medium">
+              ({product.totalReviews || 0})
+            </span>
           </div>
         )}
 
         {/* Price Section */}
-        <div className="mt-auto">
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className="text-base font-bold text-gray-900">₹{displayPrice?.toFixed(0)}</span>
+        <div className="mt-auto pt-1">
+          <div className="flex items-baseline gap-2 flex-wrap mb-2.5">
+            <span className="text-base font-extrabold text-[#0f4e27]">₹{displayPrice?.toFixed(0)}</span>
             {displayDiscount > 0 && (
               <span className="text-xs text-gray-400 line-through">₹{displayCostPrice?.toFixed(0)}</span>
             )}
             {displayDiscount > 0 && (
-              <span className="text-xs text-green-600 font-semibold">Save {displayDiscount}%</span>
+              <span className="text-[10px] text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded">Save {displayDiscount}%</span>
             )}
           </div>
 
@@ -2063,23 +2075,23 @@ export default function ProductCard({ product }) {
                 if (isColorOnly || isSizeColor) setSelectedColor(colors[0] || '');
                 if (isSizeOnly || isSizeColor) setSelectedSize(sizes[0] || '');
               }}
-              className="w-full py-2 text-sm font-semibold rounded border-2 border-green-600 text-green-700 hover:bg-green-600 hover:text-white transition-all duration-200"
+              className="w-full py-2 text-xs font-semibold rounded-xl border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 transition-all duration-200"
             >
               View Options
             </button>
           ) : isInCart ? (
             <button
               onClick={() => router.push('/cart')}
-              className="w-full py-2 text-sm font-semibold rounded bg-green-700 text-white hover:bg-green-800 transition-all duration-200"
+              className="w-full py-2 text-xs font-semibold rounded-xl bg-[#0f4e27] text-white hover:bg-[#0c3f20] transition-all duration-200"
             >
               Go to Cart
             </button>
           ) : (
             <button
               onClick={handleNonVariantAddToCart}
-              className="w-full py-2 text-sm font-semibold rounded bg-green-600 text-white hover:bg-green-700 transition-all duration-200 flex items-center justify-center gap-1.5"
+              className="w-full py-2 text-xs font-semibold rounded-xl bg-[#135d38] text-white hover:bg-[#0f4e27] transition-all duration-200 flex items-center justify-center gap-1.5 shadow-xs"
             >
-              <ShoppingCart className="w-4 h-4" />
+              <ShoppingCart className="w-3.5 h-3.5" />
               Add to Cart
             </button>
           )}

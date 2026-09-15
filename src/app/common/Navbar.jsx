@@ -205,22 +205,22 @@ const TopNavbar = () => {
   return (
     <>
       {/* Main Navbar */}
-      <header className="bg-[#1a4a13] border-b border-green-900/40 sticky top-0 z-50 w-full max-w-full overflow-x-clip">
+      <header className="bg-[#0f4e27] border-b border-green-950/20 sticky top-0 z-50 w-full max-w-full overflow-x-clip">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {mounted && particles}
         </div>
 
-        <div className="w-full max-w-full px-3 sm:px-4 md:px-6 lg:px-8">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Main Top Header Bar */}
-          <div className="flex items-center justify-between h-20 sm:h-22 lg:h-24 w-full gap-2 sm:gap-4 lg:gap-0">
+          <div className="flex items-center justify-between h-20 sm:h-22 w-full gap-3 md:gap-6">
             {/* 1. Responsive Logo */}
             <Link href="/" className="flex items-center shrink-0 min-w-0">
-              <div className="bg-white w-[130px] sm:w-[155px] md:w-[200px] lg:w-[290px] xl:w-[320px] h-[46px] sm:h-[50px] md:h-[62px] lg:h-[76px] max-w-full px-1.5 sm:px-2 md:px-2.5 py-0.5 sm:py-1 rounded-xl shadow-sm hover:shadow-md transition shrink-0 flex items-center justify-center">
+              <div className="bg-white w-[140px] sm:w-[170px] md:w-[210px] lg:w-[240px] h-[48px] sm:h-[54px] md:h-[60px] max-w-full px-3 py-1.5 rounded-2xl shadow-sm hover:shadow-md transition shrink-0 flex items-center justify-center">
                 <Image
                   src={logo || "/logo.png"}
                   alt="Agrowmed Logo"
-                  width={320}
-                  height={85}
+                  width={260}
+                  height={70}
                   className="object-contain w-full h-full"
                   priority
                 />
@@ -229,14 +229,14 @@ const TopNavbar = () => {
 
             {/* 2. Center Search Bar - Desktop (lg breakpoint and up) */}
             <div
-              className="hidden lg:flex flex-1 max-w-xl mx-6 xl:mx-12"
+              className="hidden lg:flex flex-1 max-w-2xl mx-4 xl:mx-8"
               ref={searchRef}
             >
               <div className="relative w-full">
                 <input
                   type="text"
-                  placeholder="Search entire agriculture store..."
-                  className="w-full h-12 pl-12 pr-28 border text-white bg-transparent border-white/60 placeholder-white/70 rounded-lg focus:border-green-400 focus:ring-2 focus:ring-green-400/20 focus:outline-none transition-all text-sm"
+                  placeholder="Search for products, crops, pests, brands..."
+                  className="w-full h-11 pl-6 pr-14 bg-white text-gray-800 placeholder-gray-400 rounded-full border border-gray-100 shadow-sm focus:ring-2 focus:ring-green-400/40 focus:outline-none transition-all text-sm font-normal"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -247,16 +247,13 @@ const TopNavbar = () => {
                   }}
                   onFocus={() => setIsSearchOpen(true)}
                 />
-                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 text-sm" />
-
-                {searchQuery.trim() && (
-                  <button
-                    onClick={() => handleSearch(searchQuery)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-bgvariant-1 text-white px-5 py-2 rounded-md text-sm font-semibold hover:bg-bgvariant-4 transition"
-                  >
-                    Search
-                  </button>
-                )}
+                <button
+                  onClick={() => handleSearch(searchQuery)}
+                  aria-label="Submit search"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#135d38] hover:bg-[#0e482b] text-white flex items-center justify-center shadow-sm transition"
+                >
+                  <FaSearch className="text-xs text-white" />
+                </button>
 
                 {/* Desktop Search Dropdown */}
                 <AnimatePresence>

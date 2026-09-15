@@ -1,84 +1,231 @@
 "use client";
+
 import React, { useState, useEffect } from "react";
 import { FiTrash2, FiEye, FiShoppingCart } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-// import Link from "next/link";
 import { FaSpinner } from "react-icons/fa6";
 import Loading from "@/app/common/Loading";
-import {
-  fetchCart,
-  removeCartItem,
-  updateCartItem,
-  addCartItem
-} from "@/app/store/cartSlice";
+
+import { addCartItem } from "@/app/store/cartSlice";
+
 import {
   fetchWishlist,
-  addWishlistItem,
   removeWishlistItem,
 } from "@/app/store/wishlistSlice";
+
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
 
+const FALLBACK_IMAGE = "https://via.placeholder.com/400";
+
 const Wishlist = () => {
   const router = useRouter();
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
 
   const dispatch = useDispatch();
-  const { wishlistItems, loading } = useSelector((state) => state.wishlist);
 
-  // useEffect(() => {
-  //   const user = localStorage.getItem('user');
-  //   if (!user) {
-  //     router.push('/authpage');
-  //   }
-  // }, [router]);
+  const { wishlistItems, loading } = useSelector(
+    (state) => state.wishlist
+  );
 
   useEffect(() => {
     dispatch(fetchWishlist());
   }, [dispatch]);
 
-  const wishlistData = wishlistItems.map((item) => {
-    console.log("RAW WISHLIST ITEM:", item);
+  /**
+   * Get the first valid image from wishlist response.
+   *
+   * Priority:
+   * 1. Selected variant image
+   * 2. wishlistImages from backend
+   * 3. productImages from backend
+   * 4. selected variant nonVariantImages
+   * 5. product nonVariantImages
+   * 6. placeholder
+   */
+  const getFirstImage = (item, selectedVariant) => {
+    const variantImages = Array.isArray(
+      selectedVariant?.variantImages
+    )
+      ? selectedVariant.variantImages
+      : [];
 
-    const selectedVariant = item?.selectedVariant;
+    const wishlistImages = Array.isArray(item?.wishlistImages)
+      ? item.wishlistImages
+      : [];
 
-    const getFirstImage = () => {
-      if (selectedVariant?.variantImages?.length > 0) {
-        return selectedVariant.variantImages[0];
-      }
-      if (selectedVariant?.nonVariantImages?.length > 0) {
-        return selectedVariant.nonVariantImages[0];
-      }
-      if (item?.nonVariantImages?.length > 0) {
-        return item.nonVariantImages[0];
-      }
-      return "https://via.placeholder.com/150";
-    };
+    const productImages = Array.isArray(item?.productImages)
+      ? item.productImages
+      : [];
 
-    const priceData = selectedVariant?.price || {};
-    const stockCount = selectedVariant?.stockCount || 0;
-    const variantId = selectedVariant?._id;
+    const variantNonVariantImages = Array.isArray(
+      selectedVariant?.nonVariantImages
+    )
+      ? selectedVariant.nonVariantImages
+      : [];
 
-    return {
-      id: item._id || `${item.productId}-${variantId}`,
-      productId: item.productId,
-      variantId: variantId,
-      productType: item.productType,
-      name: selectedVariant?.productTitle || item?.productName || "Product Name",
-      costPrice: priceData.costPrice || 0,
-      price: priceData.salePrice || 0,
-      discount: priceData.discount || 0,
-      img: getFirstImage(),
-      status: stockCount >= 5 ? "In Stock" : stockCount >= 1 ? "Low Stock" : "Out of Stock",
-      button: stockCount >= 1 ? "ADD TO CART" : "OUT OF STOCK",
-      stockCount: stockCount,
-      isInCart: item.isInCart || false,
-    };
-  });
+    const productNonVariantImages = Array.isArray(
+      item?.nonVariantImages
+    )
+      ? item.nonVariantImages
+      : [];
+
+    const imageSources = [
+      ...variantImages,
+      ...wishlistImages,
+      ...productImages,
+      ...variantNonVariantImages,
+      ...productNonVariantImages,
+    ];
+
+    const validImage = imageSources.find(
+      (image) =>
+        typeof image === "string" &&
+        image.trim().length > 0
+    );
+
+    return validImage || FALLBACK_IMAGE;
+  };
+
+  const wishlistData = Array.isArray(wishlistItems)
+    ? wishlistItems.map((item) => {
+        console.log("RAW WISHLIST ITEM:", item);
+
+        const selectedVariant = item?.selectedVariant || null;
+
+        /**
+         * Important:
+         * Backend can return variantId either inside selectedVariant
+         * or directly in wishlist item.
+         */
+        const variantId =
+          selectedVariant?._id ||
+          item?.variantId ||
+          null;
+
+        const variantType =
+          item?.variantType ||
+          (selectedVariant ? "unitOnly" : null);
+
+        /**
+         * Product type can come from either wishlist item
+         * or selected variant.
+         */
+        const productType =
+          item?.productType ||
+          selectedVariant?.productType ||
+          "variant";
+
+        /**
+         * Price should come from selected variant.
+         * For non-variant products, fallback to product-level price/basePrice.
+         */
+        const priceData = selectedVariant?.price || {};
+
+        const salePrice = Number(
+          priceData?.salePrice ??
+            item?.basePrice ??
+            item?.price?.salePrice ??
+            item?.price ??
+            0
+        );
+
+        const costPrice = Number(
+          priceData?.costPrice ??
+            item?.basePrice ??
+            item?.price?.costPrice ??
+            0
+        );
+
+        const discount = Number(
+          priceData?.discount ??
+            item?.discount ??
+            0
+        );
+
+        /**
+         * Stock handling:
+         * Variant product -> selected variant stock
+         * Non variant product -> product stock
+         */
+        const stockCount = Number(
+          selectedVariant?.stockCount ??
+            item?.stockCount ??
+            item?.stock ??
+            0
+        );
+
+        const image = getFirstImage(
+          item,
+          selectedVariant
+        );
+
+        return {
+          id:
+            item?._id ||
+            `${item?.productId || "product"}-${variantId || "default"}`,
+
+          productId: item?.productId,
+
+          variantId,
+
+          productType,
+
+          variantType,
+
+          name:
+            selectedVariant?.productTitle ||
+            selectedVariant?.productName ||
+            item?.productName ||
+            item?.name ||
+            "Product Name",
+
+          costPrice,
+
+          price: salePrice,
+
+          discount,
+
+          img: image,
+
+          /**
+           * Keep original image data also available.
+           */
+          productImages: item?.productImages || [],
+          wishlistImages: item?.wishlistImages || [],
+          variantImages:
+            selectedVariant?.variantImages || [],
+
+          selectedVariant,
+
+          selectedUnit:
+            selectedVariant?.unit ||
+            item?.selectedUnit ||
+            null,
+
+          status:
+            stockCount >= 5
+              ? "In Stock"
+              : stockCount >= 1
+              ? "Low Stock"
+              : "Out of Stock",
+
+          button:
+            stockCount >= 1
+              ? "ADD TO CART"
+              : "OUT OF STOCK",
+
+          stockCount,
+
+          isInCart: Boolean(item?.isInCart),
+        };
+      })
+    : [];
 
   const handleDeleteClick = (item) => {
     setSelectedItem(item);
@@ -90,14 +237,20 @@ const Wishlist = () => {
 
     try {
       setIsDeleting(true);
-      dispatch(removeWishlistItem({
-        productId: selectedItem.productId,
-        variantId: selectedItem.variantId,
-        productType: selectedItem.productType,
-        variantType: selectedItem?.variantType
-      }));
+
+      await dispatch(
+        removeWishlistItem({
+          productId: selectedItem.productId,
+          variantId: selectedItem.variantId,
+          productType: selectedItem.productType,
+          variantType: selectedItem.variantType,
+        })
+      ).unwrap();
     } catch (error) {
-      console.log("Error removing item from wishlist", error);
+      console.error(
+        "Error removing item from wishlist:",
+        error
+      );
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
@@ -106,13 +259,21 @@ const Wishlist = () => {
   };
 
   const handleAddToCart = async (item) => {
+    if (item.status === "Out of Stock") {
+      return;
+    }
+
     try {
-      dispatch(addCartItem({
-        productId: item.productId,
-        variantId: item.variantId,
-        productType: item.productType,
-        variantType: item?.variantType
-      }));
+      await dispatch(
+        addCartItem({
+          productId: item.productId,
+          variantId: item.variantId,
+          productType: item.productType,
+          variantType: item.variantType,
+          quantity: 1,
+        })
+      ).unwrap();
+
       router.push("/cart");
     } catch (error) {
       console.error("Add to Cart Error:", error);
@@ -120,7 +281,6 @@ const Wishlist = () => {
   };
 
   const handleQuickView = (item) => {
-    // Implement quick view functionality
     router.push(`/product/${item.productId}`);
   };
 
@@ -133,119 +293,93 @@ const Wishlist = () => {
   }
 
   return (
-    <div className="py-10 min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#fcfdfc] pb-16">
+      {/* Breadcrumb */}
+      <nav className="bg-gray-100/70 border-b border-gray-200/80 py-2.5 px-4 sm:px-6 lg:px-8 text-xs text-gray-500 font-medium mb-6">
+        <div className="max-w-7xl mx-auto flex items-center gap-2">
+          <Link href="/" className="hover:text-emerald-700 flex items-center gap-1.5 transition">
+            <span className="text-sm">🏠</span>
+            <span>Home</span>
+          </Link>
+          <span className="text-gray-400">›</span>
+          <span className="text-gray-800 font-semibold">Wishlist</span>
+        </div>
+      </nav>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-            My Wishlist
-          </h1>
-          <p className="text-gray-600 mt-2">
-            {wishlistData.length} {wishlistData.length === 1 ? 'item' : 'items'}
-          </p>
+        <div className="flex items-center justify-between mb-8 pb-3 border-b border-gray-100">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0f4e27] tracking-tight">
+              My Wishlist
+            </h1>
+            <div className="w-16 h-1 bg-emerald-600 rounded-full mt-2" />
+          </div>
+
+          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-3.5 py-1 rounded-full text-xs font-bold">
+            {wishlistData.length} {wishlistData.length === 1 ? "item" : "items"}
+          </span>
         </div>
 
         {wishlistData.length === 0 ? (
-          <div className=" flex flex-col items-center justify-center text-center py-5 min-h-[40vh]">
-            {/* Heart with X Icon */}
-            <div className="relative mb-8">
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 120 120"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-gray-300"
-              >
-                {/* Heart Shape */}
-                <path
-                  d="M60 100C60 100 15 75 15 45C15 32 23 25 32 25C41 25 50 32 60 42C70 32 79 25 88 25C97 25 105 32 105 45C105 75 60 100 60 100Z"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                
-                {/* Circle with X */}
-                <circle
-                  cx="85"
-                  cy="85"
-                  r="20"
-                  fill="white"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                />
-                <path
-                  d="M78 78L92 92M92 78L78 92"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </svg>
+          <div className="flex flex-col items-center justify-center text-center py-12 min-h-[40vh]">
+            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-700 text-3xl mb-4 border border-emerald-100 shadow-xs">
+              💚
             </div>
 
-            <h2 className="text-3xl font-bold text-gray-800 mb-3">
-              Wishlist is empty.
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Your wishlist is empty
             </h2>
-            <p className="text-gray-600 mb-2 max-w-md">
-              You don't have any products in the wishlist yet.
+
+            <p className="text-gray-500 text-sm mb-6 max-w-sm">
+              Explore our agriculture store and save your favorite crop essentials, seeds, and fertilizers.
             </p>
-            <p className="text-gray-600 mb-8 max-w-md">
-              You will find a lot of interesting products on our "Shop" page.
-            </p>
+
             <Link href="/shoppage">
-              <button className="px-8 py-3 bg-bgvariant-1 hover:bg-bgvariant-4 text-white font-semibold rounded-lg shadow-md transition-all duration-300">
+              <button className="px-7 py-3 bg-[#135d38] hover:bg-[#0f4e27] text-white font-semibold rounded-xl text-sm shadow-xs transition">
                 Continue Shopping
               </button>
             </Link>
           </div>
         ) : (
-          <div 
-            className={`grid gap-6 ${
-              wishlistData.length === 1 
-                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center" 
-                : wishlistData.length === 2
-                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-            }`}
-          >
+          <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {wishlistData.map((item) => (
               <motion.div
                 key={item.id}
                 layout
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.3 }}
-                className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group relative w-full max-w-[320px] mx-auto"
-                onMouseEnter={() => setHoveredItem(item.id)}
-                onMouseLeave={() => setHoveredItem(null)}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white rounded-2xl border border-gray-100 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col group relative"
               >
-                {/* Delete Button - Top Left */}
+                {/* Delete Button */}
                 <button
                   onClick={() => handleDeleteClick(item)}
-                  className="absolute top-3 left-3 z-10 w-9 h-9 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-red-50 transition-all duration-200"
+                  className="absolute top-2.5 left-2.5 z-10 w-8 h-8 bg-white/90 hover:bg-white rounded-full shadow-xs border border-gray-100 flex items-center justify-center text-gray-400 hover:text-red-500 transition"
                   aria-label="Remove from wishlist"
                 >
-                  <FiTrash2 className="text-gray-600 hover:text-red-500 text-lg" />
+                  <FiTrash2 size={13} />
                 </button>
 
                 {/* Product Image */}
-                <div className="relative aspect-square bg-gray-100 overflow-hidden">
-                  <img
-                    src={item.img}
-                    alt={item.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/400";
-                    }}
-                  />
-                  
+                <div className="relative aspect-square bg-[#fafbfa] p-3 overflow-hidden">
+                  <Link href={`/productdetails/?id=${item.productId}`}>
+                    <img
+                      src={item.img || FALLBACK_IMAGE}
+                      alt={item.name}
+                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        if (e.currentTarget.src !== FALLBACK_IMAGE) {
+                          e.currentTarget.src = FALLBACK_IMAGE;
+                        }
+                      }}
+                    />
+                  </Link>
+
                   {/* Out of Stock Overlay */}
                   {item.status === "Out of Stock" && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <span className="bg-white px-4 py-2 rounded-lg text-red-600 font-semibold text-sm">
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <span className="bg-white px-3 py-1 rounded-full text-red-600 font-bold text-xs shadow-sm">
                         OUT OF STOCK
                       </span>
                     </div>
@@ -253,56 +387,38 @@ const Wishlist = () => {
 
                   {/* Discount Badge */}
                   {item.discount > 0 && (
-                    <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold">
+                    <div className="absolute top-2.5 right-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                       {item.discount}% OFF
                     </div>
                   )}
-
-                  {/* Hover Actions */}
-                  <div 
-                    className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 transform transition-all duration-300 ${
-                      hoveredItem === item.id ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
-                    }`}
-                  >
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleQuickView(item)}
-                        className="flex-1 bg-white text-gray-800 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <FiEye className="text-base" />
-                        Quick view
-                      </button>
-                      <button
-                        onClick={() => handleAddToCart(item)}
-                        disabled={item.status === "Out of Stock"}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          item.status === "Out of Stock"
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-bgvariant-1 text-white hover:bg-bgvariant-4"
-                        }`}
-                      >
-                        <FiShoppingCart className="text-base" />
-                        Add to cart
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Product Info */}
-                <div className="p-4">
-                  <h3 className="text-gray-800 font-medium text-base mb-2 line-clamp-2 min-h-[3rem]">
-                    {item.name}
-                  </h3>
+                <div className="p-3.5 flex flex-col flex-1">
+                  {item.selectedUnit && (
+                    <div>
+                      <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full inline-block mb-1.5">
+                        {item.selectedUnit}
+                      </span>
+                    </div>
+                  )}
+
+                  <Link href={`/productdetails/?id=${item.productId}`}>
+                    <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 leading-snug hover:text-emerald-700 transition-colors">
+                      {item.name}
+                    </h3>
+                  </Link>
 
                   {/* Stock Status */}
-                  <div className="mb-3">
+                  <div className="flex items-center gap-1.5 mb-2.5 text-xs">
                     <span
-                      className={`text-xs font-semibold ${
-                        item.status === "In Stock"
-                          ? "text-green-600"
-                          : item.status === "Low Stock"
-                          ? "text-yellow-600"
-                          : "text-red-500"
+                      className={`w-2 h-2 rounded-full ${
+                        item.status === "In Stock" ? "bg-emerald-500" : "bg-red-500"
+                      }`}
+                    />
+                    <span
+                      className={`font-semibold ${
+                        item.status === "In Stock" ? "text-emerald-700" : "text-red-600"
                       }`}
                     >
                       {item.status}
@@ -310,15 +426,26 @@ const Wishlist = () => {
                   </div>
 
                   {/* Price Section */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-lg font-bold text-gray-900">
-                      ₹{item.price.toLocaleString()}
-                    </span>
-                    {item.costPrice && item.costPrice > 0 && item.costPrice !== item.price && (
-                      <span className="text-sm text-gray-400 line-through">
-                        ₹{item.costPrice.toLocaleString()}
+                  <div className="mt-auto pt-1">
+                    <div className="flex items-baseline gap-2 flex-wrap mb-3">
+                      <span className="text-base font-extrabold text-[#0f4e27]">
+                        ₹{Number(item.price || 0).toLocaleString()}
                       </span>
-                    )}
+                      {item.oldPrice > item.price && (
+                        <span className="text-xs text-gray-400 line-through">
+                          ₹{Number(item.oldPrice).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => handleAddToCart(item)}
+                      disabled={item.status === "Out of Stock"}
+                      className="w-full py-2 bg-[#135d38] hover:bg-[#0f4e27] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
+                    >
+                      <FiShoppingCart size={13} />
+                      <span>Add to Cart</span>
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -343,25 +470,43 @@ const Wishlist = () => {
             }}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
+              initial={{
+                scale: 0.9,
+                opacity: 0,
+              }}
+              animate={{
+                scale: 1,
+                opacity: 1,
+              }}
+              exit={{
+                scale: 0.9,
+                opacity: 0,
+              }}
+              onClick={(e) =>
+                e.stopPropagation()
+              }
               className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl"
             >
               <div className="text-center">
+
                 <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
                   <FiTrash2 className="text-red-600 text-2xl" />
                 </div>
+
                 <h3 className="text-xl font-semibold mb-2 text-gray-800">
                   Remove from Wishlist?
                 </h3>
+
                 <p className="text-gray-600 mb-6">
                   Are you sure you want to remove{" "}
-                  <strong className="text-gray-800">"{selectedItem?.name}"</strong>{" "}
+                  <strong className="text-gray-800">
+                    "{selectedItem?.name}"
+                  </strong>{" "}
                   from your wishlist?
                 </p>
+
                 <div className="flex gap-3 justify-center">
+
                   <button
                     onClick={() => {
                       setShowDeleteConfirm(false);
@@ -372,14 +517,21 @@ const Wishlist = () => {
                   >
                     Cancel
                   </button>
+
                   <button
                     onClick={confirmDelete}
                     disabled={isDeleting}
                     className="px-6 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition font-medium disabled:opacity-50 flex items-center gap-2"
                   >
-                    {isDeleting && <FaSpinner className="animate-spin" />}
-                    {isDeleting ? "Removing..." : "Remove"}
+                    {isDeleting && (
+                      <FaSpinner className="animate-spin" />
+                    )}
+
+                    {isDeleting
+                      ? "Removing..."
+                      : "Remove"}
                   </button>
+
                 </div>
               </div>
             </motion.div>

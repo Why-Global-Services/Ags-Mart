@@ -3,7 +3,9 @@ import axios from "axios";
 const apiInstance = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "https://agsmartapi.whydev.in/v1/user",
+    // "https://agsmartapi.whydev.in/v1/user",
+        "http://localhost:5001/v1/user",
+
 });
 
 // ✅ Public routes that don't need token

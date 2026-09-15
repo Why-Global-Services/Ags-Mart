@@ -81,22 +81,22 @@ const CategoryNavbar = () => {
           href={categoryPath(title)}
           className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide transition-colors py-2 whitespace-nowrap ${
             active
-              ? "text-bgvariant-1 font-bold"
-              : "text-gray-700 hover:text-bgvariant-1"
+              ? "text-white font-bold"
+              : "text-white/90 hover:text-white"
           }`}
         >
-          {active && <FaLeaf className="text-bgvariant-2 text-xs shrink-0" />}
+          {active && <FaLeaf className="text-green-300 text-xs shrink-0" />}
           <span>{title}</span>
           {hasSubcategories && (
             <FiChevronDown
-              className={`text-xs transition-transform duration-200 shrink-0 ${
+              className={`text-xs text-white/80 transition-transform duration-200 shrink-0 ${
                 hoveredCategory === categoryKey ? "rotate-180" : ""
               }`}
             />
           )}
         </Link>
         <span
-          className={`absolute left-0 -bottom-1 h-0.5 bg-bgvariant-1 rounded-full transition-all duration-300 ${
+          className={`absolute left-0 -bottom-0.5 h-0.5 bg-green-300 rounded-full transition-all duration-300 ${
             active ? "w-full" : "w-0 group-hover:w-full"
           }`}
         />
@@ -154,14 +154,14 @@ const CategoryNavbar = () => {
       {/* Category Navigation Bar */}
       <nav
         aria-label="Category Navigation"
-        className="bg-white border-b-2 border-green-100 sticky top-20 sm:top-22 md:top-24 lg:top-24 z-40 shadow-sm w-full max-w-full overflow-x-clip"
+        className="bg-[#0c4320] border-b border-green-950/40 sticky top-20 sm:top-22 z-40 shadow-sm w-full max-w-full overflow-x-clip"
       >
-        <div className="w-full max-w-full px-3 sm:px-4 md:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-12 sm:h-14 lg:h-16">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-11 sm:h-12">
             {/* Mobile / Tablet Menu Button (< lg) */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-bgvariant-1 text-white rounded-lg font-semibold text-xs sm:text-sm hover:bg-bgvariant-4 transition shadow-sm shrink-0"
+              className="lg:hidden flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-emerald-700/80 text-white rounded-lg font-semibold text-xs sm:text-sm hover:bg-emerald-600 transition shadow-sm shrink-0"
               aria-label="Open Navigation Menu"
             >
               <FiMenu className="text-base sm:text-lg" />
@@ -170,14 +170,14 @@ const CategoryNavbar = () => {
 
             {/* Desktop Navigation List (lg breakpoint and up) */}
             <div className="hidden lg:flex items-center w-full justify-center">
-              <ul className="flex items-center gap-4 xl:gap-7 flex-wrap justify-center">
+              <ul className="flex items-center gap-5 xl:gap-8 flex-wrap justify-center">
                 <li>
                   <Link
                     href="/"
                     className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 transition-colors ${
                       isPageActive("/")
-                        ? "text-bgvariant-1 font-bold"
-                        : "text-gray-700 hover:text-bgvariant-1"
+                        ? "text-white font-bold border-b-2 border-green-300"
+                        : "text-white/90 hover:text-white"
                     }`}
                   >
                     Home
@@ -190,8 +190,8 @@ const CategoryNavbar = () => {
                       href={item.path}
                       className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 transition-colors ${
                         isPageActive(item.path)
-                          ? "text-bgvariant-1 font-bold"
-                          : "text-gray-700 hover:text-bgvariant-1"
+                          ? "text-white font-bold border-b-2 border-green-300"
+                          : "text-white/90 hover:text-white"
                       }`}
                     >
                       {item.title}
