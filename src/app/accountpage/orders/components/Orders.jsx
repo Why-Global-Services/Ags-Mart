@@ -38,13 +38,9 @@ const getProductImage = (product) => {
   const details = product.productDetails;
   const variantId = product.variantId;
 
-  // 1. Variant images (size/color)
+  // 1. Variant images (unitOnly)
   if (details.variant && variantId) {
-    const variants = [
-      ...(details.variant.sizeOnlyVariants || []),
-      ...(details.variant.colorOnlyVariants || []),
-      ...(details.variant.sizeColorVariants || [])
-    ];
+    const variants = details.variant.unitOnlyVariants || [];
     const matched = variants.find(v => v._id === variantId);
     if (matched?.variantImages?.[0]) return matched.variantImages[0];
   }
@@ -69,11 +65,7 @@ const getProductPrice = (product) => {
   const variantId = product.variantId;
 
   if (details.variant && variantId) {
-    const variants = [
-      ...(details.variant.sizeOnlyVariants || []),
-      ...(details.variant.colorOnlyVariants || []),
-      ...(details.variant.sizeColorVariants || [])
-    ];
+    const variants = details.variant.unitOnlyVariants || [];
     const matched = variants.find(v => v._id === variantId);
     if (matched?.price) return matched.price;
   }

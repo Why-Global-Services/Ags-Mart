@@ -16,7 +16,6 @@ const OrderDetailsMain = () => {
             productImages: ["/placeholder.png"],
             variant: {
               unitOnlyVariants: [],
-              colorOnlyVariants: [],
             },
           },
           quantity: 1,

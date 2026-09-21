@@ -99,23 +99,8 @@ const extractVariants = (data) => {
   if (Array.isArray(data.variant?.unitOnlyVariants) && data.variant.unitOnlyVariants.length > 0) {
     return data.variant.unitOnlyVariants;
   }
-  if (Array.isArray(data.variant) && data.variant.length > 0) {
-    return data.variant;
-  }
-  if (Array.isArray(data.variants) && data.variants.length > 0) {
-    return data.variants;
-  }
   if (Array.isArray(data.unitOnlyVariants) && data.unitOnlyVariants.length > 0) {
     return data.unitOnlyVariants;
-  }
-  if (Array.isArray(data.variant?.colorOnlyVariants) && data.variant.colorOnlyVariants.length > 0) {
-    return data.variant.colorOnlyVariants;
-  }
-  if (Array.isArray(data.variant?.sizeColorVariants) && data.variant.sizeColorVariants.length > 0) {
-    return data.variant.sizeColorVariants;
-  }
-  if (Array.isArray(data.variant?.sizeOnlyVariants) && data.variant.sizeOnlyVariants.length > 0) {
-    return data.variant.sizeOnlyVariants;
   }
   return [];
 };
@@ -352,7 +337,10 @@ const ProductDetailsPage = () => {
       productId: product?.productId,
       variantId,
       productType: product?.productType,
-      variantType: product?.variant?.variantType || null,
+      variantType:
+        product?.productType === "variant"
+          ? "unitOnly"
+          : product?.variant?.variantType || null,
       selectedUnit: selectedVariant?.unit || null,
     };
 
@@ -838,7 +826,7 @@ const ProductDetailsPage = () => {
                               : "border border-gray-300 text-gray-700 bg-white hover:border-emerald-500 hover:text-emerald-800"
                         }`}
                       >
-                        {v.unit || v.size || v.color || `Option ${idx + 1}`}
+                        {v.unit || `Option ${idx + 1}`}
                       </button>
                     );
                   })}

@@ -32,10 +32,7 @@ const OrderTracking = ({ order }) => {
   const product = order.orderDetails[0]?.products;
   const pVariant = product?.productDetails?.variant;
   const variant =
-    pVariant?.unitOnlyVariants?.find((v) => v._id === product?.variantId) ||
-    pVariant?.colorOnlyVariants?.find((v) => v._id === product?.variantId) ||
-    pVariant?.sizeOnlyVariants?.find((v) => v._id === product?.variantId) ||
-    pVariant?.sizeColorVariants?.find((v) => v._id === product?.variantId);
+    pVariant?.unitOnlyVariants?.find((v) => v._id === product?.variantId);
   const priceInfo = variant?.price || {};
 
   return (

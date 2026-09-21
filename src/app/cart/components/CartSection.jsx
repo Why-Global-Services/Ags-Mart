@@ -180,15 +180,6 @@ const CartPage = () => {
           product?.selectedVariant?.unit ||
           null;
 
-        /**
-         * Legacy fields kept only for backward compatibility.
-         */
-        const selectedSize =
-          product?.selectedSize || null;
-
-        const selectedColor =
-          product?.selectedColor || null;
-
         const image = getFirstImage(product);
 
         return {
@@ -235,10 +226,6 @@ const CartPage = () => {
               : "Out of Stock",
 
           selectedUnit,
-
-          selectedSize,
-
-          selectedColor,
 
           rawData: product,
         };
@@ -591,23 +578,11 @@ const CartPage = () => {
                         </div>
 
                         {/* Selected Unit */}
-                        {(item.selectedUnit || item.selectedSize || item.selectedColor) && (
+                        {item.selectedUnit && (
                           <div className="flex flex-wrap gap-2">
-                            {item.selectedUnit && (
-                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-emerald-100/60">
-                                Unit: {item.selectedUnit}
-                              </span>
-                            )}
-                            {item.selectedSize && (
-                              <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                                {item.selectedSize}
-                              </span>
-                            )}
-                            {item.selectedColor && (
-                              <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                                {item.selectedColor}
-                              </span>
-                            )}
+                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-emerald-100/60">
+                              Unit: {item.selectedUnit}
+                            </span>
                           </div>
                         )}
 
