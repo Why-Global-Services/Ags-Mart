@@ -131,6 +131,9 @@ const CreateProductContent = () => {
       formDataToSend.append("productDescription", payload.productDescription || "");
       formDataToSend.append("productUsage", payload.productUsage || "");
       formDataToSend.append("status", payload.status || "active");
+      if (payload.basePrice !== undefined && payload.basePrice !== null && payload.basePrice !== "") {
+        formDataToSend.append("basePrice", payload.basePrice);
+      }
 
       // Product Benefits (as array)
       if (payload.productBenifits && payload.productBenifits.length > 0) {

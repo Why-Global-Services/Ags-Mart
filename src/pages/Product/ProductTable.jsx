@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import {
   getAllProduct,
   updateProductStatus,
-  // deleteProduct,
+  deleteProduct,
 } from "../../services/Products";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
@@ -17,6 +17,8 @@ const Product = () => {
   const [variantFilter, setVariantFilter] = useState("all");
   const [productToView, setProductToView] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -196,17 +198,45 @@ if (searchTerm.trim()) {
     setIsOpen(true);
   };
 
-  // const handleDeleteProduct = async (id) => {
-  //   try {
-  //     await deleteProduct(id);
-  //     setProducts(products.filter((product) => product._id !== id));
-  //     toast.success("Product deleted successfully");
-  //     setShowDeleteModal(false);
-  //   } catch (error) {
-  //     toast.error(error.response?.data?.message || "Failed to delete product");
-  //     console.error("Error deleting product:", error);
-  //   }
-  // };
+  const openDeleteModal = (product) => {
+    setProductToDelete(product);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setShowDeleteModal(false);
+    setProductToDelete(null);
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete?._id || deleting) return;
+
+    try {
+      setDeleting(true);
+      const response = await deleteProduct(productToDelete._id);
+
+      if (response?.success === false) {
+        throw new Error(response.message || "Failed to delete product");
+      }
+
+      setProducts((currentProducts) =>
+        currentProducts.filter((product) => product._id !== productToDelete._id)
+      );
+      toast.success(response?.message || "Product permanently deleted");
+      setShowDeleteModal(false);
+      setProductToDelete(null);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to delete product"
+      );
+      console.error("Error deleting product:", error);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleToggleChange = async (productId, currentStatus) => {
     try {
@@ -480,6 +510,12 @@ if (searchTerm.trim()) {
         let totalStock = 0;
 
         if (row.productType === "variant") {
+          if (Array.isArray(row.variant?.unitOnlyVariants)) {
+            totalStock += row.variant.unitOnlyVariants.reduce(
+              (sum, v) => sum + Number(v.stockCount || 0),
+              0
+            );
+          }
           if (Array.isArray(row.variant?.sizeOnlyVariants)) {
             totalStock += row.variant.sizeOnlyVariants.reduce(
               (sum, v) => sum + Number(v.stockCount || 0),
@@ -511,17 +547,18 @@ if (searchTerm.trim()) {
       selector: (row) => {
         let price = 0;
 
-        if (row.productType === "variant") {
+        if (row.basePrice !== undefined && row.basePrice !== null && row.basePrice > 0) {
+          price = row.basePrice;
+        } else if (row.productType === "variant") {
           const v =
+            row.variant?.unitOnlyVariants?.[0] ||
             row.variant?.sizeOnlyVariants?.[0] ||
             row.variant?.colorOnlyVariants?.[0] ||
             row.variant?.sizeColorVariants?.[0];
 
-          price = v?.price?.salePrice || 0;
-        }
-
-        if (row.productType === "nonVariant") {
-          price = row.nonVariant?.price?.salePrice || 0;
+          price = v?.price?.salePrice || v?.price?.costPrice || 0;
+        } else if (row.productType === "nonVariant") {
+          price = row.nonVariant?.price?.salePrice || row.price?.salePrice || 0;
         }
 
         return `₹${Number(price).toFixed(2)}`;
@@ -566,13 +603,13 @@ if (searchTerm.trim()) {
           >
             <FaEdit size={14} />
           </button>
-          {/* <button
-            onClick={() => setShowDeleteModal(row._id)}
+          <button
+            onClick={() => openDeleteModal(row)}
             className="bg-red-100 text-red-600 p-1 rounded hover:bg-red-200 cursor-pointer"
             aria-label={`Delete ${row.productName || "product"}`}
           >
             <FaTrashAlt size={14} />
-          </button> */}
+          </button>
         </div>
       ),
     },
@@ -1381,13 +1418,17 @@ if (searchTerm.trim()) {
       {/* DELETE CONFIRMATION MODAL */}
       <Modal
         title="Confirm Delete"
-        open={Boolean(showDeleteModal)}
-        onOk={() => handleDeleteProduct(showDeleteModal)}
-        onCancel={() => setShowDeleteModal(false)}
+        open={showDeleteModal}
+        onOk={handleDeleteProduct}
+        onCancel={closeDeleteModal}
+        confirmLoading={deleting}
+        closable={!deleting}
+        maskClosable={!deleting}
         footer={[
           <Button
             key="back"
-            onClick={() => setShowDeleteModal(false)}
+            onClick={closeDeleteModal}
+            disabled={deleting}
             aria-label="Cancel delete"
           >
             Cancel
@@ -1396,7 +1437,8 @@ if (searchTerm.trim()) {
             key="submit"
             type="primary"
             danger
-            onClick={() => handleDeleteProduct(showDeleteModal)}
+            loading={deleting}
+            onClick={handleDeleteProduct}
             aria-label="Confirm delete product"
           >
             Delete
@@ -1404,7 +1446,10 @@ if (searchTerm.trim()) {
         ]}
         className="rounded-lg shadow-xl"
       >
-        <p>Are you sure you want to delete this product?</p>
+        <p>
+          Permanently delete {productToDelete?.productName || "this product"}?
+          This cannot be undone.
+        </p>
       </Modal>
     </div>
   );

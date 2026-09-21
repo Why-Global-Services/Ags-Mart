@@ -50,6 +50,13 @@ export default function ProductForm() {
     resolver: zodResolver(productSchema),
     defaultValues: {
       productType: "nonVariant",
+      // Product-level details are available for BOTH product types.
+      // For variant products these are the main/base product details;
+      // unit-specific price and stock remain inside variant.unitOnlyVariants.
+      price: { costPrice: 0, salePrice: 0, discount: 0, tax: 0 },
+      basePrice: 0,
+      productCode: "",
+      stockCount: 0,
       isReturnable: false,
       isTodaySpecial: false,
       variant: {
@@ -74,6 +81,10 @@ export default function ProductForm() {
   // Watch for non-variant price fields
   const nonVariantCostPrice = watch("nonVariant.price.costPrice");
   const nonVariantDiscount = watch("nonVariant.price.discount");
+
+  // Product-level price for both product types.
+  const productCostPrice = watch("price.costPrice");
+  const productDiscount = watch("price.discount");
 
   const { fields: benefitFields, append: appendBenefit, remove: removeBenefit } = useFieldArray({ control, name: "productBenifits" });
   const { fields: ingredientFields, append: appendIngredient, remove: removeIngredient } = useFieldArray({ control, name: "productIngrediants" });
@@ -105,6 +116,15 @@ export default function ProductForm() {
       setValue("nonVariant.price.salePrice", salePrice, { shouldValidate: true });
     }
   }, [nonVariantCostPrice, nonVariantDiscount, productType, setValue, calculateSalePrice]);
+
+  // Product-level price calculation for variant products.
+  useEffect(() => {
+    if (productType === "variant") {
+      const salePrice = calculateSalePrice(productCostPrice, productDiscount);
+      setValue("price.salePrice", salePrice, { shouldValidate: true });
+      setValue("basePrice", salePrice, { shouldValidate: true });
+    }
+  }, [productCostPrice, productDiscount, productType, setValue, calculateSalePrice]);
 
   // Effect for variant product price calculations
   // useEffect(() => {
@@ -1020,6 +1040,144 @@ export default function ProductForm() {
         )}
 
         {/* VARIANT */}
+        {productType === "variant" && (
+          <div className="form-section">
+            <h3>Product Details</h3>
+
+            <div className="form-row grid-4">
+              <div className="form-group">
+                <label>Cost Price ($)</label>
+                <Controller
+                  control={control}
+                  name="price.costPrice"
+                  render={({ field }) => (
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const cost = parseFloat(e.target.value) || 0;
+                        field.onChange(cost);
+
+                        const discount = watch("price.discount") || 0;
+                        const sale = calculateSalePrice(cost, discount);
+
+                        setValue("price.salePrice", sale, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                        setValue("basePrice", sale, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      }}
+                      onWheel={(e) => e.target.blur()}
+                    />
+                  )}
+                />
+                {errors.price?.costPrice && (
+                  <span className="error-msg">{errors.price.costPrice.message}</span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Sale Price ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  {...register("price.salePrice")}
+                  readOnly
+                  className="readonly-input"
+                />
+                <small className="calculation-hint">
+                  Auto-calculated from Cost and Discount
+                </small>
+              </div>
+
+              <div className="form-group">
+                <label>Discount (%)</label>
+                <Controller
+                  control={control}
+                  name="price.discount"
+                  render={({ field }) => (
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const discount = parseFloat(e.target.value) || 0;
+                        field.onChange(discount);
+
+                        const cost = watch("price.costPrice") || 0;
+                        const sale = calculateSalePrice(cost, discount);
+
+                        setValue("price.salePrice", sale, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                        setValue("basePrice", sale, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      }}
+                      onWheel={(e) => e.target.blur()}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Tax (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0"
+                  {...register("price.tax")}
+                  onWheel={(e) => e.target.blur()}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Product Code</label>
+                <input
+                  placeholder="SKU or code"
+                  {...register("productCode")}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Stock Count</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  {...register("stockCount")}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Product Base Price</label>
+              <input
+                type="number"
+                step="0.01"
+                value={watch("basePrice") ?? 0}
+                readOnly
+                className="readonly-input"
+              />
+              <small className="calculation-hint">
+                This is the main product/base price. Unit variant prices below remain independent.
+              </small>
+            </div>
+          </div>
+        )}
+
+        {/* VARIANT CONFIGURATION */}
         {productType === "variant" && (
           <div className="form-section">
             <h3>Variant Configuration</h3>

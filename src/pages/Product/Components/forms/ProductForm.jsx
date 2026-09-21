@@ -141,8 +141,18 @@ const [currentVariant, setCurrentVariant] = useState({
       // Non-variant data
       nonVariant: isNonVariant ? transformNonVariantData(apiData) : {},
 
-      // Pricing for non-variant products
-      price: isNonVariant
+      // Product-level pricing (available for BOTH variant and non-variant products)
+      // Variant prices remain inside each variant; this price is the main product/base price.
+      basePrice: apiData.basePrice ?? "",
+      price: apiData.price
+        ? {
+            costPrice: apiData.price.costPrice ?? "",
+            salePrice: apiData.price.salePrice ?? "",
+            discount: apiData.price.discount ?? "",
+            tax: apiData.price.tax ?? "",
+            realPrice: apiData.price.realPrice ?? 0,
+          }
+        : isNonVariant
         ? {
             costPrice: nonVariantPrice.costPrice || "",
             salePrice: nonVariantPrice.salePrice || "",
@@ -151,8 +161,9 @@ const [currentVariant, setCurrentVariant] = useState({
           }
         : { costPrice: "", salePrice: "", discount: "", tax: "" },
 
-      // Stock for non-variant
-      stockCount: isNonVariant ? nonVariantStockCount : "",
+      // Product-level stock/code are used by the main Product Details section.
+      stockCount: apiData.stockCount ?? (isNonVariant ? nonVariantStockCount : ""),
+      productCode: apiData.productCode ?? (isNonVariant ? (apiData.nonVariant?.productCode || "") : ""),
 
       // Category-specific attributes
       sareeAttributes: apiData.sareeAttributes || {},
@@ -515,15 +526,13 @@ useEffect(() => {
         mensKidsAttributes: categoryAttributes.mensKidsAttributes,
         jewelleryAttributes: categoryAttributes.jewelleryAttributes,
       });
+    }
     // SUBCATEGORY TEMPORARILY DISABLED
     // else if (name === "productSubCategory") {
     //   const selectedSub = subCategories.find((sub) => sub.subCategoryTitle === value);
     //   updateFormData({ productSubCategory: value, subcategory_id: selectedSub?._id || "" });
     // }
-
-    // In handleInputChange function, update the productTitle handler:
-
-else if (name === "productTitle") {
+    else if (name === "productTitle") {
   // Update both main productTitle and nonVariant.productTitle
   if (formData.hasNonVariation) {
     updateFormData({
@@ -560,14 +569,28 @@ else if (["costPrice", "salePrice", "discount", "tax"].includes(name)) {
     }
   }
 
-  // Update for non-variant products
+  // Product-level price is available for BOTH product types.
+  // For non-variant products keep it synced with nonVariant.price.
+  // For variant products this is the independent main/base product price.
   if (formData.hasNonVariation) {
     updateFormData({
       price: updatedPrice,
+      basePrice:
+        updatedPrice.salePrice !== "" && !isNaN(Number(updatedPrice.salePrice))
+          ? Number(updatedPrice.salePrice)
+          : Number(updatedPrice.costPrice || 0),
       nonVariant: {
         ...formData.nonVariant,
         price: updatedPrice,
       },
+    });
+  } else if (formData.hasVariation) {
+    updateFormData({
+      price: updatedPrice,
+      basePrice:
+        updatedPrice.salePrice !== "" && !isNaN(Number(updatedPrice.salePrice))
+          ? Number(updatedPrice.salePrice)
+          : Number(updatedPrice.costPrice || 0),
     });
   }
 }
@@ -583,6 +606,7 @@ else if (["costPrice", "salePrice", "discount", "tax"].includes(name)) {
           },
         });
       } else {
+        // Product-level stock for variant products. Variant stock remains per-unit.
         updateFormData({ stockCount: stockValue });
       }
     }
@@ -590,11 +614,14 @@ else if (["costPrice", "salePrice", "discount", "tax"].includes(name)) {
     else if (name === "productCode") {
       if (formData.hasNonVariation) {
         updateFormData({
+          productCode: value,
           nonVariant: {
             ...formData.nonVariant,
             productCode: value,
           },
         });
+      } else if (formData.hasVariation) {
+        updateFormData({ productCode: value });
       }
     }
     // Product benefits
@@ -1297,10 +1324,146 @@ const formatVariantsForTable = () => {
     : formData.stockCount;
 
   const productCodeValue = formData.hasNonVariation
-    ? formData.nonVariant?.productCode || ""
-    : "";
+    ? formData.nonVariant?.productCode || formData.productCode || ""
+    : formData.productCode || "";
 
 
+
+  // =========================================================
+  // MAIN PRODUCT DETAILS FOR VARIANT PRODUCTS
+  // =========================================================
+  // Variant products also have their own product-level price/code/stock.
+  // Variant prices and stocks remain independent inside the Unit Variant section.
+  const renderVariantMainProductDetails = () => {
+    if (!formData.hasVariation) return null;
+
+    return (
+      <div className="w-full mt-4 border rounded-lg p-4 bg-white">
+        <h3 className="text-lg font-semibold mb-4">Product Details</h3>
+        <div className="h-px bg-blue-500 mb-5" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label htmlFor="variantMainCostPrice" className="block text-sm font-medium text-gray-600 mb-2">
+              Cost Price (₹) *
+            </label>
+            <input
+              id="variantMainCostPrice"
+              type="number"
+              name="costPrice"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={priceData?.costPrice ?? ""}
+              onChange={handleInputChange}
+              className={`border rounded p-2 w-full ${errors.costPrice ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+            />
+            {errors.costPrice && <p className="text-red-500 text-sm mt-1">{errors.costPrice}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="variantMainSalePrice" className="block text-sm font-medium text-gray-600 mb-2">
+              Sale Price (₹)
+            </label>
+            <input
+              id="variantMainSalePrice"
+              type="number"
+              name="salePrice"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={priceData?.salePrice ?? ""}
+              onChange={handleInputChange}
+              className="border rounded p-2 w-full border-gray-300 bg-gray-50"
+              readOnly
+            />
+            <p className="text-xs text-gray-500 mt-1">Auto-calculated from cost and discount</p>
+          </div>
+
+          <div>
+            <label htmlFor="variantMainDiscount" className="block text-sm font-medium text-gray-600 mb-2">
+              Discount (%)
+            </label>
+            <input
+              id="variantMainDiscount"
+              type="number"
+              name="discount"
+              min="0"
+              max="100"
+              step="1"
+              placeholder="0"
+              value={priceData?.discount ?? ""}
+              onChange={handleInputChange}
+              className="border rounded p-2 w-full border-gray-300"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="variantMainTax" className="block text-sm font-medium text-gray-600 mb-2">
+              Tax (%)
+            </label>
+            <input
+              id="variantMainTax"
+              type="number"
+              name="tax"
+              min="0"
+              max="100"
+              step="1"
+              placeholder="0"
+              value={priceData?.tax ?? ""}
+              onChange={handleInputChange}
+              className="border rounded p-2 w-full border-gray-300"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label htmlFor="variantMainProductCode" className="block text-sm font-medium text-gray-600 mb-2">
+              Product Code
+            </label>
+            <input
+              id="variantMainProductCode"
+              type="text"
+              name="productCode"
+              placeholder="SKU or code"
+              value={productCodeValue}
+              onChange={handleInputChange}
+              className="border rounded p-2 w-full border-gray-300"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="variantMainStockCount" className="block text-sm font-medium text-gray-600 mb-2">
+              Stock Count
+            </label>
+            <input
+              id="variantMainStockCount"
+              type="number"
+              name="stockCount"
+              min="0"
+              step="1"
+              placeholder="0"
+              value={formData.stockCount ?? ""}
+              onChange={handleInputChange}
+              className="border rounded p-2 w-full border-gray-300"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded border-2 border-dashed border-gray-300 p-4 bg-gray-50">
+          <p className="text-sm font-medium text-gray-700">Additional Product Images</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Main product images are managed in the Product Images section above. Variant-specific images are managed inside each variant.
+          </p>
+        </div>
+
+        <div className="mt-3 rounded bg-blue-50 p-3 text-sm text-blue-700">
+          <strong>Note:</strong> This price is the product-level base/starting price. Unit variant prices below are independent and will be used when a customer selects a unit.
+        </div>
+      </div>
+    );
+  };
 
   // Render Unit Only Section
   const renderUnitOnlySection = () => {
@@ -1759,6 +1922,8 @@ const formatVariantsForTable = () => {
       {/* Variant Management Section */}
       {formData.hasVariation && (
         <div className="w-full space-y-4 mt-4">
+          {renderVariantMainProductDetails()}
+
           <h3 className="text-lg font-medium">Product Variants</h3>
           <div className="border p-4 rounded-lg mb-4">
             <h4 className="text-md font-medium mb-3">Variant Configuration</h4>
@@ -1770,6 +1935,15 @@ const formatVariantsForTable = () => {
                 <div className="border rounded p-2 w-full bg-gray-50 text-gray-700 font-medium">
                   Unit
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">
+                  Product-level Base Price
+                </label>
+                <div className="border rounded p-2 w-full bg-gray-50 text-gray-700">
+                  ₹{Number(formData.basePrice || priceData?.salePrice || 0).toFixed(2)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Synced from the main Product Details sale price.</p>
               </div>
             </div>
             {renderUnitOnlySection()}
