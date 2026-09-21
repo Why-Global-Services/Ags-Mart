@@ -81,18 +81,6 @@ const getJustForYouProduct = async (req, res) => {
         updatedVariant.unitOnlyVariants = addFlagsToVariant(
           updatedVariant.unitOnlyVariants || []
         );
-      } else if (variantType === "sizeColor") {
-        updatedVariant.sizeColorVariants = addFlagsToVariant(
-          updatedVariant.sizeColorVariants || []
-        );
-      } else if (variantType === "colorOnly") {
-        updatedVariant.colorOnlyVariants = addFlagsToVariant(
-          updatedVariant.colorOnlyVariants || []
-        );
-      } else if (variantType === "sizeOnly") {
-        updatedVariant.sizeOnlyVariants = addFlagsToVariant(
-          updatedVariant.sizeOnlyVariants || []
-        );
       }
     }
 

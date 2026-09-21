@@ -15,16 +15,7 @@ const isProductDiscounted = (product, item) => {
       if (!v) return null;
 
       if (v.variantType === "unitOnly") {
-        return v.unitOnlyVariants?.find(x => x._id == item.variantId);
-      }
-      if (v.variantType === "sizeColor") {
-        return v.sizeColorVariants.find(x => x._id == item.variantId);
-      }
-      if (v.variantType === "sizeOnly") {
-        return v.sizeOnlyVariants.find(x => x._id == item.variantId);
-      }
-      if (v.variantType === "colorOnly") {
-        return v.colorOnlyVariants.find(x => x._id == item.variantId);
+        return v.unitOnlyVariants?.find(x => String(x._id) === String(item.variantId));
       }
       return null;
     })();
@@ -151,25 +142,7 @@ if (hasAnyDiscountedItem) {
 
         if (variantType === "unitOnly") {
           found = product.variant.unitOnlyVariants?.find(
-            (v) => v._id == item.variantId
-          );
-        }
-
-        if (variantType === "sizeColor") {
-          found = product.variant.sizeColorVariants.find(
-            (v) => v._id == item.variantId
-          );
-        }
-
-        if (variantType === "sizeOnly") {
-          found = product.variant.sizeOnlyVariants.find(
-            (v) => v._id == item.variantId
-          );
-        }
-
-        if (variantType === "colorOnly") {
-          found = product.variant.colorOnlyVariants.find(
-            (v) => v._id == item.variantId
+            (v) => String(v._id) === String(item.variantId)
           );
         }
 
@@ -266,43 +239,12 @@ if (hasAnyDiscountedItem) {
 
         if (variant?.variantType === "unitOnly") {
           selectedVariant = variant.unitOnlyVariants?.find(
-            (v) => v._id?.toString() === free.variantId?.toString()
+            (v) => String(v._id) === String(free.variantId)
           );
           if (selectedVariant) {
             freeProduct.variantDetails = {
               unit: selectedVariant.unit,
               displayName: selectedVariant.unit,
-            };
-          }
-        } else if (variant?.variantType === "sizeColor") {
-          selectedVariant = variant.sizeColorVariants?.find(
-            (v) => v._id === free.variantId
-          );
-          if (selectedVariant) {
-            freeProduct.variantDetails = {
-              size: selectedVariant.size,
-              color: selectedVariant.color,
-              displayName: `${selectedVariant.size} - ${selectedVariant.color}`,
-            };
-          }
-        } else if (variant?.variantType === "colorOnly") {
-          selectedVariant = variant.colorOnlyVariants?.find(
-            (v) => v._id === free.variantId
-          );
-          if (selectedVariant) {
-            freeProduct.variantDetails = {
-              color: selectedVariant.color,
-              displayName: selectedVariant.color,
-            };
-          }
-        } else if (variant?.variantType === "sizeOnly") {
-          selectedVariant = variant.sizeOnlyVariants?.find(
-            (v) => v._id === free.variantId
-          );
-          if (selectedVariant) {
-            freeProduct.variantDetails = {
-              size: selectedVariant.size,
-              displayName: selectedVariant.size,
             };
           }
         }
@@ -379,86 +321,7 @@ const getCoupon = async (req) => {
   {$sample: {size:1}}
   ])
 
-  // if (coupon.offerType === "FREE_PRODUCT" && coupon.freeProduct?.productId) {
-  //         try {
-  //           const product = await Product.findById(coupon.freeProduct.productId).lean();
-            
-  //           if (product) {
-  //             let freeProductDetails = {
-  //               productId: product._id,
-  //               productName: product.productName,
-  //               productType: coupon.freeProduct.productType,
-  //               productImage: null,
-  //               variantDetails: null,
-  //               price: 0,
-  //             };
-  
-  //             // Get variant-specific details
-  //             if (coupon.freeProduct.productType === "variant" && coupon.freeProduct.variantId) {
-  //               const variant = product.variant;
-  //               let selectedVariant = null;
-  
-  //               if (variant?.variantType === "sizeColor") {
-  //                 selectedVariant = variant.sizeColorVariants?.find(
-  //                   (v) => v._id === coupon.freeProduct.variantId
-  //                 );
-  //                 if (selectedVariant) {
-  //                   freeProductDetails.variantDetails = {
-  //                     size: selectedVariant.size,
-  //                     color: selectedVariant.color,
-  //                     displayName: `${selectedVariant.size} - ${selectedVariant.color}`,
-  //                   };
-  //                 }
-  //               } else if (variant?.variantType === "colorOnly") {
-  //                 selectedVariant = variant.colorOnlyVariants?.find(
-  //                   (v) => v._id === coupon.freeProduct.variantId
-  //                 );
-  //                 if (selectedVariant) {
-  //                   freeProductDetails.variantDetails = {
-  //                     color: selectedVariant.color,
-  //                     displayName: selectedVariant.color,
-  //                   };
-  //                 }
-  //               } else if (variant?.variantType === "sizeOnly") {
-  //                 selectedVariant = variant.sizeOnlyVariants?.find(
-  //                   (v) => v._id === coupon.freeProduct.variantId
-  //                 );
-  //                 if (selectedVariant) {
-  //                   freeProductDetails.variantDetails = {
-  //                     size: selectedVariant.size,
-  //                     displayName: selectedVariant.size,
-  //                   };
-  //                 }
-  //               }
-  
-  //               // Get variant image or fallback to product images
-  //               if (selectedVariant?.variantImages?.length) {
-  //                 freeProductDetails.productImage = selectedVariant.variantImages[0];
-  //               } else if (product.productImages?.length) {
-  //                 freeProductDetails.productImage = product.productImages[0];
-  //               }
-  
-  //               freeProductDetails.price = selectedVariant?.price?.salePrice || 0;
-  //             } else if (coupon.freeProduct.productType === "nonVariant") {
-  //               // Non-variant product
-  //               if (product.nonVariant?.nonVariantImages?.length) {
-  //                 freeProductDetails.productImage = product.nonVariant.nonVariantImages[0];
-  //               } else if (product.productImages?.length) {
-  //                 freeProductDetails.productImage = product.productImages[0];
-  //               }
-  
-  //               freeProductDetails.price = product.nonVariant?.price?.salePrice || 0;
-  //             }
-  
-  //             return {
-  //               ...coupon,
-  //               freeProductDetails, // Add enriched product details
-  //             };
-  //           }
-  //         } catch (err) {
-  //           console.error("Error fetching free product details:", err);
-  //         }
-  //       }
+
 
   return {
     success: true,

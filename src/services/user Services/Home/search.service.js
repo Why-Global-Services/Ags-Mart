@@ -11,12 +11,7 @@ const ensureBasePrice = (product) => {
     if (prodObj.price?.salePrice && prodObj.price.salePrice > 0) {
       prodObj.basePrice = prodObj.price.salePrice;
     } else if (prodObj.productType === "variant") {
-      const v =
-        prodObj.variant?.unitOnlyVariants ||
-        prodObj.variant?.sizeColorVariants ||
-        prodObj.variant?.colorOnlyVariants ||
-        prodObj.variant?.sizeOnlyVariants ||
-        [];
+      const v = prodObj.variant?.unitOnlyVariants || [];
       const prices = v
         .map((item) => item.price?.salePrice || item.price?.costPrice)
         .filter((p) => typeof p === "number" && p > 0);
@@ -80,18 +75,6 @@ const Search = async (req) => {
       { "variant.unitOnlyVariants.unit": { $regex: query, $options: "i" } },
       { "variant.unitOnlyVariants.productCode": { $regex: query, $options: "i" } },
 
-      { "variant.sizeOnlyVariants.color": { $regex: query, $options: "i" } },
-      { "variant.sizeOnlyVariants.size": { $regex: query, $options: "i" } },
-      { "variant.sizeOnlyVariants.productCode": { $regex: query, $options: "i" } },
-
-      { "variant.colorOnlyVariants.color": { $regex: query, $options: "i" } },
-      { "variant.colorOnlyVariants.size": { $regex: query, $options: "i" } },
-      { "variant.colorOnlyVariants.productCode": { $regex: query, $options: "i" } },
-
-      { "variant.sizeColorVariants.color": { $regex: query, $options: "i" } },
-      { "variant.sizeColorVariants.size": { $regex: query, $options: "i" } },
-      { "variant.sizeColorVariants.productCode": { $regex: query, $options: "i" } },
-
       { "inventory.productCode": { $regex: query, $options: "i" } },
       { searchTags: { $regex: query, $options: "i" } },
       { productDescription: { $regex: query, $options: "i" } },
@@ -121,10 +104,7 @@ const Search = async (req) => {
     searchFilter.$or.push(
       { basePrice: priceFilter },
       { "nonVariant.price.salePrice": priceFilter },
-      { "variant.unitOnlyVariants.price.salePrice": priceFilter },
-      { "variant.colorOnlyVariants.price.salePrice": priceFilter },
-      { "variant.sizeOnlyVariants.price.salePrice": priceFilter },
-      { "variant.sizeColorVariants.price.salePrice": priceFilter }
+      { "variant.unitOnlyVariants.price.salePrice": priceFilter }
     );
   }
 
@@ -136,20 +116,14 @@ if (discount) {
     // All products with any discount > 0
     searchFilter.$or.push(
       { "nonVariant.price.discount": { $gt: 0 } },
-      { "variant.unitOnlyVariants.price.discount": { $gt: 0 } },
-      { "variant.colorOnlyVariants.price.discount": { $gt: 0 } },
-      { "variant.sizeOnlyVariants.price.discount": { $gt: 0 } },
-      { "variant.sizeColorVariants.price.discount": { $gt: 0 } }
+      { "variant.unitOnlyVariants.price.discount": { $gt: 0 } }
     );
   } else {
     // Only products with discount >= given value
     const discountValue = parseFloat(discount);
     searchFilter.$or.push(
       { "nonVariant.price.discount": { $gte: discountValue } },
-      { "variant.unitOnlyVariants.price.discount": { $gte: discountValue } },
-      { "variant.colorOnlyVariants.price.discount": { $gte: discountValue } },
-      { "variant.sizeOnlyVariants.price.discount": { $gte: discountValue } },
-      { "variant.sizeColorVariants.price.discount": { $gte: discountValue } }
+      { "variant.unitOnlyVariants.price.discount": { $gte: discountValue } }
     );
   }
 }
@@ -224,18 +198,6 @@ if (minRating) {
       if (variantType === "unitOnly") {
         updatedVariant.unitOnlyVariants = addFlags(
           updatedVariant.unitOnlyVariants
-        );
-      } else if (variantType === "colorOnly") {
-        updatedVariant.colorOnlyVariants = addFlags(
-          updatedVariant.colorOnlyVariants
-        );
-      } else if (variantType === "sizeOnly") {
-        updatedVariant.sizeOnlyVariants = addFlags(
-          updatedVariant.sizeOnlyVariants
-        );
-      } else if (variantType === "sizeColor") {
-        updatedVariant.sizeColorVariants = addFlags(
-          updatedVariant.sizeColorVariants
         );
       }
     }

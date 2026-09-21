@@ -12,9 +12,7 @@ const getLuxuryCollectionProducts = async (req, res) => {
   const luxuryCollectionProducts = await Product.find({
     $or: [
       { "nonVariant.price.salePrice": { $gt: 1000 } },
-      { "variant.colorOnlyVariants.price.salePrice": { $gt: 1000 } },
-      { "variant.sizeColorVariants.price.salePrice": { $gt: 1000 } },
-      { "variant.sizeOnlyVariants.price.salePrice": { $gt: 1000 } },
+      { "variant.unitOnlyVariants.price.salePrice": { $gt: 1000 } },
     ],
     status: "active",
   }).limit(4);
@@ -66,73 +64,6 @@ const getLuxuryCollectionProducts = async (req, res) => {
 
       if (variantType === "unitOnly") {
         updatedVariant.unitOnlyVariants = (updatedVariant.unitOnlyVariants || []).map(
-          (variant) => {
-            const variantId = variant._id?.toString();
-            const variantInCart = cartItems.some(
-              (item) =>
-                item.productId === productIdStr &&
-                item.variantId === variantId
-            );
-            const variantInWishlist = wishlistItems.some(
-              (item) =>
-                item.productId === productIdStr &&
-                item.variantId === variantId
-            );
-
-            return {
-              ...variant,
-              isInCart: variantInCart,
-              isInWishlist: variantInWishlist,
-            };
-          }
-        );
-      } else if (variantType === "sizeColor") {
-        updatedVariant.sizeColorVariants = updatedVariant.sizeColorVariants.map(
-          (variant) => {
-            const variantId = variant._id?.toString();
-            const variantInCart = cartItems.some(
-              (item) =>
-                item.productId === productIdStr &&
-                item.variantId === variantId
-            );
-            const variantInWishlist = wishlistItems.some(
-              (item) =>
-                item.productId === productIdStr &&
-                item.variantId === variantId
-            );
-
-            return {
-              ...variant,
-              isInCart: variantInCart,
-              isInWishlist: variantInWishlist,
-            };
-          }
-        );
-        
-      } else if (variantType === "colorOnly") {
-        updatedVariant.colorOnlyVariants = updatedVariant.colorOnlyVariants.map(
-          (variant) => {
-            const variantId = variant._id?.toString();
-            const variantInCart = cartItems.some(
-              (item) =>
-                item.productId === productIdStr &&
-                item.variantId === variantId
-            );
-            const variantInWishlist = wishlistItems.some(
-              (item) =>
-                item.productId === productIdStr &&
-                item.variantId === variantId
-            );
-
-            return {
-              ...variant,
-              isInCart: variantInCart,
-              isInWishlist: variantInWishlist,
-            };
-          }
-        );
-      } else if (variantType === "sizeOnly") {
-        updatedVariant.sizeOnlyVariants = updatedVariant.sizeOnlyVariants.map(
           (variant) => {
             const variantId = variant._id?.toString();
             const variantInCart = cartItems.some(

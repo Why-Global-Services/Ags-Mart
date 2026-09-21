@@ -4,468 +4,1061 @@ const ApiError = require("../../../utils/apiError");
 const httpStatus = require("http-status");
 const { findProductVariant } = require("../../../utils/productVariant");
 
+// ============================================================
+// ADD TO CART
+// ============================================================
 const addToCart = async (req) => {
   const { quantity = 1 } = req.body;
-  const { productId, variantId } = req.query;
+  const productId = req.query.productId || req.body.productId;
+  const variantId = req.query.variantId || req.body.variantId;
 
   const userId = req.user?._id || null;
-  const guestId = req.headers.guestid || req.headers["guest-id"] || null;
 
-  console.log("GUEST ID:", guestId);
+  const guestId =
+    req.headers.guestid ||
+    req.headers["guest-id"] ||
+    null;
 
-  // ❗ At least one must exist
   if (!userId && !guestId) {
-    throw new ApiError(400, "User or Guest ID required");
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "User or Guest ID required"
+    );
   }
 
-  // 🟢 Decide cart owner
-  const cartQuery = userId ? { userId } : { guestId };
-
-  // ================= PRODUCT CHECK =================
-  const product = await Product.findById(productId);
-  if (!product) throw new ApiError(404, "Product not found");
-
-  const { productType, nonVariant } = product;
-  let selectedVariant;
-
-  if (productType === "variant") {
-    selectedVariant = findProductVariant(product, variantId);
-
-    if (!selectedVariant) throw new ApiError(404, "Variant not found");
-    if (selectedVariant.stockCount < quantity)
-      throw new ApiError(400, "Insufficient stock");
-  } else if (productType === "nonVariant") {
-    if (!nonVariant) throw new ApiError(404, "Product details missing");
-    if (nonVariant.stockCount < quantity)
-      throw new ApiError(400, "Insufficient stock");
-  } else {
-    throw new ApiError(400, "Invalid product type");
+  if (!productId) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Product ID is required"
+    );
   }
 
-  // ================= CART LOGIC =================
-  let userCart = await cart.findOne(cartQuery);
+  const numericQuantity = Number(quantity);
 
+  if (
+    !Number.isFinite(numericQuantity) ||
+    numericQuantity < 1
+  ) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Quantity must be at least 1"
+    );
+  }
+
+  const cartQuery = userId
+    ? { userId }
+    : { guestId };
+
+  // ==========================================================
+  // PRODUCT
+  // ==========================================================
+  const product =
+    await Product.findById(productId);
+
+  if (!product) {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Product not found"
+    );
+  }
+
+  const {
+    productType,
+    nonVariant,
+  } = product;
+
+  let selectedVariant = null;
+
+  // ==========================================================
+  // VARIANT
+  // ==========================================================
+  if (
+    productType === "variant"
+  ) {
+    if (product.variant?.variantType !== "unitOnly") {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Only unitOnly variant products are supported"
+      );
+    }
+
+    const requestedVariantType = req.body.variantType || req.query.variantType;
+    if (requestedVariantType && requestedVariantType !== "unitOnly") {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Only unitOnly variant products are supported"
+      );
+    }
+
+    if (!variantId) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Variant ID is required for variant product"
+      );
+    }
+
+    selectedVariant =
+      findProductVariant(
+        product,
+        variantId
+      );
+
+    if (!selectedVariant) {
+      throw new ApiError(
+        httpStatus.NOT_FOUND,
+        "Variant not found"
+      );
+    }
+
+    const stock =
+      Number(
+        selectedVariant.stockCount ||
+          0
+      );
+
+    if (
+      stock <
+      numericQuantity
+    ) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Insufficient stock"
+      );
+    }
+  }
+
+  // ==========================================================
+  // NON VARIANT
+  // ==========================================================
+  else if (
+    productType ===
+    "nonVariant"
+  ) {
+    if (!nonVariant) {
+      throw new ApiError(
+        httpStatus.NOT_FOUND,
+        "Product details missing"
+      );
+    }
+
+    const stock =
+      Number(
+        nonVariant.stockCount ||
+          0
+      );
+
+    if (
+      stock <
+      numericQuantity
+    ) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Insufficient stock"
+      );
+    }
+  }
+
+  // ==========================================================
+  // INVALID TYPE
+  // ==========================================================
+  else {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Invalid product type"
+    );
+  }
+
+  // ==========================================================
+  // FIND CART
+  // ==========================================================
+  let userCart =
+    await cart.findOne(
+      cartQuery
+    );
+
+  // ==========================================================
+  // CREATE CART
+  // ==========================================================
   if (!userCart) {
-    userCart = await cart.create({
-      ...cartQuery,
-      items: [{ productId, variantId, productType, quantity }],
-    });
+    userCart =
+      await cart.create({
+        ...cartQuery,
+
+        items: [
+          {
+            productId,
+
+            variantId:
+              variantId || null,
+
+            productType,
+
+            quantity:
+              numericQuantity,
+          },
+        ],
+      });
 
     return {
       success: true,
-      message: "Product added to cart",
+
+      message:
+        "Product added to cart",
+
       data: userCart,
     };
   }
 
-  const item = userCart.items.find(
-    (item) =>
-      String(item.productId) === String(productId) &&
-      String(item.variantId) === String(variantId),
-  );
+  // ==========================================================
+  // EXISTING ITEM
+  // ==========================================================
+  const item =
+    userCart.items.find(
+      (cartItem) =>
+        String(
+          cartItem.productId
+        ) ===
+          String(productId) &&
+        String(
+          cartItem.variantId || ""
+        ) ===
+          String(
+            variantId || ""
+          )
+    );
 
   if (item) {
-    item.quantity = quantity;
+    item.quantity =
+      numericQuantity;
   } else {
-    userCart.items.push({ productId, variantId, productType, quantity });
+    userCart.items.push({
+      productId,
+
+      variantId:
+        variantId || null,
+
+      productType,
+
+      quantity:
+        numericQuantity,
+    });
   }
 
   await userCart.save();
 
   return {
     success: true,
-    message: item ? "Cart updated" : "Product added to cart",
+
+    message: item
+      ? "Cart updated"
+      : "Product added to cart",
+
     data: userCart,
   };
 };
 
+// ============================================================
+// GET CART
+// ============================================================
 const getCart = async (req) => {
-  const userId = req.user?._id || null;
-  const guestId = req.headers.guestid || req.headers["guest-id"] || null;
+  const userId =
+    req.user?._id || null;
 
-  console.log("GUEST ID:", req.headers.guestid);
+  const guestId =
+    req.headers.guestid ||
+    req.headers["guest-id"] ||
+    null;
 
-  // ❗ At least one must exist
+  console.log(
+    "========== GET CART =========="
+  );
+
+  console.log(
+    "USER ID:",
+    userId
+  );
+
+  console.log(
+    "GUEST ID:",
+    guestId
+  );
+
   if (!userId && !guestId) {
-    throw new ApiError(400, "User or Guest ID required");
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "User or Guest ID required"
+    );
   }
 
-  // 🟢 Decide cart owner
-  const cartQuery = userId ? { userId } : { guestId };
+  const cartQuery = userId
+    ? { userId }
+    : { guestId };
 
-  const cartData = await cart.aggregate([
-    { $match: cartQuery },
-    { $unwind: "$items" },
-    {
-      $lookup: {
-        from: "product",
-        localField: "items.productId",
-        foreignField: "_id",
-        as: "product",
-      },
-    },
-    { $unwind: "$product" },
+  const cartData =
+    await cart.findOne(
+      cartQuery
+    ).lean();
 
-    // ✅ Check if product is variant type
-    {
-      $addFields: {
-        isVariantType: {
-          $in: [{ $toLower: "$items.productType" }, ["variant", "varient"]],
-        },
-      },
-    },
-
-    // ✅ First: find the actual variant object
-    {
-      $addFields: {
-        selectedVariantRaw: {
-          $arrayElemAt: [
-            {
-              $filter: {
-                input: { $ifNull: ["$product.variant.unitOnlyVariants", []] },
-                as: "v",
-                cond: {
-                  $eq: [
-                    { $toString: "$$v._id" },
-                    { $toString: "$items.variantId" },
-                  ],
-                },
-              },
-            },
-            0,
-          ],
-        },
-      },
-    },
-
-    // ✅ Second: decide selectedVariant (variant or nonVariant)
-    {
-      $addFields: {
-        selectedVariant: {
-          $cond: {
-            if: "$isVariantType",
-            then: { $ifNull: ["$selectedVariantRaw", "$product.nonVariant"] },
-            else: "$product.nonVariant",
-          },
-        },
-      },
-    },
-
-    // ✅ Third: now we can safely read unit/color/size from selectedVariant
-    {
-      $addFields: {
-        selectedUnit: "$selectedVariant.unit",
-        selectedColor: "$selectedVariant.color",
-        selectedSize: "$selectedVariant.size",
-      },
-    },
-
-    // ✅ Prices & images from selectedVariant
-    {
-      $addFields: {
-        salePrice: { $ifNull: ["$selectedVariant.price.salePrice", 0] },
-        costPrice: { $ifNull: ["$selectedVariant.price.costPrice", 0] },
-        productImagesResolved: {
-          $cond: {
-            if: "$isVariantType",
-            then: {
-              $ifNull: [
-                "$selectedVariant.variantImages",
-                "$product.productImages",
-              ],
-            },
-            else: {
-              $ifNull: [
-                "$product.nonVariant.nonVariantImages",
-                "$product.productImages",
-              ],
-            },
-          },
-        },
-      },
-    },
-
-    // compute totals per item
-    {
-      $addFields: {
-        quantityResolved: { $ifNull: ["$items.quantity", 1] },
-        discountPercentage: {
-          $cond: {
-            if: { $gt: ["$costPrice", 0] },
-            then: {
-              $multiply: [
-                {
-                  $divide: [
-                    { $subtract: ["$costPrice", "$salePrice"] },
-                    "$costPrice",
-                  ],
-                },
-                100,
-              ],
-            },
-            else: 0,
-          },
-        },
-        discountAmount: { $subtract: ["$costPrice", "$salePrice"] },
-      },
-    },
-    {
-      $addFields: {
-        totalItemPrice: { $multiply: ["$salePrice", "$quantityResolved"] },
-        totalDiscountAmount: {
-          $multiply: ["$discountAmount", "$quantityResolved"],
-        },
-      },
-    },
-
-    // final projection
-    {
-      $project: {
-        _id: 0,
-        productId: "$items.productId",
-        variantId: "$items.variantId",
-        quantity: "$quantityResolved",
-        productName: "$product.productName",
-        productType: "$items.productType",
-        productImages: {
-          $ifNull: [
-            "$productImagesResolved", // variant images or nonVariant images
-            { $ifNull: ["$product.productImages", []] }, // fallback → main product images
-          ],
-        },
-
-        selectedVariant: 1,
-        selectedUnit: 1,
-        selectedColor: 1, // ✅
-        selectedSize: 1, // ✅
-        status: "$product.status",
-        priceBreakdown: {
-          costPrice: "$costPrice",
-          salePrice: "$salePrice",
-          discountPercentage: "$discountPercentage",
-          discountAmount: "$discountAmount",
-          totalItemPrice: "$totalItemPrice",
-          totalDiscountAmount: "$totalDiscountAmount",
-        },
-      },
-    },
-  ]);
-
-  if (!cartData.length) {
+  // ==========================================================
+  // EMPTY CART
+  // ==========================================================
+  if (
+    !cartData ||
+    !Array.isArray(
+      cartData.items
+    ) ||
+    cartData.items.length === 0
+  ) {
     return {
       success: false,
-      message: "No products in the cart",
+
+      message:
+        "No products in the cart",
+
       totalPrice: 0,
+
       totalCostPrice: 0,
+
       totalDiscount: 0,
+
       items: [],
     };
   }
 
-  const totalPrice = cartData.reduce((sum, item) => {
-    if (item.status === "active")
-      return sum + (item.priceBreakdown.totalItemPrice || 0);
-    return sum;
-  }, 0);
+  // ==========================================================
+  // PROCESS EACH CART ITEM
+  // ==========================================================
+  const cartItems = [];
 
-  const totalCostPrice = cartData.reduce((sum, item) => {
-    if (item.status === "active")
-      return sum + (item.priceBreakdown.costPrice || 0) * (item.quantity || 1);
-    return sum;
-  }, 0);
+  for (
+    const cartItem of cartData.items
+  ) {
+    try {
+      // ------------------------------------------------------
+      // PRODUCT
+      // ------------------------------------------------------
+      const product =
+        await Product.findById(
+          cartItem.productId
+        ).lean();
 
-  const totalDiscount = cartData.reduce((sum, item) => {
-    if (item.status === "active")
-      return sum + (item.priceBreakdown.totalDiscountAmount || 0);
-    return sum;
-  }, 0);
+      if (!product) {
+        console.warn(
+          "Product not found in cart:",
+          cartItem.productId
+        );
 
-  return {
-    success: true,
-    message: "Cart fetched successfully",
-    totalPrice,
-    totalCostPrice,
-    totalDiscount,
-    items: cartData.map((item) => ({
-      productId: item.productId,
-      variantId: item.variantId,
-      quantity: item.quantity,
-      productName: item.productName,
-      productType: item.productType,
-      productImages: item.productImages || [],
-      status: item.status,
-      selectedColor: item.selectedColor || null, // ✅ send to frontend
-      selectedSize: item.selectedSize || null, // ✅ send to frontend
-      priceBreakdown: item.priceBreakdown,
-    })),
-  };
-};
+        continue;
+      }
 
+      console.log(
+        "CART PRODUCT:",
+        product.productName
+      );
 
-const editCart = async (req, res) => {
-  const userId = req.user?._id || null;
-  const guestId = req.headers.guestid || req.headers["guest-id"] || null;
+      console.log(
+        "PRODUCT IMAGES:",
+        product.productImages
+      );
 
-  console.log("GUEST ID:", req.headers.guestid);
+      // ------------------------------------------------------
+      // PRODUCT IMAGE
+      // ------------------------------------------------------
+      const mainProductImages =
+        Array.isArray(
+          product.productImages
+        )
+          ? product.productImages.filter(
+              Boolean
+            )
+          : [];
 
-  // ❗ At least one must exist
-  if (!userId && !guestId) {
-    throw new ApiError(400, "User or Guest ID required");
+      let resolvedImages = [
+        ...mainProductImages,
+      ];
+
+      // ------------------------------------------------------
+      // VARIANT
+      // ------------------------------------------------------
+      let selectedVariant =
+        null;
+
+      if (
+        product.productType ===
+        "variant"
+      ) {
+        if (
+          cartItem.variantId
+        ) {
+          selectedVariant =
+            findProductVariant(
+              product,
+              cartItem.variantId
+            );
+        }
+
+        // ----------------------------------------------------
+        // VARIANT IMAGE
+        // ----------------------------------------------------
+        const variantImages =
+          Array.isArray(
+            selectedVariant?.variantImages
+          )
+            ? selectedVariant.variantImages.filter(
+                Boolean
+              )
+            : [];
+
+        if (
+          variantImages.length >
+          0
+        ) {
+          resolvedImages =
+            variantImages;
+        }
+      }
+
+      // ------------------------------------------------------
+      // NON VARIANT
+      // ------------------------------------------------------
+      const nonVariant =
+        product.nonVariant ||
+        null;
+
+      if (
+        product.productType ===
+        "nonVariant"
+      ) {
+        const nonVariantImages =
+          Array.isArray(
+            nonVariant?.nonVariantImages
+          )
+            ? nonVariant.nonVariantImages.filter(
+                Boolean
+              )
+            : [];
+
+        if (
+          nonVariantImages.length >
+          0
+        ) {
+          resolvedImages =
+            nonVariantImages;
+        }
+      }
+
+      // ------------------------------------------------------
+      // FINAL IMAGE FALLBACK
+      // ------------------------------------------------------
+      if (
+        !Array.isArray(
+          resolvedImages
+        )
+      ) {
+        resolvedImages = [];
+      }
+
+      // Main product images are ALWAYS
+      // used as final fallback.
+      if (
+        resolvedImages.length ===
+          0 &&
+        mainProductImages.length >
+          0
+      ) {
+        resolvedImages = [
+          ...mainProductImages,
+        ];
+      }
+
+      console.log(
+        "FINAL CART IMAGES:",
+        resolvedImages
+      );
+
+      // ------------------------------------------------------
+      // PRICE
+      // ------------------------------------------------------
+      let priceData = null;
+
+      if (
+        product.productType ===
+        "variant"
+      ) {
+        priceData =
+          selectedVariant?.price ||
+          product.price ||
+          {};
+      } else {
+        priceData =
+          nonVariant?.price ||
+          product.price ||
+          {};
+      }
+
+      const costPrice =
+        Number(
+          priceData.costPrice ||
+            0
+        );
+
+      const salePrice =
+        Number(
+          priceData.salePrice ||
+            0
+        );
+
+      const quantity =
+        Number(
+          cartItem.quantity ||
+            1
+        );
+
+      // ------------------------------------------------------
+      // DISCOUNT
+      // ------------------------------------------------------
+      let discountPercentage =
+        Number(
+          priceData.discount ||
+            0
+        );
+
+      if (
+        discountPercentage ===
+          0 &&
+        costPrice > 0 &&
+        salePrice <
+          costPrice
+      ) {
+        discountPercentage =
+          ((costPrice -
+            salePrice) /
+            costPrice) *
+          100;
+      }
+
+      const discountAmount =
+        Math.max(
+          costPrice -
+            salePrice,
+          0
+        );
+
+      const totalItemPrice =
+        salePrice *
+        quantity;
+
+      const totalDiscountAmount =
+        discountAmount *
+        quantity;
+
+      // ------------------------------------------------------
+      // SELECTED VALUES (unitOnly only)
+      // ------------------------------------------------------
+      const selectedUnit =
+        selectedVariant?.unit ||
+        null;
+
+      // ------------------------------------------------------
+      // PUSH CART ITEM
+      // ------------------------------------------------------
+      cartItems.push({
+        productId:
+          product._id,
+
+        variantId:
+          cartItem.variantId ||
+          null,
+
+        quantity,
+
+        productName:
+          product.productName,
+
+        productTitle:
+          product.productTitle ||
+          product.productName,
+
+        productType:
+          cartItem.productType ||
+          product.productType,
+
+        // ====================================================
+        // IMPORTANT
+        // ====================================================
+        productImages:
+          resolvedImages,
+
+        // Backward compatibility
+        productImage:
+          resolvedImages[0] ||
+          null,
+
+        selectedUnit,
+
+        selectedVariant:
+          selectedVariant ||
+          null,
+
+        status:
+          product.status ||
+          "active",
+
+        // Product-level base price
+        basePrice:
+          Number(
+            product.basePrice ||
+              0
+          ),
+
+        priceBreakdown: {
+          costPrice,
+
+          salePrice,
+
+          discountPercentage,
+
+          discountAmount,
+
+          totalItemPrice,
+
+          totalDiscountAmount,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Error processing cart item:",
+        cartItem.productId,
+        error
+      );
+    }
   }
 
-  // 🟢 Decide cart owner
-  const cartQuery = userId ? { userId } : { guestId };
-  const { variantId } = req.query;
+  // ==========================================================
+  // TOTALS
+  // ==========================================================
+  const totalPrice =
+    cartItems.reduce(
+      (sum, item) => {
+        if (
+          item.status ===
+          "active"
+        ) {
+          return (
+            sum +
+            Number(
+              item.priceBreakdown
+                ?.totalItemPrice ||
+                0
+            )
+          );
+        }
 
-  if (!guestId && !userId) {
-    throw new ApiError(httpStatus.NOT_FOUND, "UserId or Guest Id not provided");
-  }
+        return sum;
+      },
+      0
+    );
 
-  if (!variantId) {
-    throw new ApiError(httpStatus.NOT_FOUND, "No variantId provided ");
-  }
+  const totalCostPrice =
+    cartItems.reduce(
+      (sum, item) => {
+        if (
+          item.status ===
+          "active"
+        ) {
+          return (
+            sum +
+            Number(
+              item.priceBreakdown
+                ?.costPrice ||
+                0
+            ) *
+              Number(
+                item.quantity ||
+                  1
+              )
+          );
+        }
 
-  const findcart = await cart.findOne(cartQuery);
+        return sum;
+      },
+      0
+    );
 
-  if (!findcart) {
-    throw new ApiError(httpStatus.NOT_FOUND, "No cart found");
-  }
+  const totalDiscount =
+    cartItems.reduce(
+      (sum, item) => {
+        if (
+          item.status ===
+          "active"
+        ) {
+          return (
+            sum +
+            Number(
+              item.priceBreakdown
+                ?.totalDiscountAmount ||
+                0
+            )
+          );
+        }
 
-  const items = findcart.items.filter((item) => item.variantId != variantId);
+        return sum;
+      },
+      0
+    );
 
-  const data = await cart.findOneAndUpdate(
-    cartQuery,
-    { $set: { items: items } },
-    { new: true }
+  console.log(
+    "FINAL CART ITEM COUNT:",
+    cartItems.length
   );
 
-  return { success: true, message: "Cart edited successfully", data: data };
+  console.log(
+    "FINAL CART RESPONSE IMAGES:",
+    cartItems.map(
+      (item) => ({
+        productId:
+          item.productId,
+
+        productName:
+          item.productName,
+
+        productImages:
+          item.productImages,
+      })
+    )
+  );
+
+  console.log(
+    "========== GET CART END =========="
+  );
+
+  return {
+    success: true,
+
+    message:
+      "Cart fetched successfully",
+
+    totalPrice,
+
+    totalCostPrice,
+
+    totalDiscount,
+
+    items: cartItems,
+  };
 };
 
-const deleteCart = async (req) => {
- const userId = req.user?._id || null;
-  const guestId = req.headers.guestid || req.headers["guest-id"] || null;
+// ============================================================
+// EDIT CART
+// ============================================================
+const editCart = async (
+  req,
+  res
+) => {
+  const userId =
+    req.user?._id || null;
 
-  console.log("GUEST ID:", req.headers.guestid);
+  const guestId =
+    req.headers.guestid ||
+    req.headers["guest-id"] ||
+    null;
 
-  // ❗ At least one must exist
   if (!userId && !guestId) {
-    throw new ApiError(400, "User or Guest ID required");
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "User or Guest ID required"
+    );
   }
 
- 
-  const { _id } = req.params; // ✅ use params instead of query for cleaner REST design
+  const cartQuery = userId
+    ? { userId }
+    : { guestId };
+
+  const variantId =
+    req.query.variantId ||
+    req.body.variantId;
+
+  if (!variantId) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "No variantId provided"
+    );
+  }
+
+  const findCart =
+    await cart.findOne(
+      cartQuery
+    );
+
+  if (!findCart) {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "No cart found"
+    );
+  }
+
+  findCart.items =
+    findCart.items.filter(
+      (item) =>
+        String(
+          item.variantId || ""
+        ) !==
+        String(variantId)
+    );
+
+  await findCart.save();
+
+  return {
+    success: true,
+
+    message:
+      "Cart edited successfully",
+
+    data: findCart,
+  };
+};
+
+// ============================================================
+// DELETE CART
+// ============================================================
+const deleteCart = async (
+  req
+) => {
+  const userId =
+    req.user?._id || null;
+
+  const guestId =
+    req.headers.guestid ||
+    req.headers["guest-id"] ||
+    null;
+
+  if (!userId && !guestId) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "User or Guest ID required"
+    );
+  }
+
+  const { _id } =
+    req.params;
 
   if (!_id) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Cart item ID is required");
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Cart item ID is required"
+    );
   }
 
-  // ✅ Delete specific cart item by ID
-  const deletedCartItem = await cart.findByIdAndDelete(_id);
+  const deletedCartItem =
+    await cart.findByIdAndDelete(
+      _id
+    );
 
   if (!deletedCartItem) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Cart item not found");
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Cart item not found"
+    );
   }
 
   return {
     success: true,
-    message: "Product removed from the cart successfully",
-    data: deletedCartItem,
+
+    message:
+      "Product removed from the cart successfully",
+
+    data:
+      deletedCartItem,
   };
 };
 
-const addAddressToCart = async (req, res) => {
-  const { deliveryAddress, billingAddress } = req.body;
-  console.log(req.body, "htsnfuw sajdnja");
+// ============================================================
+// ADD ADDRESS TO CART
+// ============================================================
+const addAddressToCart = async (
+  req,
+  res
+) => {
+  const {
+    deliveryAddress,
+    billingAddress,
+  } = req.body;
 
   const address = {};
+
   if (deliveryAddress) {
-    address.deliveryAddressId = deliveryAddress;
+    address.deliveryAddressId =
+      deliveryAddress;
   }
 
   if (billingAddress) {
-    address.billingAddressId = billingAddress;
+    address.billingAddressId =
+      billingAddress;
   }
-  const userId = req.user._id;
 
-  const updateCartAddress = await cart.findOneAndUpdate(
-    { userId: userId },
-    address,
-    { new: true },
-  );
+  const userId =
+    req.user?._id;
 
-  return { success: true, message: "Address Updated", data: updateCartAddress };
+  if (!userId) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "User authentication required"
+    );
+  }
+
+  const updateCartAddress =
+    await cart.findOneAndUpdate(
+      { userId },
+      address,
+      {
+        new: true,
+      }
+    );
+
+  return {
+    success: true,
+
+    message:
+      "Address Updated",
+
+    data:
+      updateCartAddress,
+  };
 };
 
-
-const mergeCart = async (req, res) => {
+// ============================================================
+// MERGE CART
+// ============================================================
+const mergeCart = async (
+  req,
+  res
+) => {
   try {
-    // 1️⃣ userId comes ONLY from auth middleware
-    const userId = req.user?._id;
+    const userId =
+      req.user?._id;
 
-    // 2️⃣ guestId comes from frontend header
-    const guestId = req.headers.guestid || req.headers["guest-id"];
+    const guestId =
+      req.headers.guestid ||
+      req.headers["guest-id"];
 
-    // 3️⃣ If no guestId, nothing to merge
+    if (!userId) {
+      return {
+        success: false,
+
+        message:
+          "User authentication required",
+      };
+    }
+
     if (!guestId) {
       return {
         success: true,
-        message: "No guest cart to merge",
-      }
+
+        message:
+          "No guest cart to merge",
+      };
     }
 
-    // 4️⃣ Fetch carts
-    const guestCart = await cart.findOne({ guestId });
-    const userCart = await cart.findOne({ userId });
-
-    // 5️⃣ CASE 1: GuestCart + UserCart exists → MERGE
-    if (guestCart && userCart) {
-      guestCart.items.forEach((gItem) => {
-        const existingItem = userCart.items.find(
-          (uItem) =>
-            uItem.productId.toString() === gItem.productId.toString()
-        );
-
-        if (existingItem) {
-          existingItem.qty += gItem.qty;
-        } else {
-          userCart.items.push(gItem);
-        }
+    const guestCart =
+      await cart.findOne({
+        guestId,
       });
 
-      await userCart.save();
-      await cart.deleteOne({ guestId });
-    }
+    const userCart =
+      await cart.findOne({
+        userId,
+      });
 
-    // 6️⃣ CASE 2: GuestCart exists, UserCart NOT exists → CONVERT
-    else if (guestCart && !userCart) {
-      guestCart.userId = userId;
-      guestCart.guestId = null;
+    if (
+      guestCart &&
+      userCart
+    ) {
+      guestCart.items.forEach(
+        (guestItem) => {
+          const existingItem =
+            userCart.items.find(
+              (userItem) =>
+                String(
+                  userItem.productId
+                ) ===
+                  String(
+                    guestItem.productId
+                  ) &&
+                String(
+                  userItem.variantId ||
+                    ""
+                ) ===
+                  String(
+                    guestItem.variantId ||
+                      ""
+                  )
+            );
+
+          if (existingItem) {
+            existingItem.quantity =
+              Number(
+                existingItem.quantity ||
+                  0
+              ) +
+              Number(
+                guestItem.quantity ||
+                  0
+              );
+          } else {
+            userCart.items.push(
+              guestItem
+            );
+          }
+        }
+      );
+
+      await userCart.save();
+
+      await cart.deleteOne({
+        guestId,
+      });
+    } else if (
+      guestCart &&
+      !userCart
+    ) {
+      guestCart.userId =
+        userId;
+
+      guestCart.guestId =
+        null;
+
       await guestCart.save();
     }
 
-    // 7️⃣ CASE 3: No guestCart → nothing to do
-
     return {
       success: true,
-      message: "Cart merged successfully",
-    }
+
+      message:
+        "Cart merged successfully",
+    };
   } catch (error) {
-    console.error("Merge cart error:", error);
+    console.error(
+      "Merge cart error:",
+      error
+    );
+
     return {
       success: false,
-      message: "Cart merge failed",
-    }
+
+      message:
+        "Cart merge failed",
+    };
   }
 };
 
-
-
+// ============================================================
+// EXPORT
+// ============================================================
 module.exports = {
   addToCart,
   getCart,
   editCart,
   deleteCart,
   addAddressToCart,
-  mergeCart
+  mergeCart,
 };

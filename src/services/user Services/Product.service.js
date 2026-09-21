@@ -11,12 +11,7 @@ const ensureBasePrice = (product) => {
     if (prodObj.price?.salePrice && prodObj.price.salePrice > 0) {
       prodObj.basePrice = prodObj.price.salePrice;
     } else if (prodObj.productType === "variant") {
-      const v =
-        prodObj.variant?.unitOnlyVariants ||
-        prodObj.variant?.sizeColorVariants ||
-        prodObj.variant?.colorOnlyVariants ||
-        prodObj.variant?.sizeOnlyVariants ||
-        [];
+      const v = prodObj.variant?.unitOnlyVariants || [];
       const prices = v
         .map((item) => item.price?.salePrice || item.price?.costPrice)
         .filter((p) => typeof p === "number" && p > 0);
