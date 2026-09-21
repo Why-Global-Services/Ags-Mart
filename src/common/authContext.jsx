@@ -1,60 +1,106 @@
 // AuthContext.js
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {jwtDecode} from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
+import { setAuthFailureHandler } from '../Interceptor/interceptor';
+
+export const isTokenValid = (rawToken) => {
+  if (!rawToken || typeof rawToken !== 'string') return false;
+  try {
+    const decoded = jwtDecode(rawToken);
+    if (!decoded || typeof decoded.exp !== 'number') return false;
+    return decoded.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('Token') || null);
-  const [permissions, setPermissions] = useState(
-    JSON.parse(localStorage.getItem('UserPermissions')) || null
-  );
   const navigate = useNavigate();
 
-  // Check token expiration on app load and periodically
-  useEffect(() => {
-    const checkTokenExpiration = () => {
-      if (token) {
-        try {
-          const decoded = jwtDecode(token);
-          if (decoded.exp * 1000 < Date.now()) {
-            logout();
-          }
-        } catch (error) {
-          console.error('Token decode error:', error);
-          logout();
-        }
-      }
-    };
+  const [token, setToken] = useState(() => {
+    const stored = localStorage.getItem('Token');
+    if (isTokenValid(stored)) {
+      return stored;
+    }
+    if (stored) {
+      localStorage.removeItem('Token');
+      localStorage.removeItem('UserPermissions');
+    }
+    return null;
+  });
 
-    checkTokenExpiration();
-    const interval = setInterval(checkTokenExpiration, 60000); // Check every minute
+  const [permissions, setPermissions] = useState(() => {
+    const storedToken = localStorage.getItem('Token');
+    if (!isTokenValid(storedToken)) return null;
+    try {
+      return JSON.parse(localStorage.getItem('UserPermissions')) || null;
+    } catch {
+      return null;
+    }
+  });
 
-    return () => clearInterval(interval);
-  }, [token]);
+  const [user, setUser] = useState(() => {
+    const storedToken = localStorage.getItem('Token');
+    if (!isTokenValid(storedToken)) return null;
+    try {
+      const decoded = jwtDecode(storedToken);
+      return decoded || null;
+    } catch {
+      return null;
+    }
+  });
 
-  const login = (token, userData, userPermissions) => {
-    localStorage.setItem('Token', token);
-    localStorage.setItem('UserPermissions', JSON.stringify(userPermissions));
-    setToken(token);
-    setUser(userData);
-    setPermissions(userPermissions);
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('Token');
     localStorage.removeItem('UserPermissions');
     setToken(null);
     setUser(null);
     setPermissions(null);
-    navigate('/login');
+    if (window.location.pathname !== '/') {
+      navigate('/');
+    }
+  }, [navigate]);
+
+  // Connect interceptor auth failure to this context's logout
+  useEffect(() => {
+    setAuthFailureHandler(() => {
+      logout();
+    });
+    return () => {
+      setAuthFailureHandler(null);
+    };
+  }, [logout]);
+
+  // Check token expiration periodically
+  useEffect(() => {
+    const checkTokenExpiration = () => {
+      if (token && !isTokenValid(token)) {
+        logout();
+      }
+    };
+
+    checkTokenExpiration();
+    const interval = setInterval(checkTokenExpiration, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [token, logout]);
+
+  const login = (newToken, userData, userPermissions) => {
+    localStorage.setItem('Token', newToken);
+    if (userPermissions) {
+      localStorage.setItem('UserPermissions', JSON.stringify(userPermissions));
+    }
+    setToken(newToken);
+    setUser(userData || (newToken ? jwtDecode(newToken) : null));
+    setPermissions(userPermissions || null);
   };
 
-  const isAuthenticated = () => {
-    return !!token;
-  };
+  const isAuthenticated = useCallback(() => {
+    return isTokenValid(token);
+  }, [token]);
 
   return (
     <AuthContext.Provider

@@ -1,11 +1,14 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { isTokenValid } from "./common/authContext";
 
 const ProtectedRoute = ({ requiredPermission }) => {
   const location = useLocation();
   const token = localStorage.getItem("Token");
   const userData = JSON.parse(localStorage.getItem("UserPermissions")) || {};
 
-  if (!token) {
+  if (!token || !isTokenValid(token)) {
+    localStorage.removeItem("Token");
+    localStorage.removeItem("UserPermissions");
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 

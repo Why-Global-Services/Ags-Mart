@@ -5,17 +5,18 @@ import {
   Route,
   useLocation,
   useNavigate,
+  Navigate,
 } from "react-router-dom";
 import Sidebar from "./common/Sidebar";
 import Navbar from "./common/Navbar";
 import ProtectedRoute from "./common/ProtectedRoute";
 import Login from "./common/Login";
+import { useAuth } from "./common/authContext";
 import NotFoundPage from "./common/notFound";
 import LoadingSpinner from "./common/LoadingSpinner";
 import ErrorBoundary from "./common/ErrorBoundary";
 import { ToastContainer } from "react-toastify";
 import SystemTable from "./pages/System User/systemTable";
-import FeatuuredAssignProducts from "./pages/featuredproductas/AssignProducts";
 import UserQueries from "./pages/UserQueries/UserQueries";
 import AdminTopbarMessages from "./pages/TopBar/AdminTopbarMessages";
 import TestimonialMain from "./pages/Testimonial/TestimonialMain";
@@ -142,15 +143,18 @@ const App = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const token = localStorage.getItem("Token");
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    if (!token && location.pathname !== "/") {
+    if (!isAuthenticated() && location.pathname !== "/" && location.pathname !== "/login") {
       navigate("/");
     }
-  }, [token, location.pathname, navigate]);
+  }, [isAuthenticated, location.pathname, navigate]);
 
-  const isLoginPage = location.pathname === "/";
+  const isLoginPage =
+    location.pathname === "/" ||
+    location.pathname === "/login" ||
+    !isAuthenticated();
 
   return (
     <div className="flex h-screen overflow-y-hidden">
@@ -161,6 +165,7 @@ const App = () => {
           <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
+                <Route path="/login" element={<Navigate to="/" replace />} />
                 <Route path="/testimonial" element={<TestimonialMain/>} />
                 <Route path="/testimonial/add" element={<TestimonialForm/>} />
                 <Route path="/testimonial/edit/:id" element={<TestimonialForm/>} />
@@ -280,7 +285,7 @@ const App = () => {
                   />
                   <Route
                     path="/featuredproducts/featuredDetails/:id/assignProducts"
-                    element={<FeatuuredAssignProducts />}
+                    element={<FeaturedAssignProducts />}
                   />
                   <Route
                     path="/featuredproducts/add"

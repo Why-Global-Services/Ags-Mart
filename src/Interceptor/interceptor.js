@@ -4,51 +4,105 @@ import { jwtDecode } from "jwt-decode";
 
 const apiInstance = axios.create({
   baseURL: "http://localhost:5001/v1/admin",
-  // baseURL: "https://poviscollections.whydev.in/v1/admin",
+  // baseURL: "https://agsmartapi.whydev.in/v1/admin",
 });
 
-const handleTokenExpiration = () => {
-  console.error("Token expired, logging out...");
-  console.error("Token expired, logging out...");
+let authFailureCallback = null;
+let isRedirecting = false;
+
+export const setAuthFailureHandler = (callback) => {
+  authFailureCallback = callback;
+};
+
+export const handleAuthFailure = () => {
+  // Clear only authentication data
+  localStorage.removeItem("Token");
+  localStorage.removeItem("UserPermissions");
+
+  // Prevent multiple simultaneous logout triggers / redirect loops
+  if (isRedirecting) return;
+  isRedirecting = true;
+  setTimeout(() => {
+    isRedirecting = false;
+  }, 1500);
+
+  if (authFailureCallback) {
+    authFailureCallback();
+  } else if (typeof window !== "undefined" && window.location.pathname !== "/") {
+    window.location.href = "/";
+  }
+};
+
+const isPublicEndpoint = (url, config) => {
+  if (config && config.isPublic) return true;
+  if (!url) return false;
+  const publicEndpoints = [
+    "/getwebSettings",
+    "/adminLogin",
+    "/forgotPassword",
+    "/resendOtp",
+    "/verifyResetOtp",
+    "/resetPassword",
+    "/getActiveTopbar",
+    "/getActiveCategories",
+    "/getActiveSubcategories",
+  ];
+  return publicEndpoints.some((ep) =>
+    url.toLowerCase().includes(ep.toLowerCase())
+  );
 };
 
 apiInstance.interceptors.request.use(
   async (config) => {
+    const isPublic = isPublicEndpoint(config.url, config);
     const authToken = localStorage.getItem("Token");
 
     if (authToken) {
+      let isExpired = false;
       try {
         const decoded = jwtDecode(authToken);
-        if (decoded.exp * 1000 < Date.now()) {
-          handleTokenExpiration();
-          return Promise.reject(new Error("Token expired"));
+        if (!decoded || !decoded.exp || decoded.exp * 1000 < Date.now()) {
+          isExpired = true;
+        }
+      } catch (error) {
+        isExpired = true;
+      }
+
+      if (isExpired) {
+        // If request is to a public API, do not attach expired token and allow request to continue
+        if (isPublic) {
+          delete config.headers.Authorization;
+          return config;
         }
 
-        config.headers.Authorization = `Bearer ${authToken}`;
-      } catch (error) {
-        handleTokenExpiration();
-        return Promise.reject(error);
+        // For protected APIs, expired/invalid token triggers logout and redirect
+        handleAuthFailure();
+        return Promise.reject(new Error("Token expired"));
       }
+
+      // Valid token: attach Authorization header
+      config.headers.Authorization = `Bearer ${authToken}`;
     }
 
     return config;
   },
   (error) => {
-    console.error("Request error:", error);
     return Promise.reject(error);
   }
 );
 
 apiInstance.interceptors.response.use(
   (response) => {
-    console.log("API Response:", response.data);
     return response.data;
   },
   (error) => {
     if (error.response) {
-      console.error("API Error:", error.response?.data || error.message);
-      if (error.response?.status === 401) {
-        handleTokenExpiration();
+      if (error.response.status === 401) {
+        const isPublic = isPublicEndpoint(error.config?.url, error.config);
+        // Do not trigger global logout redirect if the 401 was from an invalid login attempt
+        if (!isPublic) {
+          handleAuthFailure();
+        }
       } else if (error.response.status === 500) {
         console.error("Server error, try again later.");
       }

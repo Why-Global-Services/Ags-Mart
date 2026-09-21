@@ -30,7 +30,7 @@ const Sidebar = ({ isCollapsed }) => {
     const fetchSettings = async () => {
       try {
         const response = await getWebSettings();
-        setWebSettings(response.data.AdminSettings[0]);
+        setWebSettings(response.data.AdminSettings[0] || null );
       } catch (error) {
         console.error("Failed to fetch web settings:", error);
       }

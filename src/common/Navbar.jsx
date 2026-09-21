@@ -28,7 +28,7 @@ import { adminLogin, getoneUser } from "../Interceptor/interceptor";
 import { IoSettingsSharp } from "react-icons/io5";
 
 const Navbar = ({ toggleSidebar }) => {
-  const { permissions } = useAuth();
+  const { permissions, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -62,9 +62,7 @@ const Navbar = ({ toggleSidebar }) => {
   const notificationRef = useRef(null);
 
   const handleLogout = () => {
-    localStorage.removeItem("Token");
-    localStorage.removeItem("UserPermissions");
-    navigate("/");
+    logout();
   };
 
   useEffect(() => {

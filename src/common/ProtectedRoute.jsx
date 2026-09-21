@@ -14,6 +14,8 @@ const ProtectedRoute = () => {
   }
 
   if (!isAuthenticated()) {
+    localStorage.removeItem("Token");
+    localStorage.removeItem("UserPermissions");
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
