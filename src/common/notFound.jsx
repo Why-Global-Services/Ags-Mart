@@ -11,10 +11,10 @@ const NotFoundPage = () => {
           The page you're looking for doesn't exist or you don't have permission to access it.
         </p>
         <Link 
-          to="/dashboard" 
+          to="/products" 
           className="mt-6 inline-block bg-primary text-white px-6 py-2 rounded-md hover:bg-pink-600 transition-colors"
         >
-          Go to Dashboard
+          Go to Products
         </Link>
       </div>
     </div>

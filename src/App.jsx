@@ -11,7 +11,7 @@ import Sidebar from "./common/Sidebar";
 import Navbar from "./common/Navbar";
 import ProtectedRoute from "./common/ProtectedRoute";
 import Login from "./common/Login";
-import { useAuth } from "./common/authContext";
+import { useAuth, isTokenValid } from "./common/authContext";
 import NotFoundPage from "./common/notFound";
 import LoadingSpinner from "./common/LoadingSpinner";
 import ErrorBoundary from "./common/ErrorBoundary";
@@ -143,18 +143,47 @@ const App = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, token } = useAuth();
+  const storedToken = localStorage.getItem("Token");
+  const isAuth = isAuthenticated() && isTokenValid(storedToken);
 
+  // Synchronize route with authentication status
   useEffect(() => {
-    if (!isAuthenticated() && location.pathname !== "/" && location.pathname !== "/login") {
-      navigate("/");
+    const rawToken = localStorage.getItem("Token");
+    const valid = isAuthenticated() && isTokenValid(rawToken);
+    const isPublic = location.pathname === "/" || location.pathname === "/login";
+
+    if (!valid && !isPublic) {
+      navigate("/", { replace: true });
     }
   }, [isAuthenticated, location.pathname, navigate]);
+
+  // Handle browser Back/Forward (popstate) and cache restoration (pageshow)
+  useEffect(() => {
+    const handleBrowserNav = () => {
+      const rawToken = localStorage.getItem("Token");
+      const valid = isTokenValid(rawToken);
+      const pathname = window.location.pathname;
+      const isPublic = pathname === "/" || pathname === "/login";
+
+      if (!valid && !isPublic) {
+        navigate("/", { replace: true });
+      }
+    };
+
+    window.addEventListener("popstate", handleBrowserNav);
+    window.addEventListener("pageshow", handleBrowserNav);
+
+    return () => {
+      window.removeEventListener("popstate", handleBrowserNav);
+      window.removeEventListener("pageshow", handleBrowserNav);
+    };
+  }, [navigate]);
 
   const isLoginPage =
     location.pathname === "/" ||
     location.pathname === "/login" ||
-    !isAuthenticated();
+    !isAuth;
 
   return (
     <div className="flex h-screen overflow-y-hidden">
@@ -166,12 +195,20 @@ const App = () => {
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 <Route path="/login" element={<Navigate to="/" replace />} />
-                <Route path="/testimonial" element={<TestimonialMain/>} />
-                <Route path="/testimonial/add" element={<TestimonialForm/>} />
-                <Route path="/testimonial/edit/:id" element={<TestimonialForm/>} />
-                <Route path="/" element={<Login />} />
-                <Route path="/productForm" element={<SampleForm />} />
-                <Route element={<ProtectedRoute />}>
+                <Route
+                  path="/"
+                  element={
+                    isAuth ? <Navigate to="/products" replace /> : <Login />
+                  }
+                />
+                <Route element={<ProtectedRoute key={token || "unauthenticated"} />}>
+                  <Route path="/testimonial" element={<TestimonialMain />} />
+                  <Route path="/testimonial/add" element={<TestimonialForm />} />
+                  <Route
+                    path="/testimonial/edit/:id"
+                    element={<TestimonialForm />}
+                  />
+                  <Route path="/productForm" element={<SampleForm />} />
                   {/* Main routes */}
                   <Route path="/dashboard" element={<Dmain />} />
                   <Route path="/products" element={<ProductMain />} />

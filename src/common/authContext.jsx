@@ -46,6 +46,13 @@ export const AuthProvider = ({ children }) => {
     const storedToken = localStorage.getItem('Token');
     if (!isTokenValid(storedToken)) return null;
     try {
+      const storedAdmin = localStorage.getItem('AdminData');
+      if (storedAdmin) {
+        const parsed = JSON.parse(storedAdmin);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      }
       const decoded = jwtDecode(storedToken);
       return decoded || null;
     } catch {
@@ -54,13 +61,28 @@ export const AuthProvider = ({ children }) => {
   });
 
   const logout = useCallback(() => {
-    localStorage.removeItem('Token');
-    localStorage.removeItem('UserPermissions');
+    const authKeys = [
+      'Token',
+      'UserPermissions',
+      'AdminData',
+      'User',
+      'Admin',
+      'UserData',
+      'adminData',
+      'userName',
+      'username',
+      'name',
+      'email',
+    ];
+    authKeys.forEach((k) => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
     setToken(null);
     setUser(null);
     setPermissions(null);
     if (window.location.pathname !== '/') {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [navigate]);
 
@@ -74,24 +96,80 @@ export const AuthProvider = ({ children }) => {
     };
   }, [logout]);
 
+  // Sync auth state across browser tabs/windows
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === 'Token') {
+        if (!e.newValue || !isTokenValid(e.newValue)) {
+          logout();
+        } else if (e.newValue !== token && isTokenValid(e.newValue)) {
+          setToken(e.newValue);
+          try {
+            const storedAdmin = localStorage.getItem('AdminData');
+            if (storedAdmin) {
+              setUser(JSON.parse(storedAdmin));
+            } else {
+              setUser(jwtDecode(e.newValue));
+            }
+          } catch {
+            setUser(null);
+          }
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [token, logout]);
+
   // Check token expiration periodically
   useEffect(() => {
     const checkTokenExpiration = () => {
-      if (token && !isTokenValid(token)) {
+      const stored = localStorage.getItem('Token');
+      if (stored && !isTokenValid(stored)) {
+        logout();
+      } else if (!stored && token) {
         logout();
       }
     };
 
     checkTokenExpiration();
-    const interval = setInterval(checkTokenExpiration, 10000); // Check every 10 seconds
+    const interval = setInterval(checkTokenExpiration, 5000); // Check every 5 seconds
 
     return () => clearInterval(interval);
   }, [token, logout]);
 
   const login = (newToken, userData, userPermissions) => {
+    const authKeys = [
+      'Token',
+      'UserPermissions',
+      'AdminData',
+      'User',
+      'Admin',
+      'UserData',
+      'adminData',
+      'userName',
+      'username',
+      'name',
+      'email',
+    ];
+    authKeys.forEach((k) => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
+
     localStorage.setItem('Token', newToken);
     if (userPermissions) {
       localStorage.setItem('UserPermissions', JSON.stringify(userPermissions));
+    }
+    if (userData && typeof userData === 'object') {
+      localStorage.setItem('AdminData', JSON.stringify(userData));
+      if (
+        userData.userName &&
+        typeof userData.userName === 'string' &&
+        userData.userName.toLowerCase() !== 'oneup'
+      ) {
+        localStorage.setItem('userName', userData.userName);
+      }
     }
     setToken(newToken);
     setUser(userData || (newToken ? jwtDecode(newToken) : null));
@@ -99,7 +177,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAuthenticated = useCallback(() => {
-    return isTokenValid(token);
+    const stored = localStorage.getItem('Token');
+    if (!stored || !isTokenValid(stored)) return false;
+    if (!token || !isTokenValid(token)) return false;
+    return true;
   }, [token]);
 
   return (
@@ -111,6 +192,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         isAuthenticated,
+        loading: false,
       }}
     >
       {children}

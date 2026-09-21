@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaUser, FaLock, FaSpinner, FaArrowRight, FaEnvelope, FaKey, FaCheckCircle, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { adminLogin, forgotPassword, resendOtp, verifyResetOtp, resetPassword } from "../Interceptor/interceptor";
-import { useAuth } from "./authContext";
+import { useAuth, isTokenValid } from "./authContext";
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -10,7 +10,15 @@ const Login = () => {
   const [error, setError] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  // If already authenticated, redirect immediately to products
+  useEffect(() => {
+    const stored = localStorage.getItem("Token");
+    if (isAuthenticated() && isTokenValid(stored)) {
+      navigate("/products", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   // Forgot password states
   const [forgotStep, setForgotStep] = useState(1); // 1: Email, 2: OTP, 3: New Password, 4: Success
@@ -44,13 +52,25 @@ const Login = () => {
     setError("");
     try {
       const response = await adminLogin(formData);
-      login(response.token, response.admin, response.admin.permissions);
-      localStorage.setItem("Token", response.token);
-      localStorage.setItem(
-        "UserPermissions",
-        JSON.stringify(response.admin.permissions)
-      );
-      navigate("/products");
+      const adminInfo =
+        response.admin ||
+        response.user ||
+        response.data?.admin ||
+        response.data?.user ||
+        {};
+
+      if (!adminInfo.email && formData.email) {
+        adminInfo.email = formData.email;
+      }
+
+      const token = response.token || response.data?.token;
+      const permissions =
+        adminInfo.permissions ||
+        response.permissions ||
+        response.data?.permissions;
+
+      login(token, adminInfo, permissions);
+      navigate("/products", { replace: true });
     } catch (err) {
       setError(
         err?.response?.data?.message ||
@@ -462,6 +482,11 @@ const Login = () => {
         return null;
     }
   };
+
+  const storedToken = localStorage.getItem("Token");
+  if (isAuthenticated() && isTokenValid(storedToken)) {
+    return null;
+  }
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-900 via-purple-800 to-slate-900 text-white">

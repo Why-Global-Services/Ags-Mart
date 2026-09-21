@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "./authContext";
+import { useAuth, isTokenValid } from "./authContext";
 
 const ProtectedRoute = () => {
   const { isAuthenticated, loading, permissions } = useAuth();
@@ -13,14 +13,35 @@ const ProtectedRoute = () => {
     );
   }
 
-  if (!isAuthenticated()) {
-    localStorage.removeItem("Token");
-    localStorage.removeItem("UserPermissions");
+  const storedToken = localStorage.getItem("Token");
+  const isAuth = isAuthenticated() && isTokenValid(storedToken);
+
+  if (!isAuth) {
+    [
+      "Token",
+      "UserPermissions",
+      "AdminData",
+      "User",
+      "Admin",
+      "UserData",
+      "adminData",
+      "userName",
+      "username",
+      "name",
+      "email",
+    ].forEach((k) => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   // Check if the current path is allowed based on permissions
   const pathPermissions = {
+    "/testimonial": true,
+    "/testimonial/add": true,
+    "/testimonial/edit/:id": true,
+    "/productForm": true,
     "/dashboard": true,
     "/products": permissions?.products,
     "/products/add": permissions?.products,

@@ -3,8 +3,8 @@ import { jwtDecode } from "jwt-decode";
 // import { data } from "react-router-dom";
 
 const apiInstance = axios.create({
-  baseURL: "http://localhost:5001/v1/admin",
-  // baseURL: "https://agsmartapi.whydev.in/v1/admin",
+  // baseURL: "http://localhost:5001/v1/admin",
+  baseURL: "https://agsmartapi.whydev.in/v1/admin",
 });
 
 let authFailureCallback = null;
@@ -15,9 +15,24 @@ export const setAuthFailureHandler = (callback) => {
 };
 
 export const handleAuthFailure = () => {
-  // Clear only authentication data
-  localStorage.removeItem("Token");
-  localStorage.removeItem("UserPermissions");
+  // Clear authentication and session identity data without localStorage.clear()
+  const authKeys = [
+    "Token",
+    "UserPermissions",
+    "AdminData",
+    "User",
+    "Admin",
+    "UserData",
+    "adminData",
+    "userName",
+    "username",
+    "name",
+    "email",
+  ];
+  authKeys.forEach((k) => {
+    localStorage.removeItem(k);
+    sessionStorage.removeItem(k);
+  });
 
   // Prevent multiple simultaneous logout triggers / redirect loops
   if (isRedirecting) return;
@@ -29,7 +44,7 @@ export const handleAuthFailure = () => {
   if (authFailureCallback) {
     authFailureCallback();
   } else if (typeof window !== "undefined" && window.location.pathname !== "/") {
-    window.location.href = "/";
+    window.location.replace("/");
   }
 };
 

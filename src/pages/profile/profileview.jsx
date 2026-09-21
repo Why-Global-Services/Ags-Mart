@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../common/authContext';
 import { getUser, updateUser } from '../../Interceptor/interceptor';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const ProfilePage = () => {
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -25,25 +27,45 @@ const ProfilePage = () => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        const userId = "20d8a127-6c5e-469a-91f3-ee78a80cc33e";
-        const response = await getUser(userId);
+        const response = await getUser();
 
         if (!response) {
           throw new Error("User data not found");
         }
 
+        const storedAdmin = (() => {
+          try {
+            return JSON.parse(localStorage.getItem('AdminData')) || {};
+          } catch {
+            return {};
+          }
+        })();
+
+        // Resolve userName avoiding template "oneup"
+        const resolvedUserName =
+          response.userName && response.userName.toLowerCase() !== 'oneup'
+            ? response.userName
+            : storedAdmin.userName && storedAdmin.userName.toLowerCase() !== 'oneup'
+            ? storedAdmin.userName
+            : user?.userName && user.userName.toLowerCase() !== 'oneup'
+            ? user.userName
+            : '';
+
+        const resolvedEmail =
+          response.email || storedAdmin.email || user?.email || '';
+
         setEditableData({
-          userName: response.userName || '',
-          mobileNumber: response.mobileNumber || '',
-          Address: response.Address || '',
-          additionalEmail: response.additionalEmail || '',
-          primaryEmail: response.email || ''
+          userName: resolvedUserName,
+          mobileNumber: response.mobileNumber || storedAdmin.mobileNumber || '',
+          Address: response.Address || storedAdmin.Address || '',
+          additionalEmail: response.additionalEmail || storedAdmin.additionalEmail || '',
+          primaryEmail: resolvedEmail
         });
 
         setProfileData({
-          role: response.role || 'Admin',
-          userRole: response.userRole || '',
-          email: response.email || ''
+          role: response.role || storedAdmin.role || 'Admin',
+          userRole: response.userRole || storedAdmin.userRole || '',
+          email: resolvedEmail
         });
 
       } catch (error) {
@@ -55,7 +77,7 @@ const ProfilePage = () => {
     };
 
     fetchUserData();
-  }, []);
+  }, [user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -75,7 +97,7 @@ const ProfilePage = () => {
       }
 
       setLoading(true);
-      const userId = "20d8a127-6c5e-469a-91f3-ee78a80cc33e";
+      const userId = user?.id || user?._id;
 
       const updatedData = {
         userName: editableData.userName,
@@ -89,6 +111,18 @@ const ProfilePage = () => {
 
       if (!response) {
         throw new Error("Failed to update profile");
+      }
+
+      // Update local storage so navbar and session reflect changes
+      try {
+        const storedAdmin = JSON.parse(localStorage.getItem('AdminData')) || {};
+        const updatedAdmin = { ...storedAdmin, ...updatedData };
+        localStorage.setItem('AdminData', JSON.stringify(updatedAdmin));
+        if (updatedData.userName && updatedData.userName.toLowerCase() !== 'oneup') {
+          localStorage.setItem('userName', updatedData.userName);
+        }
+      } catch (e) {
+        console.error("Failed to update local storage:", e);
       }
 
       // Update profile data

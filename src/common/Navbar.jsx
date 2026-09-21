@@ -27,13 +27,85 @@ import { useAuth } from "./authContext";
 import { adminLogin, getoneUser } from "../Interceptor/interceptor";
 import { IoSettingsSharp } from "react-icons/io5";
 
+const getAdminDisplayName = (adminObj, fallbackEmail) => {
+  const candidates = [
+    adminObj?.displayName,
+    adminObj?.adminName,
+    adminObj?.name,
+    adminObj?.userName,
+    adminObj?.username,
+  ];
+
+  for (const c of candidates) {
+    if (c && typeof c === "string") {
+      const trimmed = c.trim();
+      if (
+        trimmed &&
+        trimmed.toLowerCase() !== "oneup" &&
+        !trimmed.toLowerCase().includes("oneup")
+      ) {
+        return trimmed;
+      }
+    }
+  }
+
+  const email = adminObj?.email || fallbackEmail;
+  if (email && typeof email === "string" && email.includes("@")) {
+    const prefix = email.split("@")[0].trim();
+    if (
+      prefix &&
+      prefix.toLowerCase() !== "oneup" &&
+      !prefix.toLowerCase().includes("oneup")
+    ) {
+      return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    }
+  }
+
+  return "Admin";
+};
+
 const Navbar = ({ toggleSidebar }) => {
-  const { permissions, logout } = useAuth();
+  const { permissions, logout, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [data, setData] = useState({});
   const navigate = useNavigate();
+
+  const storedAdminData = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("AdminData")) || {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const effectiveAdmin = {
+    ...storedAdminData,
+    ...(user || {}),
+    ...(data || {}),
+  };
+
+  const effectiveUserName =
+    data?.userName && data.userName.toLowerCase() !== "oneup"
+      ? data.userName
+      : user?.userName && user.userName.toLowerCase() !== "oneup"
+      ? user.userName
+      : storedAdminData?.userName &&
+        storedAdminData.userName.toLowerCase() !== "oneup"
+      ? storedAdminData.userName
+      : null;
+
+  const effectiveEmail =
+    data?.email && data.email.toLowerCase() !== "oneup"
+      ? data.email
+      : user?.email || storedAdminData?.email;
+
+  const displayName = getAdminDisplayName(
+    { ...effectiveAdmin, userName: effectiveUserName },
+    effectiveEmail
+  );
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -66,15 +138,22 @@ const Navbar = ({ toggleSidebar }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
-      const Navbarresponse = await getoneUser();
-      setData(Navbarresponse.data);
-      console.log("response", Navbarresponse);
+      try {
+        const Navbarresponse = await getoneUser();
+        if (isMounted && Navbarresponse?.data) {
+          setData(Navbarresponse.data);
+        }
+      } catch (err) {
+        console.error("Navbar getoneUser error:", err);
+      }
     };
     fetchData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  console.log("data", data);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -252,7 +331,7 @@ const formatTime = (date) => {
       <p className="text-sm text-gray-500">Good {getTimeOfDay()}!</p>
     </div>
     <h1 className="text-xl font-bold text-gray-800">
-      Welcome, <span className="text-secondary">{data.userName || "Admin"}</span>
+      Welcome, <span className="text-secondary">{displayName}</span>
     </h1>
     <div className="flex items-center gap-3 mt-1">
       <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -270,10 +349,10 @@ const formatTime = (date) => {
   <div className="lg:hidden flex items-center justify-between w-full">
     <div className="flex items-center gap-3">
       <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-        {data.userName?.charAt(0) || "A"}
+        {displayName.charAt(0).toUpperCase() || "A"}
       </div>
       <div>
-        <h2 className="font-bold text-gray-800">{data.userName || "Admin"}</h2>
+        <h2 className="font-bold text-gray-800">{displayName}</h2>
         <div className="flex items-center gap-2">
           <p className="text-xs text-gray-500">{formatDate(new Date(), true)}</p>
           <span className="text-gray-300">•</span>
@@ -384,7 +463,7 @@ const formatTime = (date) => {
                 alt="User"
                 className="w-8 h-8 rounded-full"
               /> */}
-              <span className="text-gray-600 font-medium">{data.userName}</span>
+              <span className="text-gray-600 font-medium">{displayName}</span>
               <IoIosArrowDown className="text-gray-500 transition-transform duration-200" />
             </div>
 
