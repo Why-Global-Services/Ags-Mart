@@ -297,14 +297,17 @@ const verifyResetOtp = async (req) => {
 };
 
 
-// Final Password Reset - Step 3
+// Final Password Reset - Step 3 (Direct reset enabled)
 const resetPassword = async (req) => {
-  const { token, phone, password } = req.body;
+  const { token, phone, email, password } = req.body;
 
   if (!password) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Password is required");
   }
 
+  // OTP FLOW DISABLED - Direct password reset flow is currently used.
+  // Original OTP logic kept commented for future restoration.
+  /*
   // If using token verification (optional)
   if (token) {
     try {
@@ -316,8 +319,14 @@ const resetPassword = async (req) => {
       throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid or expired token");
     }
   }
+  */
 
-  const user = await User.findOne({ phoneNumber: phone });
+  const user = await User.findOne({
+    $or: [
+      phone ? { phoneNumber: phone } : null,
+      email ? { email: email.toLowerCase().trim() } : null,
+    ].filter(Boolean),
+  });
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, "User not found");
   }

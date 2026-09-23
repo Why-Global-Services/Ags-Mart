@@ -170,8 +170,10 @@ AdminRouter.route("/systemUser").post(adminController.createSystemUser);
 AdminRouter.route("/adminLogin").post(adminController.userLogin);
 AdminRouter.route("/allAdmin").get(verifyToken, adminController.allAdmin);
 AdminRouter.route("/forgotPassword").post(adminController.forgotPasswordController);
-AdminRouter.route("/resendOtp").post(adminController.resendOtpController);
-AdminRouter.route("/verifyResetOtp").post(adminController.verifyResetOtpController);
+// OTP FLOW DISABLED - Direct password reset flow is currently used.
+// Original OTP logic kept commented for future restoration.
+// AdminRouter.route("/resendOtp").post(adminController.resendOtpController);
+// AdminRouter.route("/verifyResetOtp").post(adminController.verifyResetOtpController);
 AdminRouter.route("/resetPassword").post(adminController.resetPasswordController);
 AdminRouter.route("/editAdmin/:_id").put(
   verifyToken,

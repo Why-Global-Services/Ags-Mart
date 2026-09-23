@@ -6,5 +6,5 @@ exports.generateOrderId = async () => {
   const shortId1 = uuidv4().split("-")[0].toUpperCase(); // Use first part of UUID
   const shortId2 = uuidv4().split("-")[1].toUpperCase(); // Use second part of UUID
 
-  return `POVI-${datePart}${timePart}${shortId1}`;
+  return `AGROWMED-${datePart}${timePart}${shortId1}`;
 };

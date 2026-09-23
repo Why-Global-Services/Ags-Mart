@@ -69,7 +69,9 @@ router.route("/login").post(userController.LoginUser);
 router.route("/otp").post(userController.otp);
 router.route("/otpVerify").post(userController.otpVerify);
 router.route("/forgot-password").post(userController.ForgotPassword);
-router.route("/verify-reset-otp").post(userController.VerifyResetOtp);
+// OTP FLOW DISABLED - Direct password reset flow is currently used.
+// Original OTP logic kept commented for future restoration.
+// router.route("/verify-reset-otp").post(userController.VerifyResetOtp);
 router.route("/reset-password").post(userController.ResetPassword);
 
 router

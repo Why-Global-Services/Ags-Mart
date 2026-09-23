@@ -17,7 +17,7 @@ const uploadToCloud = async (file, keyPrefix = "products") => {
     if (!file) throw new ApiError(httpStatus.BAD_REQUEST, "File not found");
 
     const safeFileName = file.originalname.replace(/\s+/g, "_");
-    const key = `${keyPrefix}/POVIS_${Date.now()}_${safeFileName}`;
+    const key = `${keyPrefix}/AGROWMED_${Date.now()}_${safeFileName}`;
 
     const params = {
       Bucket: "facesync",

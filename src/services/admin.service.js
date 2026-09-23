@@ -2257,6 +2257,9 @@ const forgotPassword = async (req) => {
     return { success: false, message: "Admin not found" };
   }
 
+  // OTP FLOW DISABLED - Direct password reset flow is currently used.
+  // Original OTP logic kept commented for future restoration.
+  /*
   // ⛔ If OTP already valid, don’t spam
   if (adminData.otpExpire && adminData.otpExpire > Date.now()) {
     return {
@@ -2276,14 +2279,18 @@ const forgotPassword = async (req) => {
     OTP: otp,
     purpose: "password reset",
   });
+  */
 
   return {
     success: true,
-    message: "OTP sent to registered email",
+    message: "Admin account verified. Please set your new password.",
   };
 };
 
 
+// OTP FLOW DISABLED - Direct password reset flow is currently used.
+// Original OTP logic kept commented for future restoration.
+/*
 const resendOtp = async (req) => {
   const { email } = req.body;
 
@@ -2317,8 +2324,18 @@ const resendOtp = async (req) => {
     message: "OTP resent successfully",
   };
 };
+*/
+const resendOtp = async (req) => {
+  return {
+    success: false,
+    message: "OTP flow is disabled. Use direct password reset.",
+  };
+};
 
 
+// OTP FLOW DISABLED - Direct password reset flow is currently used.
+// Original OTP logic kept commented for future restoration.
+/*
 const verifyResetOtp = async (req) => {
   const { email, otp } = req.body;
 
@@ -2344,16 +2361,31 @@ const verifyResetOtp = async (req) => {
     message: "OTP verified successfully",
   };
 };
+*/
+const verifyResetOtp = async (req) => {
+  return {
+    success: true,
+    message: "OTP verification bypassed for direct reset flow.",
+  };
+};
 
 
 const resetPassword = async (req) => {
-  const { email, otp, newPassword } = req.body;
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return { success: false, message: "Email and new password are required" };
+  }
 
   const adminData = await admin.findOne({ email });
   if (!adminData) {
     return { success: false, message: "Admin not found" };
   }
 
+  // OTP FLOW DISABLED - Direct password reset flow is currently used.
+  // Original OTP logic kept commented for future restoration.
+  /*
+  const { otp } = req.body;
   if (!adminData.otp || !adminData.otpExpire) {
     return { success: false, message: "OTP verification required" };
   }
@@ -2365,6 +2397,7 @@ const resetPassword = async (req) => {
   if (adminData.otp !== otp) {
     return { success: false, message: "Invalid OTP" };
   }
+  */
 
   const hashedPassword = await Bcrypt.hash(newPassword, 10);
 
