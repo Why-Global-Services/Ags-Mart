@@ -13,8 +13,10 @@ import { showToast } from "../utils/toast";
 import {
   Login,
   Register,
-  Otp,
-  OtpVerify,
+  // OTP FLOW DISABLED - Direct password reset flow is currently used.
+  // Original OTP logic kept commented for future restoration.
+  // Otp,
+  // OtpVerify,
   ResetPassword,
   mergeCart,
   mergeWishlist
@@ -181,6 +183,9 @@ const pathname = usePathname();
 
   /* ================= SEND OTP ================= */
 
+  // OTP FLOW DISABLED - Direct password reset flow is currently used.
+  // Original OTP logic kept commented for future restoration.
+  /*
   const handleSendOtp = async () => {
     if (!phone) return showToast.error("Enter phone number");
 
@@ -203,8 +208,6 @@ const pathname = usePathname();
       setLoading(false);
     }
   };
-
-  /* ================= VERIFY OTP ================= */
 
   const handleVerifyOtp = async () => {
     const code = otp.join("");
@@ -231,10 +234,15 @@ const pathname = usePathname();
       setLoading(false);
     }
   };
+  */
 
   /* ================= RESET ================= */
 
   const handleResetPassword = async () => {
+    if (!phone || phone.length !== 10) {
+      return showToast.error("Phone number must be 10 digits");
+    }
+
     if (form.password.length < 6) {
       return showToast.error("Password must be at least 6 characters");
     }
@@ -406,8 +414,7 @@ const pathname = usePathname();
               <p className="text-center">
                 <span
                   onClick={() => {
-                    setMode("forgot");
-                    setPhone("");
+                    setMode("reset");
                   }}
                   className="text-sm text-gray-500 underline cursor-pointer hover:text-[#E8650A] transition-colors"
                 >
@@ -531,7 +538,8 @@ const pathname = usePathname();
             </form>
           )}
 
-          {/* ===== FORGOT PASSWORD ===== */}
+          {/* OTP FLOW DISABLED - Direct password reset flow is currently used.
+              Original OTP logic kept commented for future restoration.
           {mode === "forgot" && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500 mb-2">
@@ -561,20 +569,12 @@ const pathname = usePathname();
                 onClick={handleSendOtp}
                 disabled={loading}
                 className="w-full h-12 text-white font-bold bg-bgvariant-3 tracking-widest text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                // style={{ backgroundColor: "#3d3d3d" }}
-                // onMouseEnter={(e) =>
-                //   (e.currentTarget.style.backgroundColor = "#2a2a2a")
-                // }
-                // onMouseLeave={(e) =>
-                //   (e.currentTarget.style.backgroundColor = "#3d3d3d")
-                // }
               >
                 {loading ? "SENDING..." : "SEND OTP"}
               </button>
             </div>
           )}
 
-          {/* ===== OTP VERIFY ===== */}
           {mode === "otp" && (
             <div className="space-y-5">
               <p className="text-sm text-gray-500 text-center">
@@ -634,13 +634,33 @@ const pathname = usePathname();
               </p>
             </div>
           )}
+          */}
 
           {/* ===== RESET PASSWORD ===== */}
           {mode === "reset" && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500 mb-1">
-                Create a new password for your account.
+                Enter your phone number and create a new password for your account.
               </p>
+
+              <div>
+                <label className={labelClass}>
+                  Phone Number <span className="text-[#E8650A]">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="9876543210"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    className={inputClassWithPrefix}
+                    maxLength={10}
+                  />
+                </div>
+              </div>
 
               <div>
                 <label className={labelClass}>

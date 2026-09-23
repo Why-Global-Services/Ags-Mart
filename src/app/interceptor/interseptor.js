@@ -3,8 +3,8 @@ import axios from "axios";
 const apiInstance = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_BASE_URL ||
-    // "https://agsmartapi.whydev.in/v1/user",
-        "http://localhost:5001/v1/user",
+    "https://agsmartapi.whydev.in/v1/user",
+        // "http://localhost:5001/v1/user",
 
 });
 
@@ -88,10 +88,14 @@ export const ForgotPassword = async (data) => {
   return res;
 };
 
+// OTP FLOW DISABLED - Direct password reset flow is currently used.
+// Original OTP logic kept commented for future restoration.
+/*
 export const VerifyResetOtp = async (data) => {
   const res = await apiInstance.post(`/verify-reset-otp`, data);
   return res;
 };
+*/
 
 export const ResetPassword = async (data) => {
   const res = await apiInstance.post(`/reset-password`, data);

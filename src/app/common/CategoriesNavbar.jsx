@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,6 +19,10 @@ const CategoryNavbar = () => {
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openMobileCategory, setOpenMobileCategory] = useState(null);
+  const [isAllCategoryOpen, setIsAllCategoryOpen] = useState(false);
+  const [expandedAllCategory, setExpandedAllCategory] = useState(null);
+  const allCategoryRef = useRef(null);
+
   const dispatch = useDispatch();
   const pathname = usePathname();
   const router = useRouter();
@@ -33,15 +37,38 @@ const CategoryNavbar = () => {
       )
     : [];
 
+  const visibleCategories = categories.slice(0, 5);
+  const remainingCategories = categories.slice(5);
+  const hasMoreCategories = remainingCategories.length > 0;
+
   const staticItems = [
-    { title: "Home", path: "/", icon: FiHome },
-    { title: "About Us", path: "/aboutuspage", icon: FiUser },
-    { title: "Contact", path: "/contactpage", icon: FiMail },
+    { title: "HOME", path: "/", icon: FiHome },
+    { title: "ABOUT US", path: "/aboutuspage", icon: FiUser },
+    { title: "CONTACT", path: "/contactpage", icon: FiMail },
   ];
 
   useEffect(() => {
     dispatch(fetchNavbarData());
   }, [dispatch]);
+
+  // Close ALL CATEGORY dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (allCategoryRef.current && !allCategoryRef.current.contains(event.target)) {
+        setIsAllCategoryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Close dropdown on navigation
+  useEffect(() => {
+    setIsAllCategoryOpen(false);
+    setExpandedAllCategory(null);
+  }, [pathname, searchParams]);
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -60,6 +87,74 @@ const CategoryNavbar = () => {
   const isCategoryActive = (category) =>
     pathname.startsWith("/shoppage") &&
     activeCategory.toLowerCase() === category.categoryTitle?.toLowerCase();
+  const isAnyRemainingActive = remainingCategories.some((cat) => isCategoryActive(cat));
+
+  const renderMobileCategory = (category) => {
+    const title = category.categoryTitle;
+    const subcategories = Array.isArray(category.subCategories)
+      ? category.subCategories.filter((sub) => getSubcategoryTitle(sub))
+      : [];
+    const hasSubcategories = subcategories.length > 0;
+    const categoryKey = category._id || title;
+    const open = openMobileCategory === categoryKey;
+    const active = isCategoryActive(category);
+
+    return (
+      <div key={categoryKey} className="space-y-0.5">
+        <button
+          onClick={() =>
+            hasSubcategories
+              ? setOpenMobileCategory(open ? null : categoryKey)
+              : (router.push(categoryPath(title)), setIsMobileMenuOpen(false))
+          }
+          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-semibold text-sm transition ${
+            active
+              ? "bg-bgvariant-1 text-white shadow-sm"
+              : "hover:bg-green-50 text-gray-800"
+          }`}
+        >
+          <span className="truncate">{title}</span>
+          {hasSubcategories && (
+            <FiChevronDown
+              className={`text-sm transition-transform duration-200 shrink-0 ${
+                open ? "rotate-180" : ""
+              }`}
+            />
+          )}
+        </button>
+
+        {/* Expandable Subcategories */}
+        {hasSubcategories && open && (
+          <div className="ml-3 border-l-2 border-green-200 pl-2 py-1 space-y-0.5">
+            <button
+              onClick={() => {
+                router.push(categoryPath(title));
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full text-left px-3 py-1.5 text-xs font-semibold text-bgvariant-1 hover:bg-green-50 rounded-lg transition"
+            >
+              All {title}
+            </button>
+            {subcategories.map((sub) => {
+              const label = getSubcategoryTitle(sub);
+              return (
+                <button
+                  key={sub._id || label}
+                  onClick={() => {
+                    router.push(subcategoryPath(title, label));
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-green-50 hover:text-bgvariant-1 rounded-lg transition truncate"
+                >
+                  • {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderCategory = (category) => {
     const title = category.categoryTitle;
@@ -79,7 +174,7 @@ const CategoryNavbar = () => {
       >
         <Link
           href={categoryPath(title)}
-          className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide transition-colors py-2 whitespace-nowrap ${
+          className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide transition-colors py-2 whitespace-nowrap uppercase ${
             active
               ? "text-white font-bold"
               : "text-white/90 hover:text-white"
@@ -170,32 +265,165 @@ const CategoryNavbar = () => {
 
             {/* Desktop Navigation List (lg breakpoint and up) */}
             <div className="hidden lg:flex items-center w-full justify-center">
-              <ul className="flex items-center gap-5 xl:gap-8 flex-wrap justify-center">
-                <li>
+              <ul className="flex items-center gap-5 xl:gap-8 flex-wrap justify-center font-fontcontent">
+                <li className="relative group font-fontcontent">
                   <Link
                     href="/"
-                    className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 transition-colors ${
+                    className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 whitespace-nowrap uppercase transition-colors ${
                       isPageActive("/")
-                        ? "text-white font-bold border-b-2 border-green-300"
+                        ? "text-white font-bold"
                         : "text-white/90 hover:text-white"
                     }`}
                   >
-                    Home
+                    HOME
                   </Link>
+                  <span
+                    className={`absolute left-0 -bottom-0.5 h-0.5 bg-green-300 rounded-full transition-all duration-300 ${
+                      isPageActive("/") ? "w-full" : "w-0 group-hover:w-full"
+                    }`}
+                  />
                 </li>
-                {categories.map(renderCategory)}
+                {visibleCategories.map(renderCategory)}
+                {hasMoreCategories && (
+                  <li
+                    ref={allCategoryRef}
+                    className="relative group font-fontcontent"
+                    onMouseEnter={() => setIsAllCategoryOpen(true)}
+                    onMouseLeave={() => setIsAllCategoryOpen(false)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setIsAllCategoryOpen((prev) => !prev)}
+                      className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide transition-colors py-2 whitespace-nowrap cursor-pointer uppercase ${
+                        isAnyRemainingActive
+                          ? "text-white font-bold"
+                          : "text-white/90 hover:text-white"
+                      }`}
+                      aria-expanded={isAllCategoryOpen}
+                      aria-haspopup="true"
+                    >
+                      {isAnyRemainingActive && (
+                        <FaLeaf className="text-green-300 text-xs shrink-0" />
+                      )}
+                      <span>ALL CATEGORY</span>
+                      <FiChevronDown
+                        className={`text-xs text-white/80 transition-transform duration-200 shrink-0 ${
+                          isAllCategoryOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                    <span
+                      className={`absolute left-0 -bottom-0.5 h-0.5 bg-green-300 rounded-full transition-all duration-300 ${
+                        isAnyRemainingActive || isAllCategoryOpen
+                          ? "w-full"
+                          : "w-0 group-hover:w-full"
+                      }`}
+                    />
+                    <AnimatePresence>
+                      {isAllCategoryOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          transition={{ duration: 0.18 }}
+                          className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-72 bg-white shadow-2xl rounded-xl border border-green-100 overflow-hidden z-50"
+                        >
+                          <div className="py-2 max-h-96 overflow-y-auto">
+                            {remainingCategories.map((cat) => {
+                              const title = cat.categoryTitle;
+                              const catKey = cat._id || title;
+                              const subcategories = Array.isArray(cat.subCategories)
+                                ? cat.subCategories.filter((sub) => getSubcategoryTitle(sub))
+                                : [];
+                              const hasSubcategories = subcategories.length > 0;
+                              const active = isCategoryActive(cat);
+                              const isExpanded = expandedAllCategory === catKey;
+
+                              return (
+                                <div key={catKey} className="text-left">
+                                  <div
+                                    className={`flex items-center justify-between px-5 py-2.5 transition-all border-l-4 ${
+                                      active
+                                        ? "bg-green-50 text-bgvariant-1 border-bgvariant-1 font-semibold"
+                                        : "text-gray-700 hover:bg-green-50 hover:text-bgvariant-1 border-transparent"
+                                    }`}
+                                  >
+                                    <Link
+                                      href={categoryPath(title)}
+                                      onClick={() => setIsAllCategoryOpen(false)}
+                                      className="flex-1 text-sm font-medium truncate"
+                                    >
+                                      {title}
+                                    </Link>
+                                    {hasSubcategories && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedAllCategory(isExpanded ? null : catKey);
+                                        }}
+                                        className="p-1 text-gray-400 hover:text-bgvariant-1 transition shrink-0 ml-2"
+                                        aria-label={`Toggle ${title} subcategories`}
+                                      >
+                                        <FiChevronDown
+                                          className={`text-xs transition-transform duration-200 ${
+                                            isExpanded ? "rotate-180" : ""
+                                          }`}
+                                        />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {hasSubcategories && isExpanded && (
+                                    <div className="bg-gray-50/80 py-1 pl-7 pr-4 border-l-2 border-green-200 ml-5 my-1 space-y-1">
+                                      {subcategories.map((sub) => {
+                                        const label = getSubcategoryTitle(sub);
+                                        const subActive =
+                                          active &&
+                                          activeSubcategory.toLowerCase() === label.toLowerCase();
+                                        return (
+                                          <Link
+                                            key={sub._id || label}
+                                            href={subcategoryPath(title, label)}
+                                            onClick={() => setIsAllCategoryOpen(false)}
+                                            className={`block py-1 text-xs transition truncate ${
+                                              subActive
+                                                ? "text-bgvariant-1 font-semibold"
+                                                : "text-gray-600 hover:text-bgvariant-1"
+                                            }`}
+                                          >
+                                            • {label}
+                                          </Link>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </li>
+                )}
                 {staticItems.slice(1).map((item) => (
-                  <li key={item.title}>
+                  <li key={item.title} className="relative group font-fontcontent">
                     <Link
                       href={item.path}
-                      className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 transition-colors ${
+                      className={`flex items-center gap-1.5 text-xs xl:text-sm font-semibold tracking-wide py-2 whitespace-nowrap uppercase transition-colors ${
                         isPageActive(item.path)
-                          ? "text-white font-bold border-b-2 border-green-300"
+                          ? "text-white font-bold"
                           : "text-white/90 hover:text-white"
                       }`}
                     >
                       {item.title}
                     </Link>
+                    <span
+                      className={`absolute left-0 -bottom-0.5 h-0.5 bg-green-300 rounded-full transition-all duration-300 ${
+                        isPageActive(item.path) ? "w-full" : "w-0 group-hover:w-full"
+                      }`}
+                    />
                   </li>
                 ))}
               </ul>
@@ -273,73 +501,41 @@ const CategoryNavbar = () => {
                 </div>
 
                 {/* Dynamic Categories with Accordion Subcategories */}
-                {categories.map((category) => {
-                  const title = category.categoryTitle;
-                  const subcategories = Array.isArray(category.subCategories)
-                    ? category.subCategories.filter((sub) => getSubcategoryTitle(sub))
-                    : [];
-                  const hasSubcategories = subcategories.length > 0;
-                  const categoryKey = category._id || title;
-                  const open = openMobileCategory === categoryKey;
-                  const active = isCategoryActive(category);
+                {visibleCategories.map(renderMobileCategory)}
 
-                  return (
-                    <div key={categoryKey} className="space-y-0.5">
-                      <button
-                        onClick={() =>
-                          hasSubcategories
-                            ? setOpenMobileCategory(open ? null : categoryKey)
-                            : (router.push(categoryPath(title)),
-                              setIsMobileMenuOpen(false))
-                        }
-                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-semibold text-sm transition ${
-                          active
-                            ? "bg-bgvariant-1 text-white shadow-sm"
-                            : "hover:bg-green-50 text-gray-800"
+                {hasMoreCategories && (
+                  <div className="space-y-0.5">
+                    <button
+                      onClick={() =>
+                        setOpenMobileCategory(
+                          openMobileCategory === "MOBILE_ALL_CATEGORY"
+                            ? null
+                            : "MOBILE_ALL_CATEGORY"
+                        )
+                      }
+                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl font-semibold text-sm transition ${
+                        isAnyRemainingActive
+                          ? "bg-bgvariant-1 text-white shadow-sm"
+                          : "hover:bg-green-50 text-gray-800"
+                      }`}
+                    >
+                      <span className="truncate font-bold">ALL CATEGORY</span>
+                      <FiChevronDown
+                        className={`text-sm transition-transform duration-200 shrink-0 ${
+                          openMobileCategory === "MOBILE_ALL_CATEGORY"
+                            ? "rotate-180"
+                            : ""
                         }`}
-                      >
-                        <span className="truncate">{title}</span>
-                        {hasSubcategories && (
-                          <FiChevronDown
-                            className={`text-sm transition-transform duration-200 shrink-0 ${
-                              open ? "rotate-180" : ""
-                            }`}
-                          />
-                        )}
-                      </button>
+                      />
+                    </button>
 
-                      {/* Expandable Subcategories */}
-                      {hasSubcategories && open && (
-                        <div className="ml-3 border-l-2 border-green-200 pl-2 py-1 space-y-0.5">
-                          <button
-                            onClick={() => {
-                              router.push(categoryPath(title));
-                              setIsMobileMenuOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-1.5 text-xs font-semibold text-bgvariant-1 hover:bg-green-50 rounded-lg transition"
-                          >
-                            All {title}
-                          </button>
-                          {subcategories.map((sub) => {
-                            const label = getSubcategoryTitle(sub);
-                            return (
-                              <button
-                                key={sub._id || label}
-                                onClick={() => {
-                                  router.push(subcategoryPath(title, label));
-                                  setIsMobileMenuOpen(false);
-                                }}
-                                className="w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-green-50 hover:text-bgvariant-1 rounded-lg transition truncate"
-                              >
-                                • {label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    {openMobileCategory === "MOBILE_ALL_CATEGORY" && (
+                      <div className="ml-3 border-l-2 border-green-300 pl-2 py-1 space-y-0.5">
+                        {remainingCategories.map(renderMobileCategory)}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Other Static Links */}
                 <div className="pt-3 pb-1 px-4">

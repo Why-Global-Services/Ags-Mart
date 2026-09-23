@@ -25,7 +25,11 @@ const HomeMain = () => {
       <BestSeller />
       <NewArrivals />
       <TodaysDeals />
-      <CategoryProducts />
+      {/* 
+        Homepage dynamic category sections disabled.
+        Categories are still available through Topbar / All Category.
+        <CategoryProducts />
+      */}
       <Testimonials />
       <ServiceHighlights />
     </div>
