@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { FaUser, FaLock, FaSpinner, FaArrowRight, FaEnvelope, FaKey, FaCheckCircle, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { adminLogin, forgotPassword, resendOtp, verifyResetOtp, resetPassword } from "../Interceptor/interceptor";
+// OTP FLOW DISABLED - Direct password reset flow is currently used.
+// Original OTP logic kept commented for future restoration.
+import { adminLogin, forgotPassword, /* resendOtp, verifyResetOtp, */ resetPassword } from "../Interceptor/interceptor";
 import { useAuth, isTokenValid } from "./authContext";
 
 const Login = () => {
@@ -21,15 +23,17 @@ const Login = () => {
   }, [isAuthenticated, navigate]);
 
   // Forgot password states
-  const [forgotStep, setForgotStep] = useState(1); // 1: Email, 2: OTP, 3: New Password, 4: Success
+  // OTP FLOW DISABLED - Direct password reset flow is currently used.
+  // Original OTP logic kept commented for future restoration.
+  const [forgotStep, setForgotStep] = useState(3); // 3: Create New Password, 4: Success
   const [forgotData, setForgotData] = useState({
     email: "",
     otp: "",
     newPassword: "",
     confirmPassword: ""
   });
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [otpResendDisabled, setOtpResendDisabled] = useState(true);
+  // const [otpTimer, setOtpTimer] = useState(0);
+  // const [otpResendDisabled, setOtpResendDisabled] = useState(true);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -81,6 +85,9 @@ const Login = () => {
     }
   };
 
+  // OTP FLOW DISABLED - Direct password reset flow is currently used.
+  // Original OTP logic kept commented for future restoration.
+  /*
   // Start OTP timer
   const startOtpTimer = () => {
     setOtpTimer(60);
@@ -109,11 +116,7 @@ const Login = () => {
     setLoading(true);
     setError("");
     try {
-      // REPLACED: Using actual forgotPassword API
       const response = await forgotPassword({ email: forgotData.email });
-      console.log(response,"this is the respsuce");
-      
-      
       if (response.success) {
         startOtpTimer();
         setForgotStep(2);
@@ -138,12 +141,10 @@ const Login = () => {
     setLoading(true);
     setError("");
     try {
-      // REPLACED: Using actual verifyResetOtp API
       const response = await verifyResetOtp({ 
         email: forgotData.email, 
         otp: forgotData.otp 
       });
-      
       if (response.success) {
         setForgotStep(3);
       } else {
@@ -156,9 +157,40 @@ const Login = () => {
     }
   };
 
-  // Step 3: Reset password
+  // Resend OTP
+  const handleResendOtp = async () => {
+    if (otpResendDisabled) return;
+
+    setLoading(true);
+    try {
+      const response = await resendOtp({ email: forgotData.email });
+      if (response.success) {
+        startOtpTimer();
+        setError("OTP resent successfully!");
+      } else {
+        setError(response.message);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to resend OTP. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToOtp = () => {
+    setForgotStep(2);
+    setError("");
+  };
+  */
+
+  // Direct Reset Password (without OTP requirement)
   const handleResetPassword = async (e) => {
     e.preventDefault();
+    if (!forgotData.email) {
+      setError("Please enter your registered email");
+      return;
+    }
+
     if (!forgotData.newPassword || !forgotData.confirmPassword) {
       setError("Please enter new password and confirm it");
       return;
@@ -177,17 +209,15 @@ const Login = () => {
     setLoading(true);
     setError("");
     try {
-      // REPLACED: Using actual resetPassword API
       const response = await resetPassword({
         email: forgotData.email,
-        otp: forgotData.otp,
         newPassword: forgotData.newPassword
       });
       
       if (response.success) {
         setForgotStep(4);
       } else {
-        setError(response.message);
+        setError(response.message || "Failed to reset password. Please check your email.");
       }
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to reset password. Please try again.");
@@ -196,42 +226,18 @@ const Login = () => {
     }
   };
 
-  // Resend OTP
-  const handleResendOtp = async () => {
-    if (otpResendDisabled) return;
-
-    setLoading(true);
-    try {
-      // REPLACED: Using actual resendOtp API
-      const response = await resendOtp({ email: forgotData.email });
-      
-      if (response.success) {
-        startOtpTimer();
-        setError("OTP resent successfully!");
-      } else {
-        setError(response.message);
-      }
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to resend OTP. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleBackToLogin = () => {
     setShowForgotPassword(false);
-    setForgotStep(1);
+    setForgotStep(3);
     setForgotData({ email: "", otp: "", newPassword: "", confirmPassword: "" });
-    setError("");
-  };
-
-  const handleBackToOtp = () => {
-    setForgotStep(2);
     setError("");
   };
 
   const renderForgotPasswordForm = () => {
     switch (forgotStep) {
+    // OTP FLOW DISABLED - Direct password reset flow is currently used.
+    // Original OTP logic kept commented for future restoration.
+    /*
       case 1: // Email input
         return (
           <form onSubmit={handleForgotEmailSubmit} className="space-y-6">
@@ -370,6 +376,7 @@ const Login = () => {
             </div>
           </form>
         );
+    */
 
       case 3: // New password
         return (
@@ -378,9 +385,9 @@ const Login = () => {
               <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-4 rounded-full shadow-lg inline-flex mb-4">
                 <FaLock className="text-white text-2xl" />
               </div>
-              <h2 className="text-2xl font-bold text-white">New Password</h2>
+              <h2 className="text-2xl font-bold text-white">Create New Password</h2>
               <p className="text-white/70 text-sm mt-2">
-                Create a new password for your account
+                Enter your email and create a new password
               </p>
             </div>
 
@@ -389,6 +396,19 @@ const Login = () => {
                 {error}
               </div>
             )}
+
+            <div className="flex items-center bg-white/10 px-4 py-3 rounded-lg border border-white/15 focus-within:border-purple-400 transition">
+              <FaEnvelope className="mr-3 opacity-70" />
+              <input
+                type="email"
+                name="email"
+                placeholder="Enter your registered email"
+                value={forgotData.email}
+                onChange={handleForgotChange}
+                required
+                className="bg-transparent outline-none text-sm w-full placeholder-white/70"
+              />
+            </div>
 
             <div className="flex items-center bg-white/10 px-4 py-3 rounded-lg border border-white/15 focus-within:border-purple-400 transition">
               <FaLock className="mr-3 opacity-70" />
@@ -424,10 +444,10 @@ const Login = () => {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={handleBackToOtp}
+                onClick={handleBackToLogin}
                 className="flex-1 border border-white/30 text-white py-3 rounded-full font-semibold hover:bg-white/10 transition-colors"
               >
-                Back
+                Back to Login
               </button>
               <button
                 type="submit"
@@ -565,7 +585,13 @@ const Login = () => {
             <div className="text-right mb-6">
               <button
                 type="button"
-                onClick={() => setShowForgotPassword(true)}
+                onClick={() => {
+                  setShowForgotPassword(true);
+                  setForgotStep(3);
+                  if (formData.email) {
+                    setForgotData((prev) => ({ ...prev, email: formData.email }));
+                  }
+                }}
                 className="text-purple-300 hover:text-purple-200 text-sm transition-colors"
               >
                 Forgot Password?

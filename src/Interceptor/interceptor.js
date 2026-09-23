@@ -490,6 +490,9 @@ export const forgotPassword = async (data) => {
   return res;
 };
 
+// OTP FLOW DISABLED - Direct password reset flow is currently used.
+// Original OTP logic kept commented for future restoration.
+/*
 export const resendOtp = async (data) => {
   const res = await apiInstance.post(`/resendOtp`, data);
   return res;
@@ -499,6 +502,7 @@ export const verifyResetOtp = async (data) => {
   const res = await apiInstance.post(`/verifyResetOtp`, data);
   return res;
 };
+*/
 
 export const resetPassword = async (data) => {
   const res = await apiInstance.post(`/resetPassword`, data);
