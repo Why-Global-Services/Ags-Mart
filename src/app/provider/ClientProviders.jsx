@@ -3,10 +3,11 @@
 import { AuthProvider } from "../../context/AuthContext";
 import { Provider } from "react-redux";
 import { store } from "../store";
-import { GoogleOAuthProvider } from "@react-oauth/google";
+// Google OAuth is temporarily disabled
+// import { GoogleOAuthProvider } from "@react-oauth/google";
 
 export default function ClientProviders({ children }) {
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  // const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   const content = (
     <AuthProvider>
@@ -16,13 +17,14 @@ export default function ClientProviders({ children }) {
     </AuthProvider>
   );
 
-  if (clientId) {
-    return (
-      <GoogleOAuthProvider clientId={clientId}>
-        {content}
-      </GoogleOAuthProvider>
-    );
-  }
+  // Google OAuth is disabled
+  // if (clientId) {
+  //   return (
+  //     <GoogleOAuthProvider clientId={clientId}>
+  //       {content}
+  //     </GoogleOAuthProvider>
+  //   );
+  // }
 
   return content;
 }

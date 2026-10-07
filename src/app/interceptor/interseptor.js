@@ -157,16 +157,18 @@ export const Paymentverification = async (orderId, response) => {
 
 };
 
-export const PayPalPaymentVerfication = async (data, orderId) => {
-  const res = await apiInstance.post(`/verifyPaypal`, data);
-};
+// PayPal payment verification (DISABLED)
+// export const PayPalPaymentVerfication = async (data, orderId) => {
+//   const res = await apiInstance.post(`/verifyPaypal`, data);
+// };
 
-export const stripePaymentVerification = async (sessionId) => {
-  const res = await apiInstance.post(
-    `/verifyStripePayment?session_id=${sessionId}`
-  );
-  return res;
-};
+// Stripe payment verification (DISABLED)
+// export const stripePaymentVerification = async (sessionId) => {
+//   const res = await apiInstance.post(
+//     `/verifyStripePayment?session_id=${sessionId}`
+//   );
+//   return res;
+// };
 
 export const TermsAndCondition = async () => {
   const res = await apiInstance.get(`/gettermsandcondition`);
@@ -233,10 +235,11 @@ export const updateAddress = async (formattedData) => {
   return res;
 };
 
-export const googleLogin = async ({ token }) => {
-  const res = await apiInstance.post("/google", { token });
-  return res;
-};
+// Google login (DISABLED)
+// export const googleLogin = async ({ token }) => {
+//   const res = await apiInstance.post("/google", { token });
+//   return res;
+// };
 
 export const Search = async (searchQuery) => {
   const res = await apiInstance.get(

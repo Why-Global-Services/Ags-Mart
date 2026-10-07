@@ -5,7 +5,7 @@ import Footer from "./common/Footer";
 import Navbar from "./common/Navbar";
 import NavbarBottom from "./common/NavbarBottom";
 import { Toaster } from "react-hot-toast";
-import { GoogleOAuthProvider } from "@react-oauth/google";
+// import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "../context/AuthContext";
 import Script from "next/script";
 import { FaWhatsapp } from "react-icons/fa";
