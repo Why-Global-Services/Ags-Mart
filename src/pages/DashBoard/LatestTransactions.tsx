@@ -246,16 +246,18 @@ const LatestTransactions: React.FC = () => {
   ];
 
   return (
-    <div className="mx-5">
-      <div className="p-6 bg-white shadow-lg rounded-lg mx-auto">
-        <h2 className="text-lg text-left font-bold mb-4">Latest Transactions</h2>
-        <Table
-          columns={columns}
-          dataSource={currentTransactions}
-          rowKey="id"
-          pagination={false}
-          bordered
-        />
+    <div>
+      <div className="p-4 sm:p-6 agri-glass-card rounded-2xl mx-auto">
+        <h2 className="text-xl font-semibold text-gray-800 text-left mb-4">Latest Transactions</h2>
+        <div className="overflow-x-auto w-full">
+          <Table
+            columns={columns}
+            dataSource={currentTransactions}
+            rowKey="id"
+            pagination={false}
+            bordered
+          />
+        </div>
 
         <div className="mt-4 flex justify-center">
           <Pagination

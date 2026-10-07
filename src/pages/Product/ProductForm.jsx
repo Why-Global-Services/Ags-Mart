@@ -739,6 +739,7 @@ import {
   getAllCategories,
   getSubCategoriesByCategory,
 } from "../../../../services/Offer";
+import { deleteVariant } from "../../../../services/Products";
 
 const ProductForm = () => {
   const {
@@ -770,6 +771,15 @@ const ProductForm = () => {
     skuCode: "",
     productCode: "",
     variantImages: [],
+     shipping: {
+    productWeight: "",
+    dimension: {
+      length: "",
+      width: "",
+      height: "",
+    },
+    hsnCode: "",
+  },
     price: { costPrice: "", salePrice: "", discount: "", tax: "" },
   });
   const [categories, setCategories] = useState([]);
@@ -1500,6 +1510,16 @@ const ProductForm = () => {
       skuCode: "",
       productCode: "",
       variantImages: [],
+      shipping: {
+    productWeight: "",
+    dimension: {
+      length: "",
+      width: "",
+      height: "",
+    },
+    hsnCode: "",
+  },
+
       price: { costPrice: "", salePrice: "", discount: "", tax: "" },
     });
     setIsEditingVariant(false);
@@ -1603,9 +1623,7 @@ const ProductForm = () => {
 
     if (isEditMode && formData._id) {
       try {
-        await axios.delete(
-          `/api/products/${formData._id}/variants/${variantId}`
-        );
+        await deleteVariant(formData._id, variantId);
       } catch (error) {
         console.error("Error removing variant:", error);
         setApiError("Failed to remove variant. Please try again.");
@@ -1969,6 +1987,162 @@ const ProductForm = () => {
             />
           </div>
         </div>
+        {/* Shiprocket Shipping Details */}
+<div className="mt-6 rounded-lg border border-orange-200 bg-orange-50 p-4">
+
+  <h6 className="text-md font-semibold text-gray-800 mb-1">
+    Shiprocket Shipping Details
+  </h6>
+
+  <p className="text-xs text-gray-500 mb-4">
+    Enter the packed weight and package dimensions for this unit variant.
+  </p>
+
+  {/* Weight + HSN */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+    <div>
+      <label className="block text-sm font-medium text-gray-600 mb-2">
+        Package Weight (kg) *
+      </label>
+
+      <input
+        type="number"
+        min="0.01"
+        step="0.01"
+        placeholder="Example: 0.50"
+        value={currentUnitVariant.shipping?.productWeight || ""}
+        onChange={(e) =>
+          setCurrentUnitVariant((prev) => ({
+            ...prev,
+            shipping: {
+              ...prev.shipping,
+              productWeight: e.target.value,
+            },
+          }))
+        }
+        className="border rounded p-2 w-full"
+      />
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-600 mb-2">
+        HSN Code
+      </label>
+
+      <input
+        type="text"
+        placeholder="Example: 330499"
+        value={currentUnitVariant.shipping?.hsnCode || ""}
+        onChange={(e) =>
+          setCurrentUnitVariant((prev) => ({
+            ...prev,
+            shipping: {
+              ...prev.shipping,
+              hsnCode: e.target.value,
+            },
+          }))
+        }
+        className="border rounded p-2 w-full"
+      />
+    </div>
+
+  </div>
+
+  {/* Dimensions */}
+  <div className="mt-4">
+
+    <label className="block text-sm font-medium text-gray-600 mb-2">
+      Package Dimensions (cm) *
+    </label>
+
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">
+          Length (cm)
+        </label>
+
+        <input
+          type="number"
+          min="0.1"
+          step="0.1"
+          placeholder="Length"
+          value={currentUnitVariant.shipping?.dimension?.length || ""}
+          onChange={(e) =>
+            setCurrentUnitVariant((prev) => ({
+              ...prev,
+              shipping: {
+                ...prev.shipping,
+                dimension: {
+                  ...prev.shipping?.dimension,
+                  length: e.target.value,
+                },
+              },
+            }))
+          }
+          className="border rounded p-2 w-full"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">
+          Width (cm)
+        </label>
+
+        <input
+          type="number"
+          min="0.1"
+          step="0.1"
+          placeholder="Width"
+          value={currentUnitVariant.shipping?.dimension?.width || ""}
+          onChange={(e) =>
+            setCurrentUnitVariant((prev) => ({
+              ...prev,
+              shipping: {
+                ...prev.shipping,
+                dimension: {
+                  ...prev.shipping?.dimension,
+                  width: e.target.value,
+                },
+              },
+            }))
+          }
+          className="border rounded p-2 w-full"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">
+          Height (cm)
+        </label>
+
+        <input
+          type="number"
+          min="0.1"
+          step="0.1"
+          placeholder="Height"
+          value={currentUnitVariant.shipping?.dimension?.height || ""}
+          onChange={(e) =>
+            setCurrentUnitVariant((prev) => ({
+              ...prev,
+              shipping: {
+                ...prev.shipping,
+                dimension: {
+                  ...prev.shipping?.dimension,
+                  height: e.target.value,
+                },
+              },
+            }))
+          }
+          className="border rounded p-2 w-full"
+        />
+      </div>
+
+    </div>
+  </div>
+
+</div>
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-2">
             Variant Images

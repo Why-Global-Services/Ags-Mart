@@ -312,34 +312,34 @@ const formatTime = (date) => {
 
   return (
     <div>
-      <div className="flex items-center justify-between bg-primary p-4 shadow-md mb-0.5">
+      <div className="flex items-center justify-between bg-white/80 backdrop-blur-md px-4 py-3 border-b border-emerald-900/10 shadow-xs mb-0.5">
         {/* Left Section */}
 <div className="flex items-center space-x-4">
   {/* Sidebar Toggle Button */}
   <button
     onClick={toggleSidebar}
-    className="hidden lg:flex items-center justify-center w-10 h-10 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 group shadow-sm"
+    className="hidden lg:flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-50/80 border border-emerald-900/10 hover:bg-emerald-100 hover:border-emerald-300 transition-all duration-300 group shadow-xs cursor-pointer"
     title="Toggle Sidebar"
   >
-    <FaBars className="text-gray-600 text-lg group-hover:text-gray-800" />
+    <FaBars className="text-emerald-800 text-base group-hover:text-emerald-950" />
   </button>
 
   {/* Greeting Section */}
   <div className="hidden lg:flex flex-col">
     <div className="flex items-center gap-2">
-      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-      <p className="text-sm text-gray-500">Good {getTimeOfDay()}!</p>
+      <div className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></div>
+      <p className="text-xs font-medium text-emerald-800/80">Good {getTimeOfDay()}!</p>
     </div>
-    <h1 className="text-xl font-bold text-gray-800">
+    <h1 className="text-lg font-bold text-slate-800">
       Welcome, <span className="text-secondary">{displayName}</span>
     </h1>
-    <div className="flex items-center gap-3 mt-1">
-      <div className="flex items-center gap-1 text-xs text-gray-500">
-        <FaCalendar className="w-3 h-3" />
+    <div className="flex items-center gap-3 mt-0.5">
+      <div className="flex items-center gap-1 text-xs text-slate-500">
+        <FaCalendar className="w-3 h-3 text-emerald-700" />
         <span>{formatDate(new Date())}</span>
       </div>
-      <div className="flex items-center gap-1 text-xs text-gray-500">
-        <FaClock className="w-3 h-3" />
+      <div className="flex items-center gap-1 text-xs text-slate-500">
+        <FaClock className="w-3 h-3 text-emerald-700" />
         <span className="font-medium">{formatTime(new Date())}</span>
       </div>
     </div>
@@ -348,23 +348,24 @@ const formatTime = (date) => {
   {/* Mobile Header */}
   <div className="lg:hidden flex items-center justify-between w-full">
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-bold text-base shadow-xs">
         {displayName.charAt(0).toUpperCase() || "A"}
       </div>
       <div>
-        <h2 className="font-bold text-gray-800">{displayName}</h2>
+        <h2 className="font-bold text-slate-800 text-sm">{displayName}</h2>
         <div className="flex items-center gap-2">
-          <p className="text-xs text-gray-500">{formatDate(new Date(), true)}</p>
-          <span className="text-gray-300">•</span>
-          <p className="text-xs font-medium text-blue-600">{formatTime(new Date())}</p>
+          <p className="text-xs text-slate-500">{formatDate(new Date(), true)}</p>
+          <span className="text-slate-300">•</span>
+          <p className="text-xs font-medium text-emerald-700">{formatTime(new Date())}</p>
         </div>
       </div>
     </div>
     <button
       onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-      className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+      className="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-900/10 cursor-pointer"
+      aria-label="Open navigation menu"
     >
-      <FaBars className="text-gray-700 text-xl" />
+      <FaBars className="text-emerald-800 text-lg" />
     </button>
   </div>
 </div>
@@ -499,27 +500,33 @@ const formatTime = (date) => {
 
       {/* Mobile Sidebar */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-transparent z-50 lg:hidden">
-          <div className="w-64 bg-gray-100 text-black h-full p-4 absolute left-0 top-0">
-            <button
-              className="text-black text-2xl absolute top-4 right-4"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              &times;
-            </button>
-            <div className="mt-10">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 lg:hidden">
+          <div className="w-72 bg-white/95 backdrop-blur-md text-slate-800 h-full p-4 absolute left-0 top-0 shadow-2xl border-r border-emerald-900/10 flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-emerald-900/10">
+              <span className="font-bold text-emerald-900 text-lg">AGS-Mart Admin</span>
+              <button
+                className="text-slate-500 hover:text-slate-800 text-2xl p-1 rounded-md hover:bg-slate-100 cursor-pointer"
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="Close menu"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="mt-4 overflow-y-auto flex-1 hide-scrollbar space-y-1">
               {menuItems.map(({ icon: Icon, label, path }, index) => (
                 <NavLink
                   to={path}
                   key={index}
                   className={({ isActive }) =>
-                    `flex items-center py-2 px-3 rounded transition-all duration-300 ${
-                      isActive ? "bg-primary text-white" : "hover:bg-gray-800"
+                    `flex items-center py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-secondary text-white shadow-xs"
+                        : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-900"
                     }`
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <Icon className="mr-3 min-w-[20px]" />
+                  <Icon className="mr-3 min-w-[20px] text-base" />
                   {label}
                 </NavLink>
               ))}

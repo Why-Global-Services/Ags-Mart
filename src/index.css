@@ -4,16 +4,42 @@
 
 /* Define custom theme values for Tailwind */
 @theme {
-  --color-primary: #fdf2fa;
-  --color-secondary: #fa4d6a;
-  --color-table: #FF8096;
+  --color-primary: #f0f7f2;
+  --color-secondary: #246338;
+  --color-table: #2d7a46;
   --font-family: 'Poppins', sans-serif;
+}
+
+/* Agriculture Glassmorphism utilities */
+.agri-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(36, 99, 56, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+}
+
+.agri-glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(209, 231, 216, 0.6);
+  box-shadow: 0 8px 24px -4px rgba(36, 99, 56, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+  border-radius: 0.75rem;
+}
+
+.agri-glass-subtle {
+  background: rgba(240, 247, 242, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(209, 231, 216, 0.5);
 }
 
 /* Apply global styles */
 body {
   font-family: var(--font-family);
-  /* background-color: var(--color-bodycolor); */
+  background-color: #f8faf8;
+  color: #1e293b;
 }
 
 /* Hide scrollbar */
@@ -32,13 +58,9 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 
-/* input[type="number"] {
-  -moz-appearance: textfield;
-} */
-
 /* Optional: Dark mode styles */
 .dark {
   --color-bodycolor: #1a202c;
-  --color-primary: #f7fafc;
-  --color-secondary: #ed64a6;
+  --color-primary: #1b3824;
+  --color-secondary: #34d399;
 }

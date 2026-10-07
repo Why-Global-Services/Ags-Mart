@@ -115,26 +115,27 @@ const tabs = [
     label: "Google Pay",
     icon: Smartphone,
   },
-  {
-    path: "/setting/paymethods/stripe",
-    label: "Stripe",
-    icon: CreditCard,
-  },
-  {
-    path: "/setting/paymethods/phonePay",
-    label: "PhonePe",
-    icon: Phone,
-  },
+  // Disabled payment methods: Stripe, PhonePe, PayPal
+  // {
+  //   path: "/setting/paymethods/stripe",
+  //   label: "Stripe",
+  //   icon: CreditCard,
+  // },
+  // {
+  //   path: "/setting/paymethods/phonePay",
+  //   label: "PhonePe",
+  //   icon: Phone,
+  // },
   {
     path: "/setting/paymethods/paytm",
     label: "Paytm",
     icon: Send,
   },
-  {
-    path: "/setting/paymethods/payPal",
-    label: "PayPal",
-    icon: Wallet,
-  },
+  // {
+  //   path: "/setting/paymethods/payPal",
+  //   label: "PayPal",
+  //   icon: Wallet,
+  // },
   {
     path: "/setting/paymethods/instamojo",
     label: "Instamojo",

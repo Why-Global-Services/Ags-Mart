@@ -5,23 +5,19 @@ import {
   createProduct,
   updateProduct,
 } from "../../services/Products";
-import ProductSidebar from "./Components/sidebar/ProductSidebar";
 import CreateProductLayout from "./Components/layout/CreateProductLayout";
 import {
   ProductFormProvider,
   useProductForm,
 } from "./Components/context/FormContext";
 import ProductForm from "./Components/forms/ProductForm";
-import InventoryForm from "./Components/forms/InventoryForm";
-import ShippingForm from "./Components/forms/ShippingForm";
-import LinkedProductsForm from "./Components/forms/LinkedForm";
+// Standalone ShippingForm, LinkedForm, and ProductSidebar removed from CreateProduct flow
+// Unified single-page product creation and editing flow
 import { toast } from "react-toastify";
 
 const CreateProductContent = () => {
   const { id } = useParams();
   const location = useLocation();
-  const formSteps = ["Product", "Linked Products"];
-  const [selectedForm, setSelectedForm] = useState(formSteps[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const {
@@ -32,8 +28,8 @@ const CreateProductContent = () => {
     resetForm,
     productId,
     generatePayload,
-    uploadedImages, // ADD THIS LINE
-    keyIngredients, // ADD THIS LINE
+    uploadedImages,
+    keyIngredients,
   } = useProductForm();
 
   const editData = location.state?.product || null;
@@ -46,7 +42,8 @@ const CreateProductContent = () => {
             loadProductData(editData);
           } else {
             const response = await getProductById(id);
-            loadProductData(response.data);
+            const product = response?.data?.data || response?.data;
+            loadProductData(product);
           }
         } catch (error) {
           console.error("Error fetching product:", error);
@@ -59,48 +56,10 @@ const CreateProductContent = () => {
     }
   }, [id, loadProductData, resetForm, navigate, editData]);
 
-  const currentStepIndex = formSteps.indexOf(selectedForm);
-  const isFirstStep = currentStepIndex === 0;
-  const isLastStep = currentStepIndex === formSteps.length - 1;
-
-  const renderForm = () => {
-    switch (selectedForm) {
-      case "Product":
-        return <ProductForm />;
-      case "Inventory":
-        // return <InventoryForm />;
-      case "Shipping":
-        // return <ShippingForm />;
-      case "Linked Products":
-        return <LinkedProductsForm />;
-      default:
-        return null;
-    }
-  };
-
-  const goToNext = async () => {
-    const isValid = await validateStep(selectedForm);
-    if (isValid && !isLastStep) {
-      setSelectedForm(formSteps[currentStepIndex + 1]);
-    } else if (!isValid) {
-      toast.error("Please fill in all required fields correctly.");
-      const firstErrorElement = document.querySelector(".border-red-500");
-      if (firstErrorElement)
-        firstErrorElement.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-    }
-  };
-
-  const goToBack = () => {
-    if (!isFirstStep) setSelectedForm(formSteps[currentStepIndex - 1]);
-  };
-
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const isValid = await validateStep(selectedForm);
+      const isValid = await validateStep("Product");
       if (!isValid) {
         toast.error("Please fill in all required fields correctly.");
         const firstErrorElement = document.querySelector(".border-red-500");
@@ -123,10 +82,12 @@ const CreateProductContent = () => {
       formDataToSend.append("productTitle", payload.productTitle || "");
       formDataToSend.append("productCategory", payload.productCategory || "");
       formDataToSend.append("category_id", payload.category_id || "");
-      // SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
-      // Re-enable these fields with the selector; do not send empty defaults.
-      // formDataToSend.append("productSubCategory", payload.productSubCategory || "");
-      // formDataToSend.append("subcategory_id", payload.subcategory_id || "");
+      if (payload.productSubCategory) {
+        formDataToSend.append("productSubCategory", payload.productSubCategory);
+      }
+      if (payload.subcategory_id) {
+        formDataToSend.append("subcategory_id", payload.subcategory_id);
+      }
       formDataToSend.append("productType", payload.productType || "");
       formDataToSend.append("productDescription", payload.productDescription || "");
       formDataToSend.append("productUsage", payload.productUsage || "");
@@ -190,6 +151,28 @@ if (payload.productType === "variant" && payload.variant) {
         skuCode: v.skuCode || "",
         productCode: v.productCode || "",
         price: v.price || { costPrice: "", salePrice: "", discount: "", tax: "" },
+        shipping: {
+          productWeight:
+            v.shipping?.productWeight !== undefined && v.shipping?.productWeight !== ""
+              ? Number(v.shipping.productWeight)
+              : 0,
+          dimension: {
+            length:
+              v.shipping?.dimension?.length !== undefined && v.shipping?.dimension?.length !== ""
+                ? Number(v.shipping.dimension.length)
+                : 0,
+            width:
+              v.shipping?.dimension?.width !== undefined && v.shipping?.dimension?.width !== ""
+                ? Number(v.shipping.dimension.width)
+                : 0,
+            height:
+              v.shipping?.dimension?.height !== undefined && v.shipping?.dimension?.height !== ""
+                ? Number(v.shipping.dimension.height)
+                : 0,
+          },
+          hsnCode: (v.shipping?.hsnCode || "").trim(),
+          shippingClass: v.shipping?.shippingClass || "standard",
+        },
         _variantImageIndex: variantImageCounter,
       };
       if (v._id) {
@@ -214,6 +197,8 @@ if (payload.productType === "variant" && payload.variant) {
     });
   }
 
+  // Legacy sizeColor, colorOnly, and sizeOnly variant handling commented out (Unit-only variants active)
+  /*
   // Process sizeColor variants
   if (variant.variantType === "sizeColor" && variant.sizeColorVariants) {
     variant.sizeColorVariants.forEach((v, index) => {
@@ -303,6 +288,7 @@ if (payload.productType === "variant" && payload.variant) {
       }
     });
   }
+  */
 
   // Append variant data as JSON
   formDataToSend.append("variant", JSON.stringify(variantDataForJson));
@@ -398,42 +384,20 @@ if (payload.linkProducts && payload.linkProducts.relatedProducts && payload.link
 
   return (
     <CreateProductLayout isEdit={isEditMode}>
-      <ProductSidebar
-        selected={selectedForm}
-        onSelect={setSelectedForm}
-        steps={formSteps}
-      />
-      <div className="flex-1">
-        {renderForm()}
-        <div className="pt-5 flex justify-end">
-          {!isFirstStep && (
-            <button
-              className="bg-gray-400 text-white px-6 py-2 rounded mr-4 cursor-pointer"
-              onClick={goToBack}
-            >
-              Back
-            </button>
-          )}
-          {!isLastStep ? (
-            <button
-              className="hover:bg-secondary text-white px-6 py-2 rounded cursor-pointer bg-table"
-              onClick={goToNext}
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              className="hover:bg-secondary text-white px-6 py-2 rounded cursor-pointer bg-table"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting
-                ? "Processing..."
-                : isEditMode
-                ? "Update Product"
-                : "Create Product"}
-            </button>
-          )}
+      <div className="w-full">
+        <ProductForm />
+        <div className="pt-6 pb-12 flex justify-end">
+          <button
+            className="hover:bg-emerald-700 text-white font-medium px-8 py-3 rounded-xl cursor-pointer bg-emerald-600 transition-colors shadow-md flex items-center gap-2"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? "Processing..."
+              : isEditMode
+              ? "Update Product"
+              : "Create Product"}
+          </button>
         </div>
       </div>
     </CreateProductLayout>

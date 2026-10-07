@@ -84,6 +84,7 @@ const INITIAL_FORM_STATE = {
       width: "",
       height: "",
     },
+    hsnCode: "",
     shippingClass: "standard",
   },
 
@@ -158,6 +159,16 @@ const normalizeUnitVariants = (variant = {}) => {
         ? item.variantImages
         : [],
       price: normalizePrice(item?.price),
+      shipping: {
+        productWeight: item?.shipping?.productWeight ?? "",
+        dimension: {
+          length: item?.shipping?.dimension?.length ?? "",
+          width: item?.shipping?.dimension?.width ?? "",
+          height: item?.shipping?.dimension?.height ?? "",
+        },
+        hsnCode: item?.shipping?.hsnCode || "",
+        shippingClass: item?.shipping?.shippingClass || "standard",
+      },
     })),
   };
 };
@@ -485,11 +496,15 @@ export const ProductFormProvider = ({ children }) => {
         ...INITIAL_FORM_STATE.inventory,
       },
 
-      shipping: product.shipping || {
-        ...INITIAL_FORM_STATE.shipping,
+      shipping: {
+        productWeight: product.shipping?.productWeight ?? "",
         dimension: {
-          ...INITIAL_FORM_STATE.shipping.dimension,
+          length: product.shipping?.dimension?.length ?? "",
+          width: product.shipping?.dimension?.width ?? "",
+          height: product.shipping?.dimension?.height ?? "",
         },
+        hsnCode: product.shipping?.hsnCode || "",
+        shippingClass: product.shipping?.shippingClass || "standard",
       },
 
       linkProducts: product.linkProducts || {
@@ -517,10 +532,8 @@ export const ProductFormProvider = ({ children }) => {
       productCategory: formData.productCategory,
       category_id: formData.category_id,
 
-      // SUBCATEGORY TEMPORARILY DISABLED.
-      // Existing legacy values are intentionally not generated here.
-      // productSubCategory: formData.productSubCategory,
-      // subcategory_id: formData.subcategory_id,
+      ...(formData.productSubCategory ? { productSubCategory: formData.productSubCategory } : {}),
+      ...(formData.subcategory_id ? { subcategory_id: formData.subcategory_id } : {}),
 
       productType: formData.productType,
 
@@ -555,6 +568,36 @@ export const ProductFormProvider = ({ children }) => {
           variantImages: Array.isArray(variant.variantImages)
             ? variant.variantImages
             : [],
+          shipping: {
+            productWeight:
+              variant.shipping?.productWeight !== undefined &&
+              variant.shipping?.productWeight !== ""
+                ? Number(variant.shipping.productWeight)
+                : 0,
+
+            dimension: {
+              length:
+                variant.shipping?.dimension?.length !== undefined &&
+                variant.shipping?.dimension?.length !== ""
+                  ? Number(variant.shipping.dimension.length)
+                  : 0,
+
+              width:
+                variant.shipping?.dimension?.width !== undefined &&
+                variant.shipping?.dimension?.width !== ""
+                  ? Number(variant.shipping.dimension.width)
+                  : 0,
+
+              height:
+                variant.shipping?.dimension?.height !== undefined &&
+                variant.shipping?.dimension?.height !== ""
+                  ? Number(variant.shipping.dimension.height)
+                  : 0,
+            },
+
+            hsnCode: (variant.shipping?.hsnCode || "").trim(),
+            shippingClass: variant.shipping?.shippingClass || "standard",
+          },
         })),
       };
     } else if (formData.productType === "nonVariant") {
@@ -583,7 +626,32 @@ export const ProductFormProvider = ({ children }) => {
     }
 
     if (formData.shipping) {
-      payload.shipping = formData.shipping;
+      payload.shipping = {
+        productWeight:
+          formData.shipping.productWeight !== undefined &&
+          formData.shipping.productWeight !== ""
+            ? Number(formData.shipping.productWeight)
+            : 0,
+        dimension: {
+          length:
+            formData.shipping.dimension?.length !== undefined &&
+            formData.shipping.dimension?.length !== ""
+              ? Number(formData.shipping.dimension.length)
+              : 0,
+          width:
+            formData.shipping.dimension?.width !== undefined &&
+            formData.shipping.dimension?.width !== ""
+              ? Number(formData.shipping.dimension.width)
+              : 0,
+          height:
+            formData.shipping.dimension?.height !== undefined &&
+            formData.shipping.dimension?.height !== ""
+              ? Number(formData.shipping.dimension.height)
+              : 0,
+        },
+        hsnCode: (formData.shipping.hsnCode || "").trim(),
+        shippingClass: formData.shipping.shippingClass || "standard",
+      };
     }
 
     if (formData.linkProducts) {

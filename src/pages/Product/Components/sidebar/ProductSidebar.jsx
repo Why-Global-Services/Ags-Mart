@@ -21,7 +21,6 @@
 //   const isStepComplete = (stepName) => {
 //     switch (stepName) {
 //       case "Product":
-//         // Common fields required for both variation and non-variation
 //         const commonFieldsValid =
 //           !!formData.productBrand?.trim() &&
 //           !!formData.productCategory &&
@@ -29,7 +28,7 @@
 //           !!formData.productDescription?.trim() &&
 //           formData.productDescription.trim().length >= 20 &&
 //           uploadedImages.length > 0;
-  
+//   
 //         if (formData.productType === "nonVariation") {
 //           return (
 //             commonFieldsValid &&
@@ -38,7 +37,6 @@
 //             formData.stockCount >= 0
 //           );
 //         } else if (formData.productType === "variation") {
-//           // Validate variants
 //           return (
 //             commonFieldsValid &&
 //             formData.variants.length > 0 &&
@@ -58,26 +56,6 @@
 //           );
 //         }
 //         return false;
-  
-//       // Other cases (General, Inventory, Shipping, Linked Products) remain unchanged
-//       // case "General":
-//       //   return (
-//       //     !!formData.price.regularPrice &&
-//       //     !isNaN(formData.price.regularPrice) &&
-//       //     parseFloat(formData.price.regularPrice) > 0 &&
-//       //     !!formData.price.salePrice &&
-//       //     !isNaN(formData.price.salePrice) &&
-//       //     parseFloat(formData.price.salePrice) > 0 &&
-//       //     (!formData.price.discount ||
-//       //       (!isNaN(formData.price.discount) &&
-//       //         formData.price.discount >= 0 &&
-//       //         formData.price.discount <= 100)) &&
-//       //     (!formData.price.tax ||
-//       //       (!isNaN(formData.price.tax) &&
-//       //         formData.price.tax >= 0 &&
-//       //         formData.price.tax <= 100))
-//       //   );
-  
 //       case "Inventory":
 //         return (
 //           !!formData.inventory.sku?.trim() &&
@@ -87,53 +65,32 @@
 //             (!isNaN(formData.inventory.purchaseLimit) &&
 //               formData.inventory.purchaseLimit > 0))
 //         );
-  
 //       case "Shipping":
 //         return (
 //           !!formData.shipping.productWeight &&
 //           !isNaN(formData.shipping.productWeight) &&
-//           parseFloat(formData.shipping.productWeight) > 0 &&
-//           (!formData.shipping.dimension.length ||
-//             (!isNaN(formData.shipping.dimension.length) &&
-//               formData.shipping.dimension.length >= 0)) &&
-//           (!formData.shipping.dimension.width ||
-//             (!isNaN(formData.shipping.dimension.width) &&
-//               formData.shipping.dimension.width >= 0)) &&
-//           (!formData.shipping.dimension.height ||
-//             (!isNaN(formData.shipping.dimension.height) &&
-//               formData.shipping.dimension.height >= 0))
+//           parseFloat(formData.shipping.productWeight) > 0
 //         );
-  
 //       case "Linked Products":
 //         return (
 //           formData.linkProducts.upSellProducts.length > 0 ||
 //           formData.linkProducts.crossSellProducts.length > 0
 //         );
-  
 //       default:
 //         return false;
 //     }
 //   };
 
 //   const handleStepClick = async (step) => {
-//     // Define the order of steps
-//     const stepOrder = ["Product",
-//       //  "General", 
-//        "Inventory", "Shipping", "Linked Products"];
+//     const stepOrder = ["Product", "Shipping", "Linked Products"];
 //     const targetIndex = stepOrder.indexOf(step);
-
-//     // Check if all previous steps are complete
 //     const arePreviousStepsComplete = stepOrder
 //       .slice(0, targetIndex)
 //       .every((prevStep) => isStepComplete(prevStep));
-
 //     if (!arePreviousStepsComplete) {
 //       console.warn(`Cannot navigate to ${step}. Please complete all previous steps.`);
-//       // Optionally, you can add a UI notification here (e.g., toast or alert)
 //       return;
 //     }
-
-//     // Validate the target step and navigate if valid
 //     const isValid = await validateStep(step);
 //     if (isValid) {
 //       onSelect(step);
@@ -145,7 +102,6 @@
 //       {steps.map((step) => {
 //         const isComplete = isStepComplete(step);
 //         const isActive = selected === step;
-
 //         return (
 //           <button
 //             key={step}
@@ -153,7 +109,7 @@
 //             className={`flex items-center w-full gap-3 px-4 py-2 rounded-lg transition-colors duration-200 ${
 //               isActive
 //                 ? "bg-pink-100 text-pink-600 font-medium"
-//                 : "hover:bg-gray-100 text-gray-700"
+//                 : "hover:bg-emerald-50/80 text-gray-700"
 //             } ${isComplete ? "border-l-4 border-green-500" : ""}`}
 //             aria-current={isActive ? "step" : undefined}
 //           >
@@ -173,156 +129,104 @@
 
 // export default ProductSidebar;
 
-
-import { Package, Layers, Truck, Link } from "lucide-react";
+import { Package } from "lucide-react";
 import { useProductForm } from "../context/FormContext";
 
 const icons = {
   Product: <Package className="w-4 h-4" />,
-  Inventory: <Layers className="w-4 h-4" />,
-  Shipping: <Truck className="w-4 h-4" />,
-  "Linked Products": <Link className="w-4 h-4" />,
 };
 
 const ProductSidebar = ({ selected, onSelect, steps }) => {
-  const { formData, validateStep, uploadedImages, keyIngredients } = useProductForm();
+  const { formData, uploadedImages, keyIngredients } = useProductForm();
 
   const isStepComplete = (stepName) => {
     switch (stepName) {
-      case "Product":
-        // Common fields validation
+      case "Product": {
         const commonFieldsValid =
-          !!formData.productBrand?.trim() &&
-          !!formData.brand_id?.trim() &&
           !!formData.productCategory?.trim() &&
           !!formData.category_id?.trim() &&
-          // SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
-          // Re-enable these checks together with the product form selector.
-          // !!formData.productSubCategory?.trim() &&
-          // !!formData.subcategory_id?.trim() &&
           !!formData.productName?.trim() &&
           !!formData.productDescription?.trim() &&
           formData.productDescription.trim().length >= 20 &&
           uploadedImages.length > 0 &&
           !!formData.status?.trim();
 
-        // Benefits validation (if benefits are enabled)
         const benefitsValid =
           !formData.benefits ||
-          (formData.productBenefits.dermatologistTest?.trim() ||
-            formData.productBenefits.cleanFormula?.trim() ||
-            formData.productBenefits.longLasting?.trim() ||
-            formData.productBenefits.highlyRated?.trim());
+          (formData.productBenefits?.dermatologistTest?.trim() ||
+            formData.productBenefits?.cleanFormula?.trim() ||
+            formData.productBenefits?.longLasting?.trim() ||
+            formData.productBenefits?.highlyRated?.trim());
 
-        // Key ingredients validation (required)
         const ingredientsValid =
           Array.isArray(keyIngredients) &&
           keyIngredients.length > 0 &&
           keyIngredients.every((ing) => !!ing?.trim());
 
-        if (formData.productType === "nonVariation") {
+        const isNonVariant =
+          formData.productType === "nonVariation" ||
+          formData.productType === "nonVariant";
+        const isVariant =
+          formData.productType === "variation" ||
+          formData.productType === "variant";
+
+        if (isNonVariant) {
+          const priceObj = formData.nonVariant?.price || formData.price || {};
+          const regularPrice = priceObj.regularPrice ?? priceObj.costPrice;
+          const salePrice = priceObj.salePrice;
           return (
             commonFieldsValid &&
             benefitsValid &&
             ingredientsValid &&
-            !!formData.productTitle?.trim() &&
-            !isNaN(formData.stockCount) &&
-            formData.stockCount >= 0 &&
-            !!formData.price.regularPrice &&
-            !isNaN(formData.price.regularPrice) &&
-            parseFloat(formData.price.regularPrice) > 0 &&
-            !!formData.price.salePrice &&
-            !isNaN(formData.price.salePrice) &&
-            parseFloat(formData.price.salePrice) >= 0 &&
-            !!formData.price.tax &&
-            !isNaN(formData.price.tax) &&
-            parseFloat(formData.price.tax) >= 0 &&
-            parseFloat(formData.price.tax) <= 100 &&
-            (formData.price.discount === "" ||
-              (!isNaN(formData.price.discount) &&
-                parseFloat(formData.price.discount) >= 0 &&
-                parseFloat(formData.price.discount) <= 100))
+            !!(formData.nonVariant?.productTitle || formData.productTitle)?.trim() &&
+            !isNaN(formData.nonVariant?.stockCount ?? formData.stockCount) &&
+            (formData.nonVariant?.stockCount ?? formData.stockCount) >= 0 &&
+            regularPrice !== undefined &&
+            regularPrice !== "" &&
+            !isNaN(regularPrice) &&
+            parseFloat(regularPrice) > 0 &&
+            salePrice !== undefined &&
+            salePrice !== "" &&
+            !isNaN(salePrice) &&
+            parseFloat(salePrice) >= 0
           );
-        } else if (formData.productType === "variation") {
+        } else if (isVariant) {
+          const unitVariants = formData.variant?.unitOnlyVariants || [];
           return (
             commonFieldsValid &&
             benefitsValid &&
             ingredientsValid &&
-            formData.variants.length > 0 &&
-            formData.variants.every(
-              (variant) =>
-                !!variant.variantType?.trim() &&
-                !!variant.variantValue?.trim() &&
-                !!variant.productTitle?.trim() &&
-                !!variant.productUnit?.trim() &&
-                variant.productVolumes?.length > 0 &&
-                variant.productVolumes.every(
-                  (vol) => !isNaN(vol) && parseFloat(vol) > 0
-                ) &&
-                !isNaN(variant.stockCount) &&
-                variant.stockCount >= 0 &&
-                !!variant.price.regularPrice &&
-                !isNaN(variant.price.regularPrice) &&
-                parseFloat(variant.price.regularPrice) > 0 &&
-                !!variant.price.salePrice &&
-                !isNaN(variant.price.salePrice) &&
-                parseFloat(variant.price.salePrice) >= 0 &&
-                !!variant.price.tax &&
-                !isNaN(variant.price.tax) &&
-                parseFloat(variant.price.tax) >= 0 &&
-                parseFloat(variant.price.tax) <= 100 &&
-                (variant.price.discount === "" ||
-                  (!isNaN(variant.price.discount) &&
-                    parseFloat(variant.price.discount) >= 0 &&
-                    parseFloat(variant.price.discount) <= 100)) &&
-                (variant.skuCode === "" || !!variant.skuCode?.trim()) &&
-                (variant.variantImage === null ||
-                  variant.variantImage instanceof File ||
-                  typeof variant.variantImage === "string")
+            unitVariants.length > 0 &&
+            unitVariants.every(
+              (v) =>
+                !!v.unit?.trim() &&
+                !isNaN(v.stockCount) &&
+                Number(v.stockCount) >= 0 &&
+                v.price?.costPrice !== undefined &&
+                v.price?.costPrice !== "" &&
+                !isNaN(v.price.costPrice) &&
+                parseFloat(v.price.costPrice) > 0 &&
+                v.price?.salePrice !== undefined &&
+                v.price?.salePrice !== "" &&
+                !isNaN(v.price.salePrice) &&
+                parseFloat(v.price.salePrice) >= 0
             )
           );
         }
         return false;
+      }
 
       case "Inventory":
         return (
-          !!formData.inventory.sku?.trim() &&
-          (formData.inventory.gtin === "" ||
+          !!formData.inventory?.sku?.trim() &&
+          (formData.inventory?.gtin === "" ||
             [12, 13, 14].includes(formData.inventory?.gtin?.trim().length)) &&
-          !!formData.inventory.stockManagement?.trim() &&
-          (formData.inventory.trackStock === undefined ||
-            !!formData.inventory.trackStock?.trim()) &&
-          (formData.inventory.purchaseLimit === "" ||
-            (!isNaN(formData.inventory.purchaseLimit) &&
-              parseInt(formData.inventory.purchaseLimit) > 0))
-        );
-
-      case "Shipping":
-        return (
-          !!formData.shipping.productWeight &&
-          !isNaN(formData.shipping.productWeight) &&
-          parseFloat(formData.shipping.productWeight) > 0 &&
-          (formData.shipping.dimension.length === "" ||
-            (!isNaN(formData.shipping.dimension.length) &&
-              parseFloat(formData.shipping.dimension.length) >= 0)) &&
-          (formData.shipping.dimension.width === "" ||
-            (!isNaN(formData.shipping.dimension.width) &&
-              parseFloat(formData.shipping.dimension.width) >= 0)) &&
-          (formData.shipping.dimension.height === "" ||
-            (!isNaN(formData.shipping.dimension.height) &&
-              parseFloat(formData.shipping.dimension.height) >= 0)) &&
-          (formData.shipping.shippingClass === "" ||
-            !!formData.shipping.shippingClass?.trim())
-        );
-
-      case "Linked Products":
-        return (
-          Array.isArray(formData.linkProducts.upSellProducts) &&
-          Array.isArray(formData.linkProducts.crossSellProducts) &&
-          (formData.linkProducts.upSellProducts.length > 0 ||
-            formData.linkProducts.crossSellProducts.length > 0) &&
-          formData.linkProducts.upSellProducts.every((id) => !!id?.trim()) &&
-          formData.linkProducts.crossSellProducts.every((id) => !!id?.trim())
+          !!formData.inventory?.stockManagement?.trim() &&
+          (formData.inventory?.trackStock === undefined ||
+            !!formData.inventory?.trackStock?.trim()) &&
+          (formData.inventory?.purchaseLimit === "" ||
+            (!isNaN(formData.inventory?.purchaseLimit) &&
+              parseInt(formData.inventory?.purchaseLimit) > 0))
         );
 
       default:
@@ -330,29 +234,12 @@ const ProductSidebar = ({ selected, onSelect, steps }) => {
     }
   };
 
-  const handleStepClick = async (step) => {
-    const stepOrder = ["Product", "Inventory", "Shipping", "Linked Products"];
-    const targetIndex = stepOrder.indexOf(step);
-    const arePreviousStepsComplete = stepOrder
-      .slice(0, targetIndex)
-      .every((prevStep) => isStepComplete(prevStep));
-
-    if (!arePreviousStepsComplete) {
-      console.warn(`Cannot navigate to ${step}. Please complete all previous steps.`);
-      return;
-    }
-
-    const isValid = await validateStep(selected);
-    if (isValid) {
-      onSelect(step);
-    } else {
-      const firstErrorElement = document.querySelector(".border-red-500");
-      if (firstErrorElement) firstErrorElement.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+  const handleStepClick = (step) => {
+    onSelect(step);
   };
 
   return (
-    <div className="bg-white shadow-md rounded-xl p-4 h-fit w-78 space-y-2">
+    <div className="agri-glass-card rounded-2xl p-4 h-fit w-full lg:w-64 xl:w-72 space-y-2 shrink-0">
       {steps.map((step) => {
         const isComplete = isStepComplete(step);
         const isActive = selected === step;
@@ -363,7 +250,7 @@ const ProductSidebar = ({ selected, onSelect, steps }) => {
             onClick={() => handleStepClick(step)}
             className={`flex items-center w-full gap-3 px-4 py-2 cursor-pointer rounded-lg transition-colors duration-200 ${
               isActive
-                ? "bg-primary text-secondary font-medium"
+                ? "bg-emerald-700 text-white font-medium shadow-sm shadow-emerald-700/20"
                 : "hover:bg-gray-100 text-gray-700"
             } ${isComplete ? "border-l-4 border-green-500" : ""}`}
             aria-current={isActive ? "step" : undefined}

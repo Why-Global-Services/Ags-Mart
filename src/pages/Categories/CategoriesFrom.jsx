@@ -511,30 +511,35 @@ const CategoriesForm = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
-      <h1 className="text-3xl font-title text-gray-800">
-        {isEditMode ? "Edit Category" : "Add Category"}
-      </h1>
-      <button
-        className="text-black rounded my-3 mr-4 w-full md:w-auto cursor-pointer"
-        onClick={() => navigate(-1)}
-      >
-        ← Go back
-      </button>
+    <div className="bg-gradient-to-br from-[#f8faf8] via-[#f0f7f2] to-[#e8f3ec] min-h-screen p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold font-title text-gray-900 tracking-tight">
+            {isEditMode ? "Edit Category" : "Add Category"}
+          </h1>
+          <p className="text-sm text-gray-600 mt-0.5">Manage agricultural catalogue categories</p>
+        </div>
+        <button
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-emerald-800 bg-white/80 hover:bg-emerald-50 border border-emerald-200/60 shadow-sm transition-all cursor-pointer w-fit"
+          onClick={() => navigate(-1)}
+        >
+          ← Go back
+        </button>
+      </div>
 
-      <div className="col-span-2 space-y-2 bg-white shadow-lg rounded-lg p-6 w-full">
-        <h2 className="text-xl font-semibold mb-6 text-gray-800">
+      <div className="col-span-2 space-y-6 agri-glass-card rounded-2xl p-4 sm:p-6 lg:p-8 w-full">
+        <h2 className="text-xl font-semibold mb-4 text-gray-800">
           {isEditMode ? "Edit Category Image" : "Add Category Image"}
         </h2>
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 flex flex-col justify-center items-center relative">
-          <FaUpload className="text-orange-500 text-4xl mb-2" />
+        <div className="border-2 border-dashed border-emerald-300/80 bg-emerald-50/30 rounded-2xl p-8 sm:p-12 flex flex-col justify-center items-center relative hover:bg-emerald-50/50 transition-all">
+          <FaUpload className="text-emerald-600 text-4xl mb-2" />
           <input
             type="file"
             onChange={handleFileUpload}
             className="absolute opacity-0 cursor-pointer inset-0"
             accept="image/*"
           />
-          <p className="text-gray-500">
+          <p className="text-gray-600 text-sm">
             {existingImage || uploadedImage ? "Click to replace image" : "Click to upload image"}
           </p>
         </div>
@@ -606,10 +611,10 @@ const CategoriesForm = () => {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end space-x-4">
+        <div className="mt-8 flex justify-end gap-3">
           <button
             type="button"
-            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded transition cursor-pointer"
+            className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 transition cursor-pointer text-sm font-medium"
             onClick={() => navigate(-1)}
             disabled={isLoading}
           >
@@ -617,7 +622,7 @@ const CategoriesForm = () => {
           </button>
           <button
             type="button"
-            className="bg-table hover:bg-secondary text-white px-6 py-2 rounded transition cursor-pointer disabled:bg-opacity-50"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-2.5 rounded-xl transition cursor-pointer disabled:bg-opacity-50 text-sm font-semibold shadow-sm shadow-emerald-700/20"
             onClick={handleSubmit}
             disabled={isLoading}
           >

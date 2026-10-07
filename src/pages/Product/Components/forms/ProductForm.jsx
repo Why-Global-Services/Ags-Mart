@@ -6,7 +6,10 @@ import DataTable from "react-data-table-component";
 import axios from "axios";
 import {
   getAllCategories,
+  getSubCategoriesByCategory,
 } from "../../../../services/Offer";
+import { deleteVariant } from "../../../../services/Products";
+import { toast } from "react-toastify";
 
 const ProductForm = () => {
   const {
@@ -44,7 +47,19 @@ const [currentVariant, setCurrentVariant] = useState({
     productCode: "",
     variantImages: [],
     price: { costPrice: "", salePrice: "", discount: "", tax: "" },
+    shipping: {
+      productWeight: "",
+      dimension: {
+        length: "",
+        width: "",
+        height: "",
+      },
+      hsnCode: "",
+      shippingClass: "standard",
+    },
   });
+  /*
+  // Legacy size and color variant states commented out (Unit-only variants active)
   const [sizes, setSizes] = useState([]);
   const [currentSize, setCurrentSize] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
@@ -75,12 +90,12 @@ const [currentVariant, setCurrentVariant] = useState({
     variantImages: [],
     price: { costPrice: "", salePrice: "", discount: "", tax: "" },
   });
+  */
   const [categories, setCategories] = useState([]);
-  // SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
-  // Re-enable this state with the selector and fetch effect below.
-  // const [subCategories, setSubCategories] = useState([]);
+  const [subCategories, setSubCategories] = useState([]);
 
-  // Category attributes state
+  // Category attributes state (Legacy fashion/jewellery attributes commented out; generic attributes preserved)
+  /*
   const [categoryAttributes, setCategoryAttributes] = useState({
     sareeAttributes: {
       fabricMaterial: "",
@@ -105,6 +120,7 @@ const [currentVariant, setCurrentVariant] = useState({
       closureType: "",
     },
   });
+  */
 
   // Helper function to transform API data to form data structure
   const transformProductData = (apiData) => {
@@ -165,10 +181,12 @@ const [currentVariant, setCurrentVariant] = useState({
       stockCount: apiData.stockCount ?? (isNonVariant ? nonVariantStockCount : ""),
       productCode: apiData.productCode ?? (isNonVariant ? (apiData.nonVariant?.productCode || "") : ""),
 
-      // Category-specific attributes
+      // Category-specific attributes (Legacy fashion attributes commented out)
+      /*
       sareeAttributes: apiData.sareeAttributes || {},
       mensKidsAttributes: apiData.mensKidsAttributes || {},
       jewelleryAttributes: apiData.jewelleryAttributes || {},
+      */
 
       // Inventory and shipping
       inventory: apiData.inventory || {},
@@ -185,6 +203,19 @@ const [currentVariant, setCurrentVariant] = useState({
 
     if (!variantData) return [];
 
+    // Unit-only variants are preserved
+    if (
+      variantData.variantType === "unitOnly" &&
+      variantData.unitOnlyVariants?.length > 0
+    ) {
+      variants.push({
+        variantType: "unitOnly",
+        unitOnlyVariants: variantData.unitOnlyVariants,
+      });
+    }
+
+    // Legacy fashion variant transforms commented out:
+    /*
     // Handle colorOnly variants
     if (
       variantData.variantType === "colorOnly" &&
@@ -241,6 +272,7 @@ const [currentVariant, setCurrentVariant] = useState({
         })),
       });
     }
+    */
 
     return variants;
   };
@@ -263,7 +295,6 @@ const [currentVariant, setCurrentVariant] = useState({
     };
   };
 
-  /* SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -322,7 +353,7 @@ const [currentVariant, setCurrentVariant] = useState({
     isEditMode,
     formData.productSubCategory,
     updateFormData,
-  ]); */
+  ]);
 
   // Initialize form data when in edit mode
   useEffect(() => {
@@ -334,7 +365,8 @@ const [currentVariant, setCurrentVariant] = useState({
         setVariants(formData.variants);
       }
 
-      // Initialize category attributes
+      // Initialize category attributes (Legacy fashion attributes commented out)
+      /*
       if (formData.productCategory) {
         setCategoryAttributes({
           sareeAttributes: formData.sareeAttributes || {
@@ -361,6 +393,7 @@ const [currentVariant, setCurrentVariant] = useState({
           },
         });
       }
+      */
 
       // Initialize uploaded images
       if (formData.productImages && formData.productImages.length > 0) {
@@ -384,7 +417,7 @@ const [currentVariant, setCurrentVariant] = useState({
 }, [isEditMode, formData.productCategory, categories]);
 
 useEffect(() => {
-  if (isEditMode && formData.productSubCategory && subCategories.length > 0) {
+  if (isEditMode && formData.productSubCategory && Array.isArray(subCategories) && subCategories.length > 0) {
     // Find and set the subcategory
     const selectedSub = subCategories.find(
       sub => sub.subCategoryTitle === formData.productSubCategory ||
@@ -459,7 +492,8 @@ useEffect(() => {
 
     console.log(`Input Change - ${name}:`, value);
 
-    // Category attributes
+    // Category attributes (Legacy fashion attributes commented out)
+    /*
     if (name.startsWith("sareeAttributes.")) {
       const key = name.split(".")[1];
       const updated = {
@@ -485,8 +519,9 @@ useEffect(() => {
       setCategoryAttributes(updated);
       updateFormData({ jewelleryAttributes: updated.jewelleryAttributes });
     }
+    */
     // Product variation toggles
-    else if (name === "hasVariation") {
+    if (name === "hasVariation") {
       updateFormData({
         hasVariation: checked,
         hasNonVariation: !checked,
@@ -518,20 +553,14 @@ useEffect(() => {
       updateFormData({
         productCategory: value,
         category_id: selectedCat?._id || "",
-        // SUBCATEGORY TEMPORARILY DISABLED: do not reset legacy values;
-        // the submit payload omits them and the backend preserves them.
-        // productSubCategory: "",
-        // subcategory_id: "",
-        sareeAttributes: categoryAttributes.sareeAttributes,
-        mensKidsAttributes: categoryAttributes.mensKidsAttributes,
-        jewelleryAttributes: categoryAttributes.jewelleryAttributes,
+        productSubCategory: "",
+        subcategory_id: "",
       });
     }
-    // SUBCATEGORY TEMPORARILY DISABLED
-    // else if (name === "productSubCategory") {
-    //   const selectedSub = subCategories.find((sub) => sub.subCategoryTitle === value);
-    //   updateFormData({ productSubCategory: value, subcategory_id: selectedSub?._id || "" });
-    // }
+    else if (name === "productSubCategory") {
+      const selectedSub = (subCategories || []).find((sub) => sub.subCategoryTitle === value);
+      updateFormData({ productSubCategory: value, subcategory_id: selectedSub?._id || "" });
+    }
     else if (name === "productTitle") {
   // Update both main productTitle and nonVariant.productTitle
   if (formData.hasNonVariation) {
@@ -713,6 +742,8 @@ else if (["costPrice", "salePrice", "discount", "tax"].includes(name)) {
     }));
   };
 
+  /*
+  // Legacy size and color variant handlers commented out (Unit-only variants active)
   const handleAddSize = () => {
     if (currentSize && !sizes.includes(currentSize)) {
       setSizes((prev) => [...prev, currentSize]);
@@ -930,6 +961,7 @@ else if (["costPrice", "salePrice", "discount", "tax"].includes(name)) {
       variantImages: prev.variantImages.filter((_, i) => i !== index),
     }));
   };
+  */
 
   // Benefits Handlers - ADD THESE
 const handleAddBenefit = () => {
@@ -951,35 +983,13 @@ const handleRemoveBenefit = (benefitToRemove) => {
 };
 
 
-  // Helper Functions for variants
+  // Helper Functions for variants (Unit-only variants active)
   const getCurrentVariant = () => {
-    switch (currentVariant.variantType) {
-      case "unitOnly":
-        return currentUnitVariant;
-      case "sizeColor":
-        return currentSizeColorVariant;
-      case "colorOnly":
-        return currentColorVariant;
-      case "sizeOnly":
-        return currentSizeVariant;
-      default:
-        return {};
-    }
+    return currentUnitVariant;
   };
 
   const getVariantArrayKey = () => {
-    switch (currentVariant.variantType) {
-      case "unitOnly":
-        return "unitOnlyVariants";
-      case "sizeColor":
-        return "sizeColorVariants";
-      case "colorOnly":
-        return "colorOnlyVariants";
-      case "sizeOnly":
-        return "sizeOnlyVariants";
-      default:
-        return "";
-    }
+    return "unitOnlyVariants";
   };
 
   const canAddVariant = () => {
@@ -994,7 +1004,18 @@ const handleRemoveBenefit = (benefitToRemove) => {
       productCode: "",
       variantImages: [],
       price: { costPrice: "", salePrice: "", discount: "", tax: "" },
+      shipping: {
+        productWeight: "",
+        dimension: {
+          length: "",
+          width: "",
+          height: "",
+        },
+        hsnCode: "",
+        shippingClass: "standard",
+      },
     });
+    /*
     setCurrentSizeColorVariant({
       size: "",
       color: "",
@@ -1025,6 +1046,7 @@ const handleRemoveBenefit = (benefitToRemove) => {
     setCurrentColor("");
     setSizes([]);
     setSizeColorMap({});
+    */
     setIsEditingVariant(false);
     setEditingVariantId(null);
   };
@@ -1033,11 +1055,20 @@ const handleAddVariant = () => {
   if (!canAddVariant()) return;
 
   const current = getCurrentVariant();
-  const arrayKey = "unitOnlyVariants";
 
   const newVariant = {
     ...current,
     _id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    shipping: {
+      productWeight: current.shipping?.productWeight ?? "",
+      dimension: {
+        length: current.shipping?.dimension?.length ?? "",
+        width: current.shipping?.dimension?.width ?? "",
+        height: current.shipping?.dimension?.height ?? "",
+      },
+      hsnCode: current.shipping?.hsnCode ?? "",
+      shippingClass: current.shipping?.shippingClass || "standard",
+    },
   };
 
   // Update the variant structure in formData
@@ -1050,6 +1081,7 @@ const handleAddVariant = () => {
   updateFormData({ variant: updatedVariant });
   resetVariantForm();
 };
+  /*
   const handleAddSizeColorVariant = () => {
     if (!canAddVariant()) return;
     const newVariant = {
@@ -1083,6 +1115,7 @@ const handleAddVariant = () => {
       price: { costPrice: "", salePrice: "", discount: "", tax: "" },
     });
   };
+  */
 
   const handleEditVariant = (row) => {
     setIsEditingVariant(true);
@@ -1098,6 +1131,16 @@ const handleAddVariant = () => {
         salePrice: row.salePrice,
         discount: row.discount,
         tax: row.tax,
+      },
+      shipping: {
+        productWeight: row.shipping?.productWeight ?? "",
+        dimension: {
+          length: row.shipping?.dimension?.length ?? "",
+          width: row.shipping?.dimension?.width ?? "",
+          height: row.shipping?.dimension?.height ?? "",
+        },
+        hsnCode: row.shipping?.hsnCode ?? "",
+        shippingClass: row.shipping?.shippingClass || "standard",
       },
     });
   };
@@ -1117,15 +1160,120 @@ const handleAddVariant = () => {
     resetVariantForm();
   };
 
+  const handleVariantShippingFieldChange = (index, field, value) => {
+    const updatedVariants = (formData.variant?.unitOnlyVariants || []).map((v, i) => {
+      if (i !== index) return v;
+      return {
+        ...v,
+        shipping: {
+          ...(v.shipping || {}),
+          [field]: value,
+        },
+      };
+    });
+
+    updateFormData({
+      variant: {
+        ...formData.variant,
+        variantType: "unitOnly",
+        unitOnlyVariants: updatedVariants,
+      },
+    });
+  };
+
+  const handleVariantDimensionFieldChange = (index, dimField, value) => {
+    const updatedVariants = (formData.variant?.unitOnlyVariants || []).map((v, i) => {
+      if (i !== index) return v;
+      return {
+        ...v,
+        shipping: {
+          ...(v.shipping || {}),
+          dimension: {
+            ...(v.shipping?.dimension || {}),
+            [dimField]: value,
+          },
+        },
+      };
+    });
+
+    updateFormData({
+      variant: {
+        ...formData.variant,
+        variantType: "unitOnly",
+        unitOnlyVariants: updatedVariants,
+      },
+    });
+  };
+
+  const handleNonVariantShippingFieldChange = (field, value) => {
+    updateFormData({
+      shipping: {
+        ...(formData.shipping || {}),
+        [field]: value,
+      },
+    });
+  };
+
+  const handleNonVariantDimensionFieldChange = (dimField, value) => {
+    updateFormData({
+      shipping: {
+        ...(formData.shipping || {}),
+        dimension: {
+          ...(formData.shipping?.dimension || {}),
+          [dimField]: value,
+        },
+      },
+    });
+  };
+
+  const handleEditVariantByIndex = (index) => {
+    const variant = formData.variant?.unitOnlyVariants?.[index];
+    if (!variant) return;
+    setIsEditingVariant(true);
+    setEditingVariantId(variant._id || `variant-${index}`);
+    setCurrentUnitVariant({
+      ...variant,
+      shipping: {
+        productWeight: variant.shipping?.productWeight ?? "",
+        dimension: {
+          length: variant.shipping?.dimension?.length ?? "",
+          width: variant.shipping?.dimension?.width ?? "",
+          height: variant.shipping?.dimension?.height ?? "",
+        },
+        hsnCode: variant.shipping?.hsnCode ?? "",
+        shippingClass: variant.shipping?.shippingClass || "standard",
+      },
+    });
+    const configSection = document.getElementById("unit-variant-config-section");
+    if (configSection) {
+      configSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handleRemoveVariantByIndex = (index) => {
+    const updatedList = (formData.variant?.unitOnlyVariants || []).filter((_, i) => i !== index);
+    updateFormData({
+      variant: {
+        ...formData.variant,
+        variantType: "unitOnly",
+        unitOnlyVariants: updatedList,
+      },
+    });
+  };
+
   const handleRemoveVariant = async (variantId) => {
     if (isEditMode && formData._id) {
       try {
-        await axios.delete(
-          `/api/products/${formData._id}/variants/${variantId}`
-        );
+        await deleteVariant(formData._id, variantId);
+        toast.success("Variant removed successfully");
       } catch (error) {
         console.error("Error removing variant:", error);
-        setApiError("Failed to remove variant. Please try again.");
+        const errorMsg =
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to remove variant. Please try again.";
+        setApiError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
     }
@@ -1196,6 +1344,7 @@ const formatVariantsForTable = () => {
       discount: variant.price?.discount || 0,
       tax: variant.price?.tax || 0,
       variantImages: variant.variantImages || [],
+      shipping: variant.shipping || {},
     });
   });
   
@@ -1470,7 +1619,7 @@ const formatVariantsForTable = () => {
     const unitSuggestions = ["LITRE", "MILILITRE", "MILIGRAM", "GRAM", "KILOGRAM", "500 ML", "1 KG", "1 BOTTLE", "25 PCS"];
     
     return (
-      <div className="space-y-4 border p-4 rounded-lg">
+      <div id="unit-variant-config-section" className="space-y-4 border p-4 rounded-lg">
         <h5 className="text-md font-medium mb-3">Configure Unit Variant</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -1616,6 +1765,169 @@ const formatVariantsForTable = () => {
             />
           </div>
         </div>
+
+        {/* Shiprocket Shipping Details for this variant */}
+        {/* Shiprocket Shipping Details for this variant */}
+        <div className="border-t border-gray-200 mt-5 pt-5">
+          <div className="pb-3 border-b border-gray-100 mb-4">
+            <h6 className="text-base font-semibold text-gray-800">
+              Shipping Details {currentUnitVariant.unit ? `— ${currentUnitVariant.unit}` : "for this variant"}
+            </h6>
+            <p className="text-xs text-gray-500 mt-1">
+              Enter the actual package shipping weight and dimensions for this variant.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                Weight (grams) *
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="any"
+                placeholder="e.g. 500"
+                value={currentUnitVariant.shipping?.productWeight ?? ""}
+                onChange={(e) =>
+                  setCurrentUnitVariant((prev) => ({
+                    ...prev,
+                    shipping: {
+                      ...prev.shipping,
+                      productWeight: e.target.value,
+                    },
+                  }))
+                }
+                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                Length (cm) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="e.g. 20"
+                value={currentUnitVariant.shipping?.dimension?.length ?? ""}
+                onChange={(e) =>
+                  setCurrentUnitVariant((prev) => ({
+                    ...prev,
+                    shipping: {
+                      ...prev.shipping,
+                      dimension: {
+                        ...prev.shipping?.dimension,
+                        length: e.target.value,
+                      },
+                    },
+                  }))
+                }
+                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                Width (cm) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="e.g. 15"
+                value={currentUnitVariant.shipping?.dimension?.width ?? ""}
+                onChange={(e) =>
+                  setCurrentUnitVariant((prev) => ({
+                    ...prev,
+                    shipping: {
+                      ...prev.shipping,
+                      dimension: {
+                        ...prev.shipping?.dimension,
+                        width: e.target.value,
+                      },
+                    },
+                  }))
+                }
+                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                Height (cm) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="e.g. 10"
+                value={currentUnitVariant.shipping?.dimension?.height ?? ""}
+                onChange={(e) =>
+                  setCurrentUnitVariant((prev) => ({
+                    ...prev,
+                    shipping: {
+                      ...prev.shipping,
+                      dimension: {
+                        ...prev.shipping?.dimension,
+                        height: e.target.value,
+                      },
+                    },
+                  }))
+                }
+                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                HSN Code
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 123456"
+                value={currentUnitVariant.shipping?.hsnCode ?? ""}
+                onChange={(e) =>
+                  setCurrentUnitVariant((prev) => ({
+                    ...prev,
+                    shipping: {
+                      ...prev.shipping,
+                      hsnCode: e.target.value,
+                    },
+                  }))
+                }
+                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                Shipping Class
+              </label>
+              <select
+                value={currentUnitVariant.shipping?.shippingClass || "standard"}
+                onChange={(e) =>
+                  setCurrentUnitVariant((prev) => ({
+                    ...prev,
+                    shipping: {
+                      ...prev.shipping,
+                      shippingClass: e.target.value,
+                    },
+                  }))
+                }
+                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              >
+                <option value="standard">Standard</option>
+                <option value="express">Express</option>
+                <option value="freeShipping">Free Shipping</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-2">
             Variant Images
@@ -1624,7 +1936,7 @@ const formatVariantsForTable = () => {
             type="file"
             multiple
             onChange={handleUnitImagesChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
             accept="image/*"
           />
           {currentUnitVariant.variantImages.length > 0 && (
@@ -1654,7 +1966,7 @@ const formatVariantsForTable = () => {
         <button
           onClick={isEditingVariant ? handleSaveEditedVariant : handleAddVariant}
           disabled={!canAddVariant()}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
+          className="bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm hover:bg-emerald-800 disabled:bg-gray-400 transition-all"
         >
           {isEditingVariant
             ? `Update ${currentUnitVariant.unit || "Unit"} Variant`
@@ -1669,7 +1981,7 @@ const formatVariantsForTable = () => {
     <div className="w-full mt-4">
       <h3 className="text-lg font-medium mb-3">Non-Variant Images</h3>
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col justify-center items-center relative">
-        <FaUpload className="text-orange-500 text-2xl mb-2" />
+        <FaUpload className="text-emerald-600 text-2xl mb-2" />
         <input
           type="file"
           onChange={handleNonVariantFileUpload}
@@ -1679,7 +1991,7 @@ const formatVariantsForTable = () => {
         />
         <p className="text-gray-500 text-sm">
           Drag non-variant images here, or{" "}
-          <span className="text-orange-500 cursor-pointer">
+          <span className="text-emerald-700 font-semibold cursor-pointer">
             click to browse
           </span>
         </p>
@@ -1711,13 +2023,13 @@ const formatVariantsForTable = () => {
 
 
   return (
-    <div className="col-span-2 space-y-2 bg-white shadow-lg rounded-lg p-6 w-full">
+    <div className="col-span-2 space-y-6 agri-glass-card rounded-2xl p-4 sm:p-6 lg:p-8 w-full">
       <h2 className="text-xl font-semibold mb-6">Product Information</h2>
       {apiError && <p className="text-red-500 text-sm mb-4">{apiError}</p>}
       
       {/* Product Images */}
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 flex flex-col justify-center items-center relative">
-        <FaUpload className="text-orange-500 text-4xl mb-2" />
+        <FaUpload className="text-emerald-600 text-4xl mb-2" />
         <input
           type="file"
           onChange={handleFileUpload}
@@ -1727,7 +2039,7 @@ const formatVariantsForTable = () => {
         />
         <p className="text-gray-500">
           Drag your images here, or{" "}
-          <span className="text-orange-500 cursor-pointer">
+          <span className="text-emerald-700 font-semibold cursor-pointer">
             click to browse
           </span>
         </p>
@@ -1757,7 +2069,7 @@ const formatVariantsForTable = () => {
       
       {/* Common Fields */}
       <div className="flex gap-4 flex-wrap mt-6">
-        <div className="w-full md:w-[calc(50%-8px)]">
+        <div className="w-full md:w-[calc(25%-12px)]">
           <label
             htmlFor="productCategory"
             className="block text-sm font-medium text-gray-600 mb-2"
@@ -1792,13 +2104,12 @@ const formatVariantsForTable = () => {
             </p>
           )}
         </div>
-        {/* SUBCATEGORY TEMPORARILY DISABLED for Product Create/Edit.
         <div className="w-full md:w-[calc(25%-12px)]">
           <label
             htmlFor="productSubCategory"
             className="block text-sm font-medium text-gray-600 mb-2"
           >
-            SubCategory *
+            SubCategory
           </label>
           <select
   id="productSubCategory"
@@ -1810,11 +2121,10 @@ const formatVariantsForTable = () => {
   }`}
   onChange={handleInputChange}
   value={formData.productSubCategory || ""}
-  required
   disabled={!formData.productCategory}
 >
   <option value="">Choose a subcategory</option>
-  {subCategories.map((subCategory) => (
+  {(subCategories || []).map((subCategory) => (
     <option
       key={subCategory._id}
       value={subCategory.subCategoryTitle}
@@ -1828,7 +2138,7 @@ const formatVariantsForTable = () => {
               {errors.productSubCategory}
             </p>
           )}
-        </div> */}
+        </div>
         <div className="w-full md:w-[calc(50%-8px)]">
           <label
             htmlFor="productName"
@@ -1948,27 +2258,218 @@ const formatVariantsForTable = () => {
             </div>
             {renderUnitOnlySection()}
           </div>
-          {true &&  (
-  <div className="mt-6 rounded w-full overflow-x-auto">
-    <h4 className="text-md font-medium mb-3">Added Variants</h4>
-    <div style={{ maxHeight: "400px", overflowY: "auto" }}>
-  <DataTable
-    columns={columns}
-    data={formatVariantsForTable()}
-    fixedHeader
-    fixedHeaderScrollHeight="400px"
-    customStyles={customStyles}
-    highlightOnHover
-    responsive
-    noDataComponent={
-      <div className="text-center py-4 text-gray-500">
-        No variants added yet
-      </div>
-    }
-  />
-</div>
-  </div>
-)}
+          {/* Added Unit Variants Cards */}
+          <div className="mt-8 space-y-6 w-full">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xl font-title font-semibold text-gray-800">
+                Added Unit Variants ({formData.variant?.unitOnlyVariants?.length || 0})
+              </h4>
+            </div>
+
+            {(!formData.variant?.unitOnlyVariants || formData.variant.unitOnlyVariants.length === 0) ? (
+              <div className="bg-white rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                No unit variants added yet. Configure and add variants above.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {formData.variant.unitOnlyVariants.map((variant, index) => {
+                  const variantShipping = variant.shipping || {};
+                  const variantDimension = variantShipping.dimension || {};
+
+                  return (
+                    <div
+                      key={variant._id || index}
+                      className="bg-white shadow-lg rounded-lg p-6 w-full border border-gray-200"
+                    >
+                      {/* Top Section: Variant Information */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-200">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="bg-emerald-100 text-emerald-800 px-3 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider">
+                              Variant {index + 1}
+                            </span>
+                            <h5 className="text-xl font-bold text-gray-900">
+                              {variant.unit} Variant
+                            </h5>
+                          </div>
+                          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2 text-sm text-gray-600">
+                            <span>
+                              <strong className="text-gray-700">SKU:</strong> {variant.skuCode || "N/A"}
+                            </span>
+                            {variant.productCode && (
+                              <span>
+                                <strong className="text-gray-700">Product Code:</strong> {variant.productCode}
+                              </span>
+                            )}
+                            <span>
+                              <strong className="text-gray-700">Stock:</strong> {variant.stockCount}
+                            </span>
+                            <span>
+                              <strong className="text-gray-700">Regular Price:</strong> ₹{variant.price?.costPrice || 0}
+                            </span>
+                            {variant.price?.salePrice && (
+                              <span>
+                                <strong className="text-gray-700">Sale Price:</strong> ₹{variant.price.salePrice}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-start sm:self-center">
+                          <button
+                            type="button"
+                            onClick={() => handleEditVariantByIndex(index)}
+                            className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveVariantByIndex(index)}
+                            className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md transition cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Variant Images Preview if any */}
+                      {variant.variantImages && variant.variantImages.length > 0 && (
+                        <div className="flex gap-2 my-3">
+                          {variant.variantImages.map((img, imgIdx) => (
+                            <img
+                              key={imgIdx}
+                              src={typeof img === "string" ? img : URL.createObjectURL(img)}
+                              alt={`${variant.unit} preview ${imgIdx + 1}`}
+                              className="w-12 h-12 rounded object-cover border"
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Clearly Separated Shipping Details Section for THIS Variant */}
+                      <div className="border-t border-gray-200 mt-5 pt-5">
+                        <div className="pb-3 border-b border-gray-100 mb-4">
+                          <h6 className="text-base font-semibold text-gray-800">
+                            Shipping Details — {variant.unit}
+                          </h6>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Enter the actual package shipping weight and dimensions for this variant.
+                          </p>
+                        </div>
+
+                        {/* 4 Dimension/Weight fields */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                              Weight (grams) *
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="any"
+                              placeholder="e.g. 500"
+                              value={variantShipping.productWeight ?? ""}
+                              onChange={(e) =>
+                                handleVariantShippingFieldChange(index, "productWeight", e.target.value)
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                              Length (cm) *
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="e.g. 20"
+                              value={variantDimension.length ?? ""}
+                              onChange={(e) =>
+                                handleVariantDimensionFieldChange(index, "length", e.target.value)
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                              Width (cm) *
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="e.g. 15"
+                              value={variantDimension.width ?? ""}
+                              onChange={(e) =>
+                                handleVariantDimensionFieldChange(index, "width", e.target.value)
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                              Height (cm) *
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="e.g. 10"
+                              value={variantDimension.height ?? ""}
+                              onChange={(e) =>
+                                handleVariantDimensionFieldChange(index, "height", e.target.value)
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                            />
+                          </div>
+                        </div>
+
+                        {/* HSN Code & Shipping Class */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                              HSN Code
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. 123456"
+                              value={variantShipping.hsnCode ?? ""}
+                              onChange={(e) =>
+                                handleVariantShippingFieldChange(index, "hsnCode", e.target.value)
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                              Shipping Class
+                            </label>
+                            <select
+                              value={variantShipping.shippingClass || "standard"}
+                              onChange={(e) =>
+                                handleVariantShippingFieldChange(index, "shippingClass", e.target.value)
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                            >
+                              <option value="standard">Standard</option>
+                              <option value="express">Express</option>
+                              <option value="freeShipping">Free Shipping</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
       
@@ -2148,6 +2649,124 @@ const formatVariantsForTable = () => {
               </div>
             </div>
           </div>
+
+          {/* Shipping Details for Non-Variant Product */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6 w-full shadow-sm mt-6">
+            <div className="pb-3 border-b border-gray-100 mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Shipping Details
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Enter the actual product/package shipping weight and dimensions.
+              </p>
+            </div>
+
+            {/* Desktop: 4 fields in row 1 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Weight (grams) *
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 500"
+                  min="0"
+                  step="any"
+                  value={formData.shipping?.productWeight ?? ""}
+                  onChange={(e) =>
+                    handleNonVariantShippingFieldChange("productWeight", e.target.value)
+                  }
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Length (cm) *
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 20"
+                  min="0"
+                  step="any"
+                  value={formData.shipping?.dimension?.length ?? ""}
+                  onChange={(e) =>
+                    handleNonVariantDimensionFieldChange("length", e.target.value)
+                  }
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Width (cm) *
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 15"
+                  min="0"
+                  step="any"
+                  value={formData.shipping?.dimension?.width ?? ""}
+                  onChange={(e) =>
+                    handleNonVariantDimensionFieldChange("width", e.target.value)
+                  }
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Height (cm) *
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 10"
+                  min="0"
+                  step="any"
+                  value={formData.shipping?.dimension?.height ?? ""}
+                  onChange={(e) =>
+                    handleNonVariantDimensionFieldChange("height", e.target.value)
+                  }
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Row 2: HSN Code & Shipping Class */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  HSN Code
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 123456"
+                  value={formData.shipping?.hsnCode ?? ""}
+                  onChange={(e) =>
+                    handleNonVariantShippingFieldChange("hsnCode", e.target.value)
+                  }
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Shipping Class
+                </label>
+                <select
+                  value={formData.shipping?.shippingClass || "standard"}
+                  onChange={(e) =>
+                    handleNonVariantShippingFieldChange("shippingClass", e.target.value)
+                  }
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                >
+                  <option value="standard">Standard</option>
+                  <option value="express">Express</option>
+                  <option value="freeShipping">Free Shipping</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       
@@ -2231,7 +2850,7 @@ const formatVariantsForTable = () => {
     <button
       onClick={handleAddBenefit}
       disabled={!benefitInput.trim()}
-      className="bg-primary text-white px-4 py-2 rounded hover:bg-pink-600 disabled:bg-gray-400"
+      className="bg-emerald-700 text-white px-4 py-2 rounded-xl hover:bg-emerald-800 disabled:bg-gray-400 font-medium transition-all"
     >
       Add
     </button>
@@ -2281,7 +2900,7 @@ const formatVariantsForTable = () => {
     <button
       onClick={handleAddKeyIngredient}
       disabled={!keyIngredientInput.trim()}
-      className="bg-primary text-white px-4 py-2 rounded hover:bg-pink-600 disabled:bg-gray-400"
+      className="bg-emerald-700 text-white px-4 py-2 rounded-xl hover:bg-emerald-800 disabled:bg-gray-400 font-medium transition-all"
     >
       Add
     </button>

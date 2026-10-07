@@ -305,28 +305,31 @@ const CouponTable = () => {
 
   return (
     <>
-      <div className='p-4 w-full bg-gray-100 overflow-hidden'>
-        <div className='bg-white min-h-[calc(100vh-100px)] p-6 shadow-md rounded-md overflow-x-auto'>
-          <div className='flex flex-col md:flex-row justify-between items-center mb-4 space-y-4 md:space-y-0 px-8'>
-            <h2 className='text-xl font-semibold text-gray-800 w-full text-center md:text-left'>
-              Coupons
-            </h2>
-            <div className='flex space-x-2 w-full h-9 justify-end'>
+      <div className='p-2 sm:p-4 md:p-6 w-full min-h-screen bg-gradient-to-br from-[#f8faf8] via-[#f0f7f2] to-[#e8f3ec]'>
+        <div className='agri-glass-card min-h-[calc(100vh-100px)] p-4 sm:p-6 rounded-2xl'>
+          <div className='flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4 px-0 sm:px-2 md:px-4'>
+            <div>
+              <h2 className='text-2xl font-bold font-title text-gray-900 tracking-tight'>
+                Coupons
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">Manage promotional codes, discounts, and offers</p>
+            </div>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2.5 w-full lg:w-auto'>
               <button
                 onClick={handleAddCoupoun}
-                className='bg-table border border-primary w-full px-4 py-1 rounded-md hover:bg-secondary text-white  hover:text-white duration-500 cursor-pointer'
+                className='bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition duration-300 cursor-pointer'
               >
-                Add Coupons
+                + Add Coupon
               </button>
               <input
                 type='text'
                 placeholder='Search Coupon'
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className='border border-gray-300 p-2 rounded-md w-full md:w-72'
+                className='border border-gray-300 px-3 py-2 rounded-xl text-sm w-full lg:w-56 bg-white'
               />
               <select
-                className='border border-gray-300 rounded-md p-2 w-full md:w-auto cursor-pointer'
+                className='border border-gray-300 rounded-xl px-3 py-2 text-sm w-full lg:w-auto cursor-pointer bg-white'
                 value={selectedCategory}
                 onChange={handleCategoryChange}
               >
@@ -339,7 +342,7 @@ const CouponTable = () => {
                 ))}
               </select>
               <select
-                className='border border-gray-300 rounded-md p-2 w-full md:w-auto cursor-pointer'
+                className='border border-gray-300 rounded-xl px-3 py-2 text-sm w-full lg:w-auto cursor-pointer bg-white'
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
               >
@@ -349,23 +352,23 @@ const CouponTable = () => {
             </div>
           </div>
 
-          <div className='w-full mb-5 px-8'>
-            <div className='flex'>
+          <div className='w-full mb-5 px-0 sm:px-2 md:px-4'>
+            <div className='flex gap-2'>
               <div
-                className={`cursor-pointer px-4 py-2 font-medium ${
+                className={`cursor-pointer px-4 py-2 font-medium rounded-xl text-sm transition-all ${
                   activeTab === 'active'
-                    ? 'text-secondary border-b-2 border-secondary'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'text-emerald-800 bg-emerald-100/60 font-semibold shadow-xs'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
                 onClick={() => filterCoupons('active')}
               >
                 Active
               </div>
               <div
-                className={`cursor-pointer px-4 py-2 font-medium ${
+                className={`cursor-pointer px-4 py-2 font-medium rounded-xl text-sm transition-all ${
                   activeTab === 'inactive'
-                    ? 'text-secondary border-b-2 border-secondary'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'text-emerald-800 bg-emerald-100/60 font-semibold shadow-xs'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
                 onClick={() => filterCoupons('inactive')}
               >
@@ -373,7 +376,7 @@ const CouponTable = () => {
               </div>
             </div>
           </div>
-          <div className='w-full overflow-x-auto rounded px-8'>
+          <div className='w-full overflow-x-auto rounded px-0 sm:px-2'>
             <DataTable
               columns={columns}
               data={filteredCoupons}

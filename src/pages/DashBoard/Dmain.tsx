@@ -8,7 +8,7 @@ import { DashboardProvider } from "../../context/DashboardContext";
 const Dmain = () => {
   return (
     <DashboardProvider>
-    <div className="bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-[#f8faf8] via-[#f0f7f2] to-[#e8f3ec] p-2 sm:p-4 space-y-6">
       <Dashboard />
       <MonthlyEarning />
       <BestSellers />

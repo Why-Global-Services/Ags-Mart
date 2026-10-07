@@ -132,7 +132,7 @@ const Dashboard = () => {
   const PieChart = ({ percentage, trend }) => {
     const percentageNum = parseFloat(percentage.replace('%', ''));
     const absPercentage = Math.min(Math.abs(percentageNum), 100);
-    const color = trend === 'increase' ? "#A78BFA" : "#FB923C";
+    const color = trend === 'increase' ? "#10b981" : "#f59e0b";
 
     return (
       <div
@@ -154,16 +154,16 @@ const Dashboard = () => {
   };
 
   const getChangeColor = (trend) => {
-    return trend === 'increase' ? 'text-green-500' : 'text-red-500';
+    return trend === 'increase' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50';
   };
 
   return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="p-2 sm:p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 p-4"
+            className="agri-glass-card rounded-2xl p-5 hover:shadow-lg transition-all duration-300"
           >
             <div className="flex items-center justify-between mb-4">
               <PieChart 

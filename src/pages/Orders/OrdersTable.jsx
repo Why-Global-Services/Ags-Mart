@@ -1796,16 +1796,19 @@ const handlePrint = useReactToPrint({
   };
 
   return (
-    <div className="p-4 w-full bg-gray-100">
-      <div className="bg-white min-h-[calc(100vh-100px)] p-6 shadow-md rounded-md">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0 px-8">
-          <h2 className="text-2xl font-semibold text-gray-800">
-            Order Details
-          </h2>
-          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-            <div className="w-full md:w-54">
+    <div className="p-2 sm:p-4 md:p-6 w-full min-h-screen bg-gradient-to-br from-[#f8faf8] via-[#f0f7f2] to-[#e8f3ec]">
+      <div className="agri-glass-card min-h-[calc(100vh-100px)] p-4 sm:p-6 rounded-2xl">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4 px-0 sm:px-2 md:px-4">
+          <div>
+            <h2 className="text-2xl font-bold font-title text-gray-900 tracking-tight">
+              Order Details
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Manage customer orders, track statuses, and print invoices</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <div className="w-full sm:w-48">
               <select
-                className="w-full border border-gray-300 rounded-md p-2 cursor-pointer"
+                className="w-full border border-gray-300 rounded-xl p-2 cursor-pointer bg-white text-sm"
                 value={selectedMonth}
                 onChange={(e) => handleMonthChange(e.target.value)}
               >
@@ -1822,13 +1825,13 @@ const handlePrint = useReactToPrint({
               placeholder="Search Orders"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="border border-gray-300 p-2 rounded-md w-full h-9 md:w-54"
+              className="border border-gray-300 px-3 py-2 rounded-xl w-full sm:w-56 h-10 text-sm bg-white"
             />
 
             <button
               type="button"
               onClick={resetFilters}
-              className="w-48 h-9 bg-table cursor-pointer text-white px-4 rounded-md hover:bg-secondary transition duration-300 text-sm font-medium"
+              className="w-full sm:w-auto h-10 bg-emerald-700 cursor-pointer text-white px-5 rounded-xl hover:bg-emerald-800 transition duration-300 text-sm font-medium shadow-sm shrink-0"
             >
               Reset
             </button>
@@ -1836,7 +1839,7 @@ const handlePrint = useReactToPrint({
         </div>
 
         {/* Tabbed Status Filter */}
-        <div className="flex mb-6 px-8">
+        <div className="flex flex-wrap gap-1 mb-6 px-0 sm:px-2 md:px-4 items-center">
           <button
             onClick={() => setStatusFilter("ALL")}
             className={`cursor-pointer px-4 py-2 font-medium ${
@@ -1878,7 +1881,7 @@ const handlePrint = useReactToPrint({
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto rounded px-8">
+        <div className="w-full overflow-x-auto rounded px-0 sm:px-2">
           <DataTable
             columns={columns}
             data={filteredOrders}

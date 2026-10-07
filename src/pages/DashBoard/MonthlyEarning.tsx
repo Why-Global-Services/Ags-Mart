@@ -37,48 +37,52 @@ const MonthlyEarning = () => {
   const [selectedSegment, setSelectedSegment] = useState(pieData[0]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-gray-50">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Line Chart */}
-      <div className="md:col-span-2 p-6 shadow-lg rounded-2xl bg-white transition-all duration-300 hover:shadow-xl">
+      <div className="md:col-span-2 p-6 agri-glass-card rounded-2xl transition-all duration-300 hover:shadow-lg">
         <h2 className="text-xl font-semibold text-gray-800 mb-5">
           📊 Monthly Earning
         </h2>
-        <div className="p-4 border border-green-100 rounded-xl hover:bg-gray-50 transition">
+        <div className="p-4 border border-emerald-900/10 rounded-xl hover:bg-emerald-50/20 transition">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart
               data={data}
               margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
             >
-              <XAxis dataKey="month" tick={{ fill: "#4B5563" }} stroke="#D1FAE5" />
-              <YAxis tick={{ fill: "#4B5563" }} stroke="#D1FAE5" />
+              <XAxis dataKey="month" tick={{ fill: "#4B5563" }} stroke="#A7F3D0" />
+              <YAxis tick={{ fill: "#4B5563" }} stroke="#A7F3D0" />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#fff",
-                  borderRadius: "8px",
-                  border: "1px solid #E5E7EB",
+                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(4, 120, 87, 0.2)",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
                 }}
               />
               <Legend wrapperStyle={{ paddingTop: "10px" }} />
               <Line
                 type="monotone"
                 dataKey="purple"
-                stroke="#A78BFA"
+                name="Store"
+                stroke="#047857"
                 strokeWidth={3}
                 dot={{ r: 4 }}
               />
               <Line
                 type="monotone"
                 dataKey="orange"
-                stroke="#FB923C"
+                name="Wholesale"
+                stroke="#10b981"
                 strokeWidth={3}
                 dot={{ r: 4 }}
               />
               <Line
                 type="monotone"
                 dataKey="gray"
+                name="Direct"
                 stroke="#9CA3AF"
-                strokeWidth={3}
-                dot={{ r: 4 }}
+                strokeWidth={2}
+                dot={{ r: 3 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -86,7 +90,7 @@ const MonthlyEarning = () => {
       </div>
 
       {/* Pie Chart */}
-      <div className="p-6 shadow-lg bg-white rounded-2xl flex flex-col items-center transition-all duration-300 hover:shadow-xl">
+      <div className="p-6 agri-glass-card rounded-2xl flex flex-col items-center transition-all duration-300 hover:shadow-lg">
         <h2 className="text-xl font-semibold text-gray-800 mb-5">
           📈 Sales Analytics
         </h2>

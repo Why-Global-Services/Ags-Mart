@@ -30,7 +30,16 @@ const Sidebar = ({ isCollapsed }) => {
     const fetchSettings = async () => {
       try {
         const response = await getWebSettings();
-        setWebSettings(response.data.AdminSettings[0] || null );
+        const settingsData = response?.data?.data || response?.data;
+        if (
+          settingsData &&
+          Array.isArray(settingsData.AdminSettings) &&
+          settingsData.AdminSettings.length > 0
+        ) {
+          setWebSettings(settingsData.AdminSettings[0]);
+        } else {
+          setWebSettings(null);
+        }
       } catch (error) {
         console.error("Failed to fetch web settings:", error);
       }
@@ -66,49 +75,47 @@ const Sidebar = ({ isCollapsed }) => {
 
   return (
     <div
-      className={`bg-white text-black h-screen p-1 transition-[width] duration-500 ease-in-out hidden lg:block ${
+      className={`bg-white/90 backdrop-blur-md text-slate-800 border-r border-emerald-900/10 h-screen p-2 transition-[width] duration-500 ease-in-out hidden lg:block shadow-sm ${
         isCollapsed ? "w-20" : "w-60"
       }`}
     >
       {/* Logo Section */}
-      <div className="sticky top-0 bg-white z-10 pt-1">
+      <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 pt-1 pb-2 border-b border-emerald-900/5">
       <h1 className="text-xl font-bold flex items-center space-x-2 p-2">
   {webSettings?.adminLogo ? (
     <img
       src={webSettings.adminLogo}
       alt="Admin Logo"
-      className={`h-18 w-65  object-cover ${
+      className={`h-16 w-full object-contain ${
         isCollapsed ? "h-8 w-8" : ""
       }`}
     />
   ) : (
-    <span className="bg-pink-300 h-6 w-6 inline-block rounded-full"></span>
+    <div className="flex items-center gap-2">
+      <span className="bg-emerald-600 h-7 w-7 inline-flex items-center justify-center rounded-lg text-white font-bold text-sm">AG</span>
+      {!isCollapsed && <span className="font-bold text-emerald-950 text-base">AGS-Mart</span>}
+    </div>
   )}
-  {/* <span
-    className={`overflow-hidden transition-[max-width,opacity] duration-500 ease-in-out ${
-      isCollapsed ? "max-w-0 opacity-0" : "max-w-full opacity-100 ml-2"
-    } whitespace-nowrap`}
-  >
-    {webSettings?.adminName || "LOGO"}
-  </span> */}
 </h1>
 
       </div>
 
       {/* Apps Section */}
-      <div className="mt-4 overflow-y-auto h-[calc(100%-80px)]">
-        <div className="space-y-2 pb-4">
+      <div className="mt-4 overflow-y-auto h-[calc(100%-80px)] hide-scrollbar">
+        <div className="space-y-1 pb-4">
           {menuItems.map(({ icon: Icon, label, path }, index) => (
             <NavLink
               to={path}
               key={index}
               className={({ isActive }) =>
-                `flex items-center w-full py-2 px-3 rounded transition-all duration-500 ${
-                  isActive ? "bg-secondary text-white" : "hover:bg-gray-100"
+                `flex items-center w-full py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-300 ${
+                  isActive
+                    ? "bg-secondary text-white shadow-sm shadow-emerald-900/20"
+                    : "text-slate-600 hover:bg-emerald-50/80 hover:text-emerald-900"
                 }`
               }
             >
-              <Icon className="mr-3 min-w-[20px]" />
+              <Icon className="mr-3 min-w-[20px] text-base" />
               <span
                 className={`overflow-hidden transition-[max-width,opacity] duration-500 ease-in-out ${
                   isCollapsed ? "max-w-0 opacity-0" : "max-w-full opacity-100"

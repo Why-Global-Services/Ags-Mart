@@ -257,16 +257,16 @@ if (searchTerm.trim()) {
   };
 
   const handleEditClick = (product) => {
-  navigate("/productForm", {
-    state: {
-      product,
-      isUpdate: true,
-    },
-  });
-};
+    navigate(`/products/edit/${product._id}`, {
+      state: {
+        product,
+        isUpdate: true,
+      },
+    });
+  };
 
   const handleAddProductClick = () => {
-    navigate("/productForm");
+    navigate("/products/add");
   };
 
   // 🔽 EXPORT WITH FULL PRODUCT DETAILS
@@ -616,16 +616,16 @@ if (searchTerm.trim()) {
   ];
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen font-content">
-      <div className="bg-white min-h-[calc(100vh-100px)] p-6 shadow-md rounded-md">
-        <div className="flex flex-row justify-between items-center gap-4 flex-wrap px-8">
-          <h2 className="mt-3 ms-2 text-2xl font-semibold text-gray-800 flex-shrink-0 w-48">
+    <div className="p-3 sm:p-6 bg-[#f8faf8] min-h-screen font-content">
+      <div className="agri-glass-card min-h-[calc(100vh-100px)] p-3 sm:p-6">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 px-2 sm:px-6 mb-5">
+          <h2 className="text-xl sm:text-2xl font-bold text-emerald-950 flex-shrink-0">
             Products
           </h2>
-          <div className="flex gap-2 items-center flex-wrap mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:flex xl:flex-wrap gap-2.5 items-center w-full lg:w-auto">
             {/* FIRST SELECT */}
             <select
-              className="w-48 h-10 px-3 cursor-pointer rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full xl:w-44 h-10 px-3 cursor-pointer rounded-lg border border-emerald-900/15 bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm"
               value={filterType}
               onChange={handleFilterTypeChange}
             >
@@ -639,7 +639,7 @@ if (searchTerm.trim()) {
             {/* SECOND SELECT */}
             {filterType && (
               <select
-                className="w-48 h-10 px-3 cursor-pointer rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full xl:w-44 h-10 px-3 cursor-pointer rounded-lg border border-emerald-900/15 bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm"
                 value={filterValue}
                 onChange={(e) => setFilterValue(e.target.value)}
               >
@@ -685,13 +685,13 @@ if (searchTerm.trim()) {
 
             <button
               onClick={resetFilters}
-              className="w-48 h-10 bg-table text-white cursor-pointer px-4 rounded-md hover:bg-secondary transition duration-300 text-sm font-medium"
+              className="w-full xl:w-auto h-10 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer px-4 rounded-lg transition duration-200 text-sm font-medium shadow-xs"
             >
               Reset
             </button>
 
             <select
-              className="w-48 h-10 px-3 rounded-md cursor-pointer border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full xl:w-44 h-10 px-3 rounded-lg cursor-pointer border border-emerald-900/15 bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm"
               value={variantFilter}
               onChange={handleVariantFilterChange}
             >
@@ -701,79 +701,80 @@ if (searchTerm.trim()) {
             </select>
 
             <input
-  type="text"
-  placeholder="Search products..."
-  value={searchTerm}
-  onChange={(e) => {
-    setSearchTerm(e.target.value);
-    setCurrentPage(1); // reset pagination on search
-  }}
-  className="w-48 h-10 px-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-/>
-
+              type="text"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full xl:w-48 h-10 px-3 rounded-lg border border-emerald-900/15 bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm"
+            />
           </div>
         </div>
 
-        
-
-        <div className="mb-6 px-8">
-          <div className="flex">
-            <button
-              className={`cursor-pointer px-4 py-2 font-medium  ${
-                activeTab === "all"
-                  ? "text-secondary border-b-2 border-secondary"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => filterProducts("all")}
-              aria-label="Show all products"
-            >
-              All
-            </button>
-            <button
-              className={`cursor-pointer px-4 py-2 font-medium ${
-                activeTab === "active"
-                  ? "text-secondary border-b-2 border-secondary"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => filterProducts("active")}
-              aria-label="Show active products"
-            >
-              Active
-            </button>
-            <button
-              className={`cursor-pointer px-4 py-2 font-medium ${
-                activeTab === "inactive"
-                  ? "text-secondary border-b-2 border-secondary"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => filterProducts("inactive")}
-              aria-label="Show inactive products"
-            >
-              Inactive
-            </button>
-            <div className="flex gap-2 ms-auto">
+        <div className="mb-4 px-2 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-900/10 pb-2">
+            <div className="flex gap-2">
+              <button
+                className={`cursor-pointer px-3 sm:px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
+                  activeTab === "all"
+                    ? "bg-secondary text-white shadow-xs"
+                    : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-900"
+                }`}
+                onClick={() => filterProducts("all")}
+                aria-label="Show all products"
+              >
+                All
+              </button>
+              <button
+                className={`cursor-pointer px-3 sm:px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
+                  activeTab === "active"
+                    ? "bg-secondary text-white shadow-xs"
+                    : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-900"
+                }`}
+                onClick={() => filterProducts("active")}
+                aria-label="Show active products"
+              >
+                Active
+              </button>
+              <button
+                className={`cursor-pointer px-3 sm:px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
+                  activeTab === "inactive"
+                    ? "bg-secondary text-white shadow-xs"
+                    : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-900"
+                }`}
+                onClick={() => filterProducts("inactive")}
+                aria-label="Show inactive products"
+              >
+                Inactive
+              </button>
+            </div>
+            <div className="flex gap-2">
               {/* Add Product Button */}
               <button
                 onClick={handleAddProductClick}
-                className="flex items-center cursor-pointer justify-center w-10 h-10 rounded-full bg-white border border-gray-300 hover:bg-green-100 hover:border-green-500 transition-all duration-300 shadow-sm"
+                className="flex items-center gap-1.5 cursor-pointer px-3 h-9 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm transition-all duration-200 shadow-xs"
                 title="Add Product"
               >
-                <FaPlus className="text-secondary hover:text-green-600 w-4 h-4" />
+                <FaPlus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Add Product</span>
               </button>
 
               {/* Export to Excel Button */}
               <button
                 onClick={handleExportToExcel}
-                className="flex items-center cursor-pointer justify-center w-10 h-10 rounded-full bg-white border border-gray-300 hover:bg-green-100 hover:border-green-500 transition-all duration-300 shadow-sm"
+                className="flex items-center gap-1.5 cursor-pointer px-3 h-9 rounded-lg bg-white border border-emerald-900/20 hover:bg-emerald-50 text-emerald-900 font-medium text-sm transition-all duration-200 shadow-xs"
                 title="Export to Excel"
               >
-                <FaDownload className="text-secondary hover:text-green-600 w-4 h-4" />
+                <FaDownload className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="hidden sm:inline">Export</span>
               </button>
             </div>
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto px-8">
+        <div className="w-full overflow-x-auto px-2 sm:px-6">
           <DataTable
             columns={columns}
             data={filteredProducts}
@@ -845,9 +846,9 @@ if (searchTerm.trim()) {
             {/* Variant or Non-Variant Details */}
             <div className="space-y-4">
               {productToView.productType === "variant" ? (
-                Array.isArray(productToView?.variant?.sizeOnlyVariants) &&
-                productToView.variant.sizeOnlyVariants.length > 0 ? (
-                  productToView.variant.sizeOnlyVariants.map(
+                Array.isArray(productToView?.variant?.unitOnlyVariants) &&
+                productToView.variant.unitOnlyVariants.length > 0 ? (
+                  productToView.variant.unitOnlyVariants.map(
                     (variant, index) => (
                       <div
                         key={index}
@@ -908,8 +909,8 @@ if (searchTerm.trim()) {
                           </div>
 
                           <div>
-                            <h3 className="font-semibold">Variation</h3>
-                            <p>SKU: {variant.skuCode || "-"}</p>
+                            <h3 className="font-semibold">Variation (Unit)</h3>
+                            <p>{variant.unit ? `${variant.unit} (${variant.skuCode || "-"})` : (variant.skuCode || "-")}</p>
                           </div>
 
                           <div>
@@ -930,6 +931,48 @@ if (searchTerm.trim()) {
                           <div>
                             <h3 className="font-semibold">Tax</h3>
                             <p>{variant.price?.tax ?? "0"}%</p>
+                          </div>
+
+                          <div>
+                            <h3 className="font-semibold">Weight</h3>
+                            <p>
+                              {variant.shipping?.productWeight ??
+                                productToView.shipping?.productWeight ??
+                                "-"} g
+                            </p>
+                          </div>
+
+                          <div>
+                            <h3 className="font-semibold">Dimensions (LxWxH)</h3>
+                            <p>
+                              {variant.shipping?.dimension?.length ??
+                                productToView.shipping?.dimension?.length ??
+                                "0"} x{" "}
+                              {variant.shipping?.dimension?.width ??
+                                productToView.shipping?.dimension?.width ??
+                                "0"} x{" "}
+                              {variant.shipping?.dimension?.height ??
+                                productToView.shipping?.dimension?.height ??
+                                "0"} cm
+                            </p>
+                          </div>
+
+                          <div>
+                            <h3 className="font-semibold">HSN Code</h3>
+                            <p>
+                              {variant.shipping?.hsnCode ||
+                                productToView.shipping?.hsnCode ||
+                                "-"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <h3 className="font-semibold">Shipping Class</h3>
+                            <p>
+                              {variant.shipping?.shippingClass ||
+                                productToView.shipping?.shippingClass ||
+                                "-"}
+                            </p>
                           </div>
 
                           {/* Ingredients */}
@@ -1229,6 +1272,39 @@ if (searchTerm.trim()) {
                       <p>
                         {productToView.nonVariant?.price?.tax ?? "0"}%
                       </p>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold">Weight</h3>
+                      <p>
+                        {productToView.shipping?.productWeight !== undefined &&
+                        productToView.shipping?.productWeight !== ""
+                          ? `${productToView.shipping.productWeight} g`
+                          : "-"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold">Dimensions (LxWxH)</h3>
+                      <p>
+                        {productToView.shipping?.dimension?.length || "0"} x{" "}
+                        {productToView.shipping?.dimension?.width || "0"} x{" "}
+                        {productToView.shipping?.dimension?.height || "0"} cm
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold">HSN Code</h3>
+                      <p>{productToView.shipping?.hsnCode || "-"}</p>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold">Shipping Class</h3>
+                      <p>{productToView.shipping?.shippingClass || "-"}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">HSN Code</h3>
+                      <p>{productToView.shipping?.hsnCode || "-"}</p>
                     </div>
 
                     {/* Ingredients */}
@@ -1617,6 +1693,10 @@ export default Product;
                           <p>{productToView.shipping?.shippingClass || "-"}</p>
                         </div>
                         <div>
+                          <h3 className="font-semibold">HSN Code</h3>
+                          <p>{productToView.shipping?.hsnCode || "-"}</p>
+                        </div>
+                        <div>
                           <h3 className="font-semibold">Up-Sell Products</h3>
                           <ul>
                             {productToView.linkProducts?.upSellProducts &&
@@ -1894,6 +1974,10 @@ export default Product;
                     <div>
                       <h3 className="font-semibold">Shipping Class</h3>
                       <p>{productToView.shipping?.shippingClass || "-"}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">HSN Code</h3>
+                      <p>{productToView.shipping?.hsnCode || "-"}</p>
                     </div>
                     <div>
                       <h3 className="font-semibold">Up-Sell Products</h3>
@@ -2179,6 +2263,10 @@ export default Product;
                           <p>{productToView.shipping?.shippingClass || "-"}</p>
                         </div>
                         <div>
+                          <h3 className="font-semibold">HSN Code</h3>
+                          <p>{productToView.shipping?.hsnCode || "-"}</p>
+                        </div>
+                        <div>
                           <h3 className="font-semibold">Up-Sell Products</h3>
                           <ul>
                             {productToView.linkProducts?.upSellProducts &&
@@ -2461,6 +2549,10 @@ export default Product;
                     <div>
                       <h3 className="font-semibold">Shipping Class</h3>
                       <p>{productToView.shipping?.shippingClass || "-"}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">HSN Code</h3>
+                      <p>{productToView.shipping?.hsnCode || "-"}</p>
                     </div>
                     <div>
                       <h3 className="font-semibold">Up-Sell Products</h3>

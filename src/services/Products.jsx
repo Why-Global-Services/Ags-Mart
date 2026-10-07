@@ -34,12 +34,15 @@ export const deleteProduct = async (_id) => {
   return res;
 };
 
+export const deleteVariant = async (productId, variantId) => {
+  const res = await apiInstance.delete(`/deleteVariant/${productId}/${variantId}`);
+  return res;
+};
 
 export const updateProductStatus = async (_id, field, newStatus) => {
   const res = await apiInstance.put(`/editProductStatus/${_id}`, { field, value:newStatus },);
   return res;
 };
-
 
 export const getAllActiveProducts = async (categoryId) => {
   const res = await apiInstance.get(`/getActiveProducts?categoryId=${categoryId}`);

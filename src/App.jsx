@@ -273,16 +273,17 @@ const App = () => {
                   {/* Settings nested routes */}
                   <Route path="/setting" element={<SettingLayout />}>
                     <Route index element={<StoreSetting />} />
-                    <Route path="storesetting" element={<StoreSetting />} />
-                    <Route path="emailsetting" element={<EmailSetting />} />
+                    {/* Email settings disabled */}
+                    {/* <Route path="emailsetting" element={<EmailSetting />} /> */}
                     {/* Payment methods nested routes */}
                     <Route path="paymethods" element={<PaymentLayout />}>
                       <Route index element={<Razorpay />} />
                       <Route path="razorpay" element={<Razorpay />} />
-                      <Route path="stripe" element={<Stripe />} />
-                      <Route path="phonePay" element={<PhonePay />} />
+                      {/* Disabled payment method routes: Stripe, PhonePe, PayPal */}
+                      {/* <Route path="stripe" element={<Stripe />} /> */}
+                      {/* <Route path="phonePay" element={<PhonePay />} /> */}
                       <Route path="paytm" element={<Paytm />} />
-                      <Route path="payPal" element={<PayPal />} />
+                      {/* <Route path="payPal" element={<PayPal />} /> */}
                       <Route path="instamojo" element={<Instamojo />} />
                       <Route path="googlePay" element={<GooglePay />} />
                       <Route path="cod" element={<CashOnDelivery />} />

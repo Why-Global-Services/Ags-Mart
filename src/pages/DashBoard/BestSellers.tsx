@@ -80,10 +80,10 @@ const BestSellers = () => {
   ];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 px-4 md:px-6 pb-6 bg-gray-100">
+    <div className="flex flex-col lg:flex-row gap-6">
 
-<div className="bg-white rounded-xl shadow-sm w-full lg:w-3/5">
-  <div className="p-6">
+<div className="agri-glass-card rounded-2xl w-full lg:w-3/5">
+  <div className="p-4 sm:p-6">
     <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Top Performing Products</h2>
     <div className="overflow-x-auto">
       <table className="w-full">
@@ -135,20 +135,20 @@ const BestSellers = () => {
 </div>
    
       <div className="w-full lg:w-2/5">
-  <div className="bg-white rounded-xl shadow-sm p-6 h-full">
+  <div className="agri-glass-card rounded-2xl p-6 h-full">
     <h2 className="text-xl font-semibold text-gray-800 mb-6">User Analytics</h2>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {userStatsCards.map((card, index) => (
         <div 
           key={index} 
-          className={`p-4 rounded-lg border ${
-            card.trend === 'increase' ? 'border-green-100 bg-green-50' :
-            card.trend === 'decrease' ? 'border-red-100 bg-red-50' :
-            'border-gray-100 bg-gray-50'
+          className={`p-4 rounded-xl border ${
+            card.trend === 'increase' ? 'border-emerald-200 bg-emerald-50/60' :
+            card.trend === 'decrease' ? 'border-red-200 bg-red-50/60' :
+            'border-gray-200/80 bg-white/70'
           }`}
         >
           <div className="flex justify-between">
-            <div className="pr-2 overflow-hidden"> {/* Added overflow-hidden */}
+            <div className="pr-2 overflow-hidden">
               <p className="text-xs text-gray-500 whitespace-normal break-words">
                 {card.title}
               </p>
@@ -156,7 +156,7 @@ const BestSellers = () => {
                 {typeof card.value === 'number' ? card.value : card.value}
               </p>
             </div>
-            <div className="flex-shrink-0 pl-2"> {/* Added flex-shrink-0 and pl-2 */}
+            <div className="flex-shrink-0 pl-2">
               <div className="p-2 rounded-full bg-white shadow-xs">
                 {card.icon}
               </div>
@@ -170,23 +170,23 @@ const BestSellers = () => {
     </div>
     
     {/* Summary Card */}
-    <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+    <div className="mt-6 p-4 bg-emerald-50/80 rounded-xl border border-emerald-200/80">
       <div className="flex items-center gap-3">
-        <div className="flex-shrink-0 p-2 bg-indigo-100 rounded-full">
-          <FiUsers className="text-indigo-600" />
+        <div className="flex-shrink-0 p-2 bg-emerald-100 rounded-full">
+          <FiUsers className="text-emerald-700" />
         </div>
-        <div className="overflow-hidden"> {/* Added overflow-hidden */}
-          <p className="text-sm font-medium text-indigo-800 whitespace-normal break-words">
+        <div className="overflow-hidden">
+          <p className="text-sm font-medium text-emerald-900 whitespace-normal break-words">
             User Engagement
           </p>
-          <p className="text-xs text-indigo-600 mt-1 whitespace-normal break-words">
+          <p className="text-xs text-emerald-700 mt-1 whitespace-normal break-words">
             {dashboardData.userStats.trend === 'increase' ? 
               'Growing user base' : 
               'Needs attention'}
           </p>
         </div>
       </div>
-      <div className="mt-3 h-2 bg-indigo-100 rounded-full overflow-hidden">
+      <div className="mt-3 h-2 bg-emerald-100 rounded-full overflow-hidden">
         <div 
           className={`h-full ${
             dashboardData.userStats.trend === 'increase' ? 
