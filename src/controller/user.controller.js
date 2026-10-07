@@ -295,13 +295,25 @@ const paymentVerify = catchAsync(async (req, res) => {
 });
 
 const verifyStripePaymentData = catchAsync(async (req, res) => {
+  return res.status(400).send({
+    success: false,
+    message: "Stripe payment is currently unavailable",
+  });
+  /*
   const data = await verifyStripePayment(req);
   res.status(200).send(data);
+  */
 });
 
 const verifyPayPalPaymentData = catchAsync(async (req, res) => {
+  return res.status(400).send({
+    success: false,
+    message: "PayPal payment is currently unavailable",
+  });
+  /*
   const data = await Orders.verifyPaypal(req);
   res.status(200).send(data);
+  */
 });
 
 const ForgotPassword = catchAsync(async (req, res) => {

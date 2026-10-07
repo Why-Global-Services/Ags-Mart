@@ -229,6 +229,37 @@ const orderDetailsSchema = new mongoose.Schema(
     orderConfirmedAt: {
       type: Date,
     },
+
+    shiprocket: {
+      orderId: {
+        type: String,
+        default: null,
+      },
+      shipmentId: {
+        type: String,
+        default: null,
+      },
+      awbCode: {
+        type: String,
+        default: null,
+      },
+      courierName: {
+        type: String,
+        default: null,
+      },
+      status: {
+        type: String,
+        default: null,
+      },
+      trackingUrl: {
+        type: String,
+        default: null,
+      },
+      error: {
+        type: String,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,

@@ -18,6 +18,7 @@ const logger = require("../../../config/logger");
 const { performance } = require("perf_hooks");
 const { sendOrderCreatedWhatsApp } = require("../../../utils/aiSensy");
 const { findProductVariant } = require("../../../utils/productVariant");
+const { createShiprocketOrder } = require("../../../utils/shiprocket");
 
 class OrderService {
   constructor() {
@@ -128,27 +129,107 @@ class OrderService {
       this.logOrderSuccess(order, userId, duration);
 
       /* ================================
-   SEND WHATSAPP (AISENSY)
-================================ */
-try {
-  await sendOrderCreatedWhatsApp({
-    name: order.userName,
-    email: order.email,
-    phone: order.contactNumber,
-    orderId: order.orderId,
-    amount: order.totalPrice,
-    paymentType: order.paymentMethod,
+         CREATE SHIPROCKET ORDER (POST-COMMIT)
+      ================================ */
+      let shiprocketResult = null;
+      try {
+        shiprocketResult = await createShiprocketOrder(
+          order,
+          order.deliveryAddress,
+          order.billingAddress,
+          order.email
+        );
 
-    // Shiprocket not yet → keep default
-    awbNumber: "-",
-    courierName: "-",
-    shippingStatus: "Order Confirmed",
-  });
-} catch (err) {
-  console.error("❌ WhatsApp send failed:", err.message);
-}
+        if (shiprocketResult) {
+          const shiprocketData = {
+            orderId:
+              shiprocketResult.order_id !== undefined
+                ? String(shiprocketResult.order_id)
+                : null,
+            shipmentId:
+              shiprocketResult.shipment_id !== undefined
+                ? String(shiprocketResult.shipment_id)
+                : null,
+            awbCode:
+              shiprocketResult.awb_code !== undefined
+                ? String(shiprocketResult.awb_code)
+                : null,
+            courierName:
+              shiprocketResult.courier_name !== undefined
+                ? String(shiprocketResult.courier_name)
+                : null,
+            status:
+              shiprocketResult.status !== undefined
+                ? String(shiprocketResult.status)
+                : "CREATED",
+            trackingUrl:
+              shiprocketResult.tracking_url ||
+              shiprocketResult.channel_order_id ||
+              null,
+            error: null,
+          };
 
-/* ================================ */
+          await orderDetailsModel.updateOne(
+            { orderId: order.orderId },
+            { $set: { shiprocket: shiprocketData } }
+          );
+          order.shiprocket = shiprocketData;
+        } else {
+          await orderDetailsModel.updateOne(
+            { orderId: order.orderId },
+            {
+              $set: {
+                "shiprocket.status": "FAILED",
+                "shiprocket.error": "Shiprocket order creation returned null",
+              },
+            }
+          );
+        }
+      } catch (shiprocketErr) {
+        logger.error("❌ Shiprocket order creation failed:", {
+          error: shiprocketErr.message,
+          orderId: order.orderId,
+        });
+        console.error("❌ Shiprocket order creation failed:", shiprocketErr.message);
+
+        try {
+          await orderDetailsModel.updateOne(
+            { orderId: order.orderId },
+            {
+              $set: {
+                "shiprocket.status": "FAILED",
+                "shiprocket.error": shiprocketErr.message,
+              },
+            }
+          );
+        } catch (dbErr) {
+          logger.error("Failed to persist Shiprocket error status to DB:", {
+            error: dbErr.message,
+          });
+        }
+      }
+
+      /* ================================
+         SEND WHATSAPP (AISENSY)
+      ================================ */
+      try {
+        await sendOrderCreatedWhatsApp({
+          name: order.userName,
+          email: order.email,
+          phone: order.contactNumber,
+          orderId: order.orderId,
+          amount: order.totalPrice,
+          paymentType: order.paymentMethod,
+
+          awbNumber: order.shiprocket?.awbCode || "-",
+          courierName: order.shiprocket?.courierName || "-",
+          shippingStatus: order.shiprocket?.status || "Order Confirmed",
+        });
+      } catch (err) {
+        console.error("❌ WhatsApp send failed:", err.message);
+      }
+
+      /* ================================ */
 
       return this.formatOrderResponse(order, paymentResult, pricing);
     } catch (error) {
@@ -766,6 +847,8 @@ const validatedCartItems = cartItems.map((item) => {
         return { razorpayOrder };
 
       case "Stripe":
+        throw new ApiError(400, "Stripe payment is currently unavailable");
+        /*
         const stripeUrl = await createStripeCheckoutSession(
           amount,
           userId,
@@ -776,6 +859,10 @@ const validatedCartItems = cartItems.map((item) => {
         await paymentDetailsModel.create(paymentData);
 
         return { stripeUrl };
+        */
+
+      case "PayPal":
+        throw new ApiError(400, "PayPal payment is currently unavailable");
 
       case "COD":
         order.orderStatus = "Ordered";

@@ -160,13 +160,14 @@ router
 router
   .route("/verifyPayment/:orderId")
   .post(verifyToken, userController.paymentVerify);
-router
-  .route("/verifyStripePayment")
-  .post(userController.verifyStripePaymentData);
-
-router
-  .route("/verifyPaypal")
-  .post(verifyToken, userController.verifyPayPalPaymentData);
+// Stripe & PayPal payment verification endpoints (DISABLED)
+// router
+//   .route("/verifyStripePayment")
+//   .post(userController.verifyStripePaymentData);
+// 
+// router
+//   .route("/verifyPaypal")
+//   .post(verifyToken, userController.verifyPayPalPaymentData);
 
 // Account
 router.route("/dashboard").get(verifyToken, userController.dashboardData);
@@ -228,7 +229,8 @@ router.route("/getshippingpolicy").get(GetShippingPolicy);
 
 router.route("/getdeliverypolicy").get(GetDeliveryPolicy);
 
-router.route("/google").post(googleAuth.userGoogleSignUp);
+// Google OAuth route (DISABLED)
+// router.route("/google").post(googleAuth.userGoogleSignUp);
 
 router.route("/getFAQ").get(userController.fetchFAQ);
 

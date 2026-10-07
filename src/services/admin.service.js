@@ -2164,7 +2164,11 @@ const Login = async (req) => {
 };
 
 const getUserById = async (req) => {
-  const userId = req.Admin?._id;
+  const adminUser = req.Admin || req.admin || req.super_admin || req.user;
+  const userId = adminUser?._id || adminUser?.id;
+  if (!userId) {
+    throw new ApiError(401, "Admin not authenticated");
+  }
   const findUser = await admin.findById(userId);
   if (!findUser) {
     throw new ApiError(404, "User not found");

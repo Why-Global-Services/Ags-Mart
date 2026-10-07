@@ -6,8 +6,13 @@ const verifyToken = async (req, res, next) => {
   try {
     const models = {
       user: User,
+      User: User,
+      admin: admin,
       Admin: admin,
       super_admin: admin,
+      manager: admin,
+      employee: admin,
+      support: admin,
     };
 
     const tokenHeader = req.headers["authorization"];
@@ -33,13 +38,14 @@ const verifyToken = async (req, res, next) => {
 
     const { id, role } = decoded;
 
-    console.log({decoded});
-    const Model = models[role];
-    console.log({Model});
-    
+    const normalizedRole = (role || "").toLowerCase();
+    const Model =
+      models[role] ||
+      models[normalizedRole] ||
+      (normalizedRole.includes("admin") ? admin : User);
 
     if (!Model) {
-      return res.status(500).json({ message: "Invalid role in token" });
+      return res.status(401).json({ message: "Invalid role in token" });
     }
 
     const user = await Model.findById(id).select("-password");
@@ -49,6 +55,14 @@ const verifyToken = async (req, res, next) => {
     }
 
     req[role] = user;
+    if (normalizedRole.includes("admin") || Model === admin) {
+      req.Admin = user;
+      req.admin = user;
+      req.super_admin = user;
+    } else {
+      req.user = user;
+      req.User = user;
+    }
 
     next();
   } catch (error) {

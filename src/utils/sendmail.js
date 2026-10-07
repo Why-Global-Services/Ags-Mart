@@ -5,7 +5,15 @@ const htmlData = require("./htmlData");
 const ApiError = require("../utils/apiError");
 require("dotenv").config();
 
+// SMTP / Email sending is temporarily disabled
+const isEmailEnabled = false;
+
 const mailService = async (sendTo, subject, htmlDataForMail) => {
+  if (!isEmailEnabled || !config.email?.smtp?.host) {
+    console.warn("⚠️ SMTP / Email sending is currently disabled. Skipping email.");
+    return { success: false, disabled: true, message: "Email service is temporarily disabled" };
+  }
+
   if (!sendTo) {
     return { status: false, message: "Mail id is not provided" };
   }
@@ -19,7 +27,7 @@ const mailService = async (sendTo, subject, htmlDataForMail) => {
   const sanitizedEmail = sanitizeHtml(sendTo);
 
   const mailOption = {
-    from: config.email.smtp.auth.user,
+    from: config.email?.smtp?.auth?.user,
     to: sanitizedEmail,
     subject: subject || "Mail for user to login",
     html: htmlDataForMail,
@@ -37,6 +45,11 @@ const mailService = async (sendTo, subject, htmlDataForMail) => {
 };
 
 exports.sendUserOtp = async (mailData) => {
+  if (!isEmailEnabled || !config.email?.smtp?.host) {
+    console.warn("⚠️ SMTP is disabled. Skipping sendUserOtp for:", mailData?.email);
+    return { success: false, disabled: true, message: "Email service is temporarily disabled" };
+  }
+
   const htmlDataForMail = htmlData.sendUserOtp(mailData);
   // console.log(mailData);
   const recipients = `${mailData.email}`;
@@ -58,6 +71,11 @@ exports.sendUserOtp = async (mailData) => {
 };
 
 exports.sendNotification = async (mailData) => {
+  if (!isEmailEnabled || !config.email?.smtp?.host) {
+    console.warn("⚠️ SMTP is disabled. Skipping sendNotification for:", mailData?.email);
+    return { success: false, disabled: true, message: "Email service is temporarily disabled" };
+  }
+
   const htmlDataForMail = htmlData.notificationTemplate(mailData);
 
   // console.log(mailData);

@@ -11,9 +11,12 @@ const generateToken = (id, role) => {
   });
 };
 
-const client = new OAuth2Client(config.google.clientId);
+// Google OAuth is temporarily disabled
+// const client = new OAuth2Client(config.google?.clientId);
 
 const userGoogleSignUp = catchAsync(async (req, res) => {
+  throw new ApiError(400, "Google login is currently disabled");
+  /*
   const { token } = req.body;
 
   if (!token || typeof token !== "string") {
@@ -65,6 +68,7 @@ const userGoogleSignUp = catchAsync(async (req, res) => {
       profilePhoto: user.profilePhoto,
     },
   });
+  */
 });
 
 module.exports = {

@@ -41,11 +41,16 @@ const inventorySchema = new mongoose.Schema(
 
 const shippingSchema = new mongoose.Schema(
   {
-    productWeight: Number, // in grams
+    productWeight: Number,
     dimension: {
-      length: Number, // in cm
+      length: Number,
       width: Number,
       height: Number,
+    },
+    hsnCode: {
+      type: String,
+      trim: true,
+      default: "",
     },
     shippingClass: {
       type: String,
@@ -58,6 +63,42 @@ const shippingSchema = new mongoose.Schema(
 
 
 
+const variantShippingSchema = new mongoose.Schema(
+  {
+    productWeight: {
+      type: Number,
+      min: 0,
+    },
+
+    dimension: {
+      length: {
+        type: Number,
+        min: 0,
+      },
+      width: {
+        type: Number,
+        min: 0,
+      },
+      height: {
+        type: Number,
+        min: 0,
+      },
+    },
+
+    hsnCode: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    shippingClass: {
+      type: String,
+      enum: ["standard", "express", "freeShipping"],
+      default: "standard",
+    },
+  },
+  { _id: false }
+);
+
 // 🎨 Unit-Only Variant Schema
 const unitOnlyVariantSchema = new mongoose.Schema(
   {
@@ -67,6 +108,7 @@ const unitOnlyVariantSchema = new mongoose.Schema(
     productCode: String,
     variantImages: { type: [String], default: [] },
     price: priceSchema,
+    shipping: variantShippingSchema,
     _id: { type: String, default: uuidv4 },
   },
   { _id: false }

@@ -543,6 +543,35 @@ const createProduct = async (
             variantImagesByIndex[
               key
             ] || [];
+
+          if (variantItem.shipping) {
+            variantItem.shipping = {
+              productWeight:
+                variantItem.shipping.productWeight !== undefined &&
+                variantItem.shipping.productWeight !== ""
+                  ? Number(variantItem.shipping.productWeight)
+                  : 0,
+              dimension: {
+                length:
+                  variantItem.shipping.dimension?.length !== undefined &&
+                  variantItem.shipping.dimension?.length !== ""
+                    ? Number(variantItem.shipping.dimension.length)
+                    : 0,
+                width:
+                  variantItem.shipping.dimension?.width !== undefined &&
+                  variantItem.shipping.dimension?.width !== ""
+                    ? Number(variantItem.shipping.dimension.width)
+                    : 0,
+                height:
+                  variantItem.shipping.dimension?.height !== undefined &&
+                  variantItem.shipping.dimension?.height !== ""
+                    ? Number(variantItem.shipping.dimension.height)
+                    : 0,
+              },
+              hsnCode: (variantItem.shipping.hsnCode || "").trim(),
+              shippingClass: variantItem.shipping.shippingClass || "standard",
+            };
+          }
         }
       );
     }
@@ -696,8 +725,35 @@ const createProduct = async (
   }
 
   if (shipping) {
-    productData.shipping =
-      safeParse(shipping);
+    const parsedShipping = safeParse(shipping);
+    if (parsedShipping) {
+      productData.shipping = {
+        productWeight:
+          parsedShipping.productWeight !== undefined &&
+          parsedShipping.productWeight !== ""
+            ? Number(parsedShipping.productWeight)
+            : 0,
+        dimension: {
+          length:
+            parsedShipping.dimension?.length !== undefined &&
+            parsedShipping.dimension?.length !== ""
+              ? Number(parsedShipping.dimension.length)
+              : 0,
+          width:
+            parsedShipping.dimension?.width !== undefined &&
+            parsedShipping.dimension?.width !== ""
+              ? Number(parsedShipping.dimension.width)
+              : 0,
+          height:
+            parsedShipping.dimension?.height !== undefined &&
+            parsedShipping.dimension?.height !== ""
+              ? Number(parsedShipping.dimension.height)
+              : 0,
+        },
+        hsnCode: (parsedShipping.hsnCode || "").trim(),
+        shippingClass: parsedShipping.shippingClass || "standard",
+      };
+    }
   }
 
   if (linkProducts) {
@@ -919,8 +975,7 @@ const getProductById = async (
   req,
   res
 ) => {
-  const { id } =
-    req.params;
+  const id = req.params._id || req.params.id;
 
   const product =
     await Product.findById(
@@ -948,8 +1003,7 @@ const updateProduct = async (
   req,
   res
 ) => {
-  const { _id } =
-    req.params;
+  const _id = req.params._id || req.params.id;
 
   const updateData =
     req.body;
@@ -1613,9 +1667,12 @@ const updateProduct = async (
         ];
 
       const baseVariant =
-        existingVariants[i]
-          ?.toObject?.() ||
-        {};
+        (incomingVariants[i]?._id
+          ? existingVariants.find(
+              (v) => String(v._id) === String(incomingVariants[i]._id)
+            )
+          : existingVariants[i]
+        )?.toObject?.() || {};
 
       const {
         variantImages:
@@ -1633,6 +1690,35 @@ const updateProduct = async (
         variantImages:
           finalVariantImages,
       };
+
+      if (cleanIncomingVariant.shipping) {
+        variantToSave.shipping = {
+          productWeight:
+            cleanIncomingVariant.shipping.productWeight !== undefined &&
+            cleanIncomingVariant.shipping.productWeight !== ""
+              ? Number(cleanIncomingVariant.shipping.productWeight)
+              : 0,
+          dimension: {
+            length:
+              cleanIncomingVariant.shipping.dimension?.length !== undefined &&
+              cleanIncomingVariant.shipping.dimension?.length !== ""
+                ? Number(cleanIncomingVariant.shipping.dimension.length)
+                : 0,
+            width:
+              cleanIncomingVariant.shipping.dimension?.width !== undefined &&
+              cleanIncomingVariant.shipping.dimension?.width !== ""
+                ? Number(cleanIncomingVariant.shipping.dimension.width)
+                : 0,
+            height:
+              cleanIncomingVariant.shipping.dimension?.height !== undefined &&
+              cleanIncomingVariant.shipping.dimension?.height !== ""
+                ? Number(cleanIncomingVariant.shipping.dimension.height)
+                : 0,
+          },
+          hsnCode: (cleanIncomingVariant.shipping.hsnCode || "").trim(),
+          shippingClass: cleanIncomingVariant.shipping.shippingClass || "standard",
+        };
+      }
 
       if (
         !variantToSave.price
@@ -1685,7 +1771,6 @@ const updateProduct = async (
   // ==========================================================
   [
     "inventory",
-    "shipping",
     "linkProducts",
     "sareeAttributes",
     "mensKidsAttributes",
@@ -1704,6 +1789,38 @@ const updateProduct = async (
       }
     }
   );
+
+  if (updateData.shipping !== undefined) {
+    const parsedShipping = safeParse(updateData.shipping);
+    if (parsedShipping) {
+      updateFields.shipping = {
+        productWeight:
+          parsedShipping.productWeight !== undefined &&
+          parsedShipping.productWeight !== ""
+            ? Number(parsedShipping.productWeight)
+            : 0,
+        dimension: {
+          length:
+            parsedShipping.dimension?.length !== undefined &&
+            parsedShipping.dimension?.length !== ""
+              ? Number(parsedShipping.dimension.length)
+              : 0,
+          width:
+            parsedShipping.dimension?.width !== undefined &&
+            parsedShipping.dimension?.width !== ""
+              ? Number(parsedShipping.dimension.width)
+              : 0,
+          height:
+            parsedShipping.dimension?.height !== undefined &&
+            parsedShipping.dimension?.height !== ""
+              ? Number(parsedShipping.dimension.height)
+              : 0,
+        },
+        hsnCode: (parsedShipping.hsnCode || "").trim(),
+        shippingClass: parsedShipping.shippingClass || "standard",
+      };
+    }
+  }
 
   // ==========================================================
   // SAVE UPDATE

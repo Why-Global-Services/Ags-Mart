@@ -27,8 +27,9 @@ app.use(
   })
 );
 
-app.use(passport.initialize());
-app.use(passport.session());
+// Passport temporarily disabled
+// app.use(passport.initialize());
+// app.use(passport.session());
 
 app.use(cors());
 

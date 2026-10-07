@@ -2,7 +2,8 @@ const config = require("../../../config/config");
 const { cart } = require("../../../models/cart.model");
 const { orderDetailsModel } = require("../../../models/orders.model");
 const { paymentDetailsModel } = require("../../../models/payment.model");
-const stripe = require("stripe")(config.stripe.secretKey);
+// Stripe is temporarily disabled
+// const stripe = require("stripe")(config.stripe.secretKey);
 const mongoose = require("mongoose");
 
 const createStripeCheckoutSession = async (
@@ -12,7 +13,8 @@ const createStripeCheckoutSession = async (
   userOrderId
 ) => {
   // userOrderId is UUID and orderId is Generated ID
-
+  return { error: "Stripe payment is currently unavailable" };
+  /*
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -52,9 +54,15 @@ const createStripeCheckoutSession = async (
     console.error(err);
     return { error: "Checkout session creation failed" };
   }
+  */
 };
 
 const verifyStripePayment = async (req, res) => {
+  return {
+    success: false,
+    message: "Stripe payment is currently unavailable",
+  };
+  /*
   const { session_id } = req.query;
 
   const MAX_RETRIES = 3;
@@ -126,6 +134,7 @@ const verifyStripePayment = async (req, res) => {
       }
     }
   }
+  */
 };
 
 module.exports = {

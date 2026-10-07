@@ -20,29 +20,29 @@ const envVarsSchema = Joi.object()
     JWT_VERIFY_EMAIL_EXPIRATION_MINUTES: Joi.number()
       .default(10)
       .description("minutes after which verify email token expires"),
-    SMTP_HOST: Joi.string().description("server that will send the emails"),
-    SMTP_PORT: Joi.number().description("port to connect to the email server"),
-    SMTP_USERNAME: Joi.string().description("username for email server"),
-    SMTP_PASSWORD: Joi.string().description("password for email server"),
-    EMAIL_FROM: Joi.string().description(
-      "the from field in the emails sent by the app"
-    ),
+    // SMTP / Email (DISABLED)
+    // SMTP_HOST: Joi.string().description("server that will send the emails"),
+    // SMTP_PORT: Joi.number().description("port to connect to the email server"),
+    // SMTP_USERNAME: Joi.string().description("username for email server"),
+    // SMTP_PASSWORD: Joi.string().description("password for email server"),
+    // EMAIL_FROM: Joi.string().description(
+    //   "the from field in the emails sent by the app"
+    // ),
     ENCRYPTION_SECRETKEY: Joi.string().description("Encryption Decryption Key"),
 
-    GOOGLE_CLIENT_ID: Joi.string()
-      .required()
-      .description("Google OAuth Client ID"),
-    GOOGLE_CLIENT_SECRET: Joi.string()
-      .required()
-      .description("Google OAuth Secret"),
-    GOOGLE_CALLBACK_URL: Joi.string()
-      .required()
-      .description("Google OAuth callback URL"),
+    // Google OAuth (DISABLED)
+    // GOOGLE_CLIENT_ID: Joi.string()
+    //   .description("Google OAuth Client ID"),
+    // GOOGLE_CLIENT_SECRET: Joi.string()
+    //   .description("Google OAuth Secret"),
+    // GOOGLE_CALLBACK_URL: Joi.string()
+    //   .description("Google OAuth callback URL"),
 
     RAZORPAY_KEY: Joi.string().description("razorpay key id"),
     RAZORPAY_SECRET: Joi.string().description("razorpay secret key"),
-    STRIPE_PUBLISHABLE_KEY: Joi.string().description("Stripe publishable key"),
-    STRIPE_SECRET_KEY: Joi.string().description("Stripe secret key"),
+    // STRIPE (DISABLED)
+    // STRIPE_PUBLISHABLE_KEY: Joi.string().description("Stripe publishable key"),
+    // STRIPE_SECRET_KEY: Joi.string().description("Stripe secret key"),
   })
   .unknown();
 
@@ -68,37 +68,41 @@ module.exports = {
       envVars.JWT_RESET_PASSWORD_EXPIRATION_MINUTES,
     verifyEmailExpirationMinutes: envVars.JWT_VERIFY_EMAIL_EXPIRATION_MINUTES,
   },
-  email: {
-    smtp: {
-      host: envVars.SMTP_HOST,
-      port: envVars.SMTP_PORT,
-      auth: {
-        user: envVars.SMTP_USERNAME,
-        pass: envVars.SMTP_PASSWORD,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    },
-    adminEmail: envVars.ADMIN_EMAIL,
-  },
+  // EMAIL / SMTP (DISABLED)
+  // email: {
+  //   smtp: {
+  //     host: envVars.SMTP_HOST,
+  //     port: envVars.SMTP_PORT,
+  //     auth: {
+  //       user: envVars.SMTP_USERNAME,
+  //       pass: envVars.SMTP_PASSWORD,
+  //     },
+  //     tls: {
+  //       rejectUnauthorized: false,
+  //     },
+  //   },
+  //   adminEmail: envVars.ADMIN_EMAIL,
+  // },
 
-  google: {
-    clientId: envVars.GOOGLE_CLIENT_ID,
-    clientSecret: envVars.GOOGLE_CLIENT_SECRET,
-    callbackUrl: envVars.GOOGLE_CALLBACK_URL,
-  },
+  // GOOGLE OAUTH (DISABLED)
+  // google: {
+  //   clientId: envVars.GOOGLE_CLIENT_ID,
+  //   clientSecret: envVars.GOOGLE_CLIENT_SECRET,
+  //   callbackUrl: envVars.GOOGLE_CALLBACK_URL,
+  // },
 
   razorpay: {
     keyId: envVars.RAZORPAY_KEY,
     secretKey: envVars.RAZORPAY_SECRET,
   },
-  stripe: {
-    keyId: envVars.STRIPE_PUBLISHABLE_KEY,
-    secretKey: envVars.STRIPE_SECRET_KEY,
-  },
-  payPal: {
-    clientId: envVars.PAYPAL_CLIENT_SECRET,
-    clientSecret: envVars.CLIENT_ID,
-  },
+  // STRIPE (DISABLED)
+  // stripe: {
+  //   keyId: envVars.STRIPE_PUBLISHABLE_KEY,
+  //   secretKey: envVars.STRIPE_SECRET_KEY,
+  // },
+  // PAYPAL (DISABLED)
+  // payPal: {
+  //   clientId: envVars.PAYPAL_CLIENT_SECRET,
+  //   clientSecret: envVars.CLIENT_ID,
+  // },
 };
