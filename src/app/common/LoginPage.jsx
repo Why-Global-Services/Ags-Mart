@@ -53,7 +53,7 @@ const pathname = usePathname();
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape") {
-        onClose();
+        if (typeof onClose === "function") onClose();
       }
     };
 
@@ -66,10 +66,15 @@ const pathname = usePathname();
 
 
   useEffect(() => {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("redirectAfterLogin", pathname);
-  }
-}, [pathname]);
+    if (typeof window !== "undefined") {
+      // Do not overwrite redirectAfterLogin if already set (e.g., preserved during session expiry with query params)
+      const existing = localStorage.getItem("redirectAfterLogin");
+      if (!existing) {
+        const fullCurrentPath = window.location.pathname + window.location.search;
+        localStorage.setItem("redirectAfterLogin", fullCurrentPath || pathname || "/");
+      }
+    }
+  }, [pathname]);
 
   /* ================= HELPERS ================= */
 
@@ -118,17 +123,23 @@ const pathname = usePathname();
       localStorage.setItem("token", res.token);
       localStorage.setItem("user", JSON.stringify(res.user));
 
-      login(res.user);
+      login(res.user, res.token);
 
-      await mergeCart();
-      await mergeWishlist();
+      try {
+        await mergeCart();
+        await mergeWishlist();
+      } catch (mergeErr) {
+        console.warn("Cart/wishlist merge warning:", mergeErr);
+      }
 
       const redirectPath =
         localStorage.getItem("redirectAfterLogin") || "/";
 
       localStorage.removeItem("redirectAfterLogin");
 
-      onClose();
+      if (typeof onClose === "function") {
+        onClose();
+      }
       router.push(redirectPath); // 🔥 same page redirect
     }
   } catch (err) {
@@ -287,7 +298,9 @@ const pathname = usePathname();
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 backdrop-blur-sm p-4"
-      onClick={onClose}
+      onClick={() => {
+        if (typeof onClose === "function") onClose();
+      }}
     >
       {/* MODAL — two-column layout */}
       <div
@@ -317,7 +330,9 @@ const pathname = usePathname();
           {/* CLOSE button */}
           <button
           type="button"
-            onClick={onClose}
+            onClick={() => {
+              if (typeof onClose === "function") onClose();
+            }}
             className="absolute top-3 right-3 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-800 text-lg font-bold transition-colors z-10"
           >
             ✕

@@ -33,7 +33,7 @@ const Review = ({
 }) => {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, user, openLoginModal } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -595,8 +595,9 @@ const Review = ({
   };
 
   const requireLogin = (actionCallback) => {
-    if (!isLoggedIn) {
-      setShowLoginModal(true);
+    if (!isLoggedIn || !user) {
+      if (typeof openLoginModal === "function") openLoginModal();
+      else setShowLoginModal(true);
       return false;
     }
     return actionCallback();
@@ -605,8 +606,9 @@ const Review = ({
   const handlePayNow = async () => {
     console.log("first");
     if (loading || isSubmittingRef.current) return;
-    if (!isLoggedIn) {
-      setShowLoginModal(true);
+    if (!isLoggedIn || !user) {
+      if (typeof openLoginModal === "function") openLoginModal();
+      else setShowLoginModal(true);
       return false;
     }
     const addressValidationError = validateAddressSelection();
@@ -643,7 +645,14 @@ const Review = ({
       }
     } catch (error) {
       console.error("Payment error:", error);
-      setPaymentError(error.message || "Payment failed. Please try again.");
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        setPaymentError(error.message || "Payment failed. Please try again.");
+      }
       isSubmittingRef.current = false;
       setLoading(false);
     }

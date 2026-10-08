@@ -15,7 +15,7 @@ const Checkout = () => {
   const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState(null);
   const [selectedBillingAddress, setSelectedBillingAddress] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAuthModalOpen } = useAuth();
   
   const isBuyNow = searchParams.get('buyNow') === 'true';
   const urlProductId = searchParams.get('productId');
@@ -72,7 +72,14 @@ if (authLoading) {
 }
 
 if (!user) {
-  return <AuthPage />;
+  if (isAuthModalOpen) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-700" />
+      </div>
+    );
+  }
+  return <AuthPage onClose={() => router.push('/')} />;
 }
 
   if (loading) {

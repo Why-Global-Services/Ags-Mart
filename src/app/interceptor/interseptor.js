@@ -1,25 +1,109 @@
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 const apiInstance = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     "https://agsmartapi.whydev.in/v1/user",
-        // "http://localhost:5001/v1/user",
-
 });
 
-// ✅ Public routes that don't need token
-const publicRoutes = ["/user/register", "/user/login"];
+// ✅ Public authentication routes that NEVER require a token or session-expiry logout on failure
+export const isPublicAuthRoute = (url = "") => {
+  if (!url) return false;
+  const cleanUrl = url.toLowerCase().split("?")[0];
+  const publicAuthEndpoints = [
+    "/login",
+    "/user/login",
+    "/register",
+    "/user/register",
+    "/forgot-password",
+    "/user/forgot-password",
+    "/reset-password",
+    "/user/reset-password",
+    "/otp",
+    "/user/otp",
+    "/otpverify",
+    "/user/otpverify",
+  ];
+  return publicAuthEndpoints.some((endpoint) => cleanUrl.endsWith(endpoint) || cleanUrl.includes(endpoint));
+};
+
+// ✅ Helper to check if JWT token is expired (exp in seconds vs Date.now() in ms)
+export const isTokenExpired = (token) => {
+  if (!token || typeof token !== "string") return true;
+  try {
+    const decoded = jwtDecode(token);
+    if (!decoded || typeof decoded.exp !== "number") return false;
+    return decoded.exp * 1000 <= Date.now();
+  } catch (error) {
+    // Malformed/invalid token treated as expired
+    return true;
+  }
+};
+
+// ✅ Guard against infinite redirect loops and duplicate expiry handling
+let sessionExpiryHandled = false;
+
+export const resetSessionExpiryGuard = () => {
+  sessionExpiryHandled = false;
+};
+
+// ✅ Central session expiry trigger: clears auth, preserves current URL, dispatches browser event
+export const triggerSessionExpired = () => {
+  if (typeof window === "undefined") return;
+  if (sessionExpiryHandled) return;
+  sessionExpiryHandled = true;
+
+  try {
+    // Preserve current URL (including search params) for after login
+    const currentPath = window.location.pathname + window.location.search;
+    if (!localStorage.getItem("redirectAfterLogin") && currentPath) {
+      localStorage.setItem("redirectAfterLogin", currentPath);
+    }
+
+    // Immediately remove expired token and user (do not clear guest cart/wishlist!)
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    // Dispatch custom browser event to notify AuthContext without circular dependencies
+    window.dispatchEvent(
+      new CustomEvent("auth:session-expired", {
+        detail: {
+          expiredAt: Date.now(),
+          redirectPath: currentPath,
+        },
+      })
+    );
+  } finally {
+    // Reset guard after short debounce window in case user logs in or page changes
+    setTimeout(() => {
+      sessionExpiryHandled = false;
+    }, 2500);
+  }
+};
 
 // ✅ Request Interceptor
 apiInstance.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      const authToken = localStorage.getItem("token");
+      const isAuthRoute = isPublicAuthRoute(config.url);
 
-      // Only add token if it's not a public route
-      if (authToken && !publicRoutes.includes(config.url)) {
-        config.headers.Authorization = `Bearer ${authToken}`;
+      if (!isAuthRoute) {
+        const authToken = localStorage.getItem("token");
+
+        if (authToken) {
+          // If token is already expired locally, do not send it — trigger session expiry immediately
+          if (isTokenExpired(authToken)) {
+            triggerSessionExpired();
+            if (config.headers) {
+              delete config.headers.Authorization;
+            }
+            return Promise.reject(new Error("JWT token expired"));
+          } else {
+            config.headers = config.headers || {};
+            config.headers.Authorization = `Bearer ${authToken}`;
+          }
+        }
       }
     }
 
@@ -37,6 +121,24 @@ apiInstance.interceptors.response.use(
     return response.data;
   },
   (error) => {
+    if (typeof window !== "undefined") {
+      const status = error.response?.status;
+      const requestUrl = error.config?.url || "";
+      const isAuthRoute = isPublicAuthRoute(requestUrl);
+
+      // ONLY handle 401/403 as session expiry when:
+      // 1. Not a public auth route (e.g., wrong password on /login must NOT trigger session expiry)
+      // 2. The request was authenticated (token was present in headers or in localStorage)
+      const hadAuthHeader = Boolean(
+        error.config?.headers?.Authorization || error.config?.headers?.authorization
+      );
+      const hadToken = Boolean(localStorage.getItem("token"));
+
+      if ((status === 401 || status === 403) && !isAuthRoute && (hadAuthHeader || hadToken)) {
+        triggerSessionExpired();
+      }
+    }
+
     return Promise.reject(error);
   }
 );
@@ -400,11 +502,11 @@ export const deleteWishlist = async (productId, variantId) => {
 };
 
 export const getProductDetails = async (_id, token) => {
-  const res = await apiInstance.get(`/Products/${_id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const headers = {};
+  if (token && !isTokenExpired(token)) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const res = await apiInstance.get(`/Products/${_id}`, { headers });
   return res;
 };
 
@@ -627,9 +729,9 @@ export const createUserId = async (id) => {
 
 export const mergeCart = async () => {
   const guestId = localStorage.getItem("guestId");
-  const token = localStorage.getItem("token")
+  const token = localStorage.getItem("token");
 
-  if (!guestId) return;
+  if (!guestId || !token || isTokenExpired(token)) return;
 
   return apiInstance.post(
     "/mergeCart",
@@ -650,7 +752,7 @@ export const mergeWishlist = async () => {
   const guestId = localStorage.getItem("guestId");
   const token = localStorage.getItem("token");
 
-  if (!guestId || !token) return;
+  if (!guestId || !token || isTokenExpired(token)) return;
 
   return apiInstance.post(
     "/mergeWish",

@@ -1,30 +1,23 @@
 "use client";
 
-import { AuthProvider } from "../../context/AuthContext";
+import { AuthProvider, useAuth } from "../../context/AuthContext";
 import { Provider } from "react-redux";
 import { store } from "../store";
-// Google OAuth is temporarily disabled
-// import { GoogleOAuthProvider } from "@react-oauth/google";
+import AuthPage from "../common/LoginPage";
+
+function GlobalAuthModal() {
+  const { isAuthModalOpen, closeLoginModal } = useAuth();
+  if (!isAuthModalOpen) return null;
+  return <AuthPage onClose={closeLoginModal} />;
+}
 
 export default function ClientProviders({ children }) {
-  // const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-  const content = (
+  return (
     <AuthProvider>
       <Provider store={store}>
         {children}
+        <GlobalAuthModal />
       </Provider>
     </AuthProvider>
   );
-
-  // Google OAuth is disabled
-  // if (clientId) {
-  //   return (
-  //     <GoogleOAuthProvider clientId={clientId}>
-  //       {content}
-  //     </GoogleOAuthProvider>
-  //   );
-  // }
-
-  return content;
 }

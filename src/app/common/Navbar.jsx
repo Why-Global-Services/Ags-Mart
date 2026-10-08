@@ -59,14 +59,13 @@ const TopNavbar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   const searchRef = useRef(null);
   const mobileSearchRef = useRef(null);
   const profileDropdownRef = useRef(null);
 
-  const { user, logout } = useAuth();
+  const { user, logout, openLoginModal } = useAuth();
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -447,7 +446,7 @@ const TopNavbar = () => {
                   </>
                 ) : (
                   <button
-                    onClick={() => setIsAuthModalOpen(true)}
+                    onClick={openLoginModal}
                     className="px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-2.5 text-white rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap bg-bgvariant-1 hover:bg-bgvariant-4 shadow-lg hover:shadow-xl transition"
                   >
                     Sign In
@@ -567,10 +566,6 @@ const TopNavbar = () => {
           </AnimatePresence>
         </div>
       </header>
-
-      {isAuthModalOpen && (
-        <AuthPage onClose={() => setIsAuthModalOpen(false)} />
-      )}
     </>
   );
 };

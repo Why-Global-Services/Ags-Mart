@@ -204,27 +204,39 @@ const Shipping = ({ onAddressUpdate }) => {
       checkoutAddress: "deliveryAddress",
     };
 
-    const res = editingDeliveryId
-      ? await editAddress(editingDeliveryId, formattedData)
-      : await postAddress(formattedData);
+    try {
+      const res = editingDeliveryId
+        ? await editAddress(editingDeliveryId, formattedData)
+        : await postAddress(formattedData);
 
-    console.log("Add/Edit Delivery Response:", res);
+      console.log("Add/Edit Delivery Response:", res);
 
-    const success = res?.success === true;
+      const success = res?.success === true;
 
-    if (success) {
-      showToast.success(
-        editingDeliveryId
-          ? "Delivery address updated successfully"
-          : "Delivery address added successfully"
-      );
+      if (success) {
+        showToast.success(
+          editingDeliveryId
+            ? "Delivery address updated successfully"
+            : "Delivery address added successfully"
+        );
 
-      await fetchAddresses();
-      handleDeliveryCancel();
-    } else {
-      showToast.error(
-        res?.message || "Failed to save address"
-      );
+        await fetchAddresses();
+        handleDeliveryCancel();
+      } else {
+        showToast.error(
+          res?.message || "Failed to save address"
+        );
+      }
+    } catch (error) {
+      console.error("Save delivery address error:", error);
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showToast.error(error.message || "Failed to save address");
+      }
     }
   };
 
@@ -241,29 +253,41 @@ const Shipping = ({ onAddressUpdate }) => {
 
   // ------------------ DELETE DELIVERY ------------------
   const handleDeliveryDelete = async (id) => {
-    const res = await deleteAddress(id);
+    try {
+      const res = await deleteAddress(id);
 
-    if (
-      res?.success === true ||
-      res?.message?.includes("deleted")
-    ) {
-      showToast.success(
-        "Delivery address deleted successfully"
-      );
+      if (
+        res?.success === true ||
+        res?.message?.includes("deleted")
+      ) {
+        showToast.success(
+          "Delivery address deleted successfully"
+        );
 
-      await fetchAddresses();
+        await fetchAddresses();
 
-      if (selectedDeliveryAddress === id) {
-        setSelectedDeliveryAddress(null);
+        if (selectedDeliveryAddress === id) {
+          setSelectedDeliveryAddress(null);
 
-        localStorage.removeItem(
-          "selectedDeliveryAddress"
+          localStorage.removeItem(
+            "selectedDeliveryAddress"
+          );
+        }
+      } else {
+        showToast.error(
+          res?.message || "Failed to delete address"
         );
       }
-    } else {
-      showToast.error(
-        res?.message || "Failed to delete address"
-      );
+    } catch (error) {
+      console.error("Delete delivery address error:", error);
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showToast.error(error.message || "Failed to delete address");
+      }
     }
   };
 
@@ -352,30 +376,42 @@ const Shipping = ({ onAddressUpdate }) => {
       checkoutAddress: "billingAddress",
     };
 
-    const res = editingBillingId
-      ? await editAddress(
-          editingBillingId,
-          formattedData
-        )
-      : await postAddress(formattedData);
+    try {
+      const res = editingBillingId
+        ? await editAddress(
+            editingBillingId,
+            formattedData
+          )
+        : await postAddress(formattedData);
 
-    console.log("Add/Edit Billing Response:", res);
+      console.log("Add/Edit Billing Response:", res);
 
-    const success = res?.success === true;
+      const success = res?.success === true;
 
-    if (success) {
-      showToast.success(
-        editingBillingId
-          ? "Billing address updated successfully"
-          : "Billing address added successfully"
-      );
+      if (success) {
+        showToast.success(
+          editingBillingId
+            ? "Billing address updated successfully"
+            : "Billing address added successfully"
+        );
 
-      await fetchAddresses();
-      handleBillingCancel();
-    } else {
-      showToast.error(
-        res?.message || "Failed to save address"
-      );
+        await fetchAddresses();
+        handleBillingCancel();
+      } else {
+        showToast.error(
+          res?.message || "Failed to save address"
+        );
+      }
+    } catch (error) {
+      console.error("Save billing address error:", error);
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showToast.error(error.message || "Failed to save address");
+      }
     }
   };
 
@@ -392,29 +428,41 @@ const Shipping = ({ onAddressUpdate }) => {
 
   // ------------------ DELETE BILLING ------------------
   const handleBillingDelete = async (id) => {
-    const res = await deleteAddress(id);
+    try {
+      const res = await deleteAddress(id);
 
-    if (
-      res?.success === true ||
-      res?.message?.includes("deleted")
-    ) {
-      showToast.success(
-        "Billing address deleted successfully"
-      );
+      if (
+        res?.success === true ||
+        res?.message?.includes("deleted")
+      ) {
+        showToast.success(
+          "Billing address deleted successfully"
+        );
 
-      await fetchAddresses();
+        await fetchAddresses();
 
-      if (selectedBillingAddress === id) {
-        setSelectedBillingAddress(null);
+        if (selectedBillingAddress === id) {
+          setSelectedBillingAddress(null);
 
-        localStorage.removeItem(
-          "selectedBillingAddress"
+          localStorage.removeItem(
+            "selectedBillingAddress"
+          );
+        }
+      } else {
+        showToast.error(
+          res?.message || "Failed to delete address"
         );
       }
-    } else {
-      showToast.error(
-        res?.message || "Failed to delete address"
-      );
+    } catch (error) {
+      console.error("Delete billing address error:", error);
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showToast.error(error.message || "Failed to delete address");
+      }
     }
   };
 

@@ -65,7 +65,14 @@ const Addresses = () => {
       }
     } catch (error) {
       console.error("Error fetching addresses:", error);
-      showNotification("Failed to fetch addresses", "error");
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showNotification("Failed to fetch addresses", "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -157,7 +164,14 @@ const Addresses = () => {
       resetForm();
     } catch (error) {
       console.error("Error saving address:", error);
-      showNotification(error.message || "Failed to save address", "error");
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showNotification(error.message || "Failed to save address", "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -178,7 +192,14 @@ const Addresses = () => {
       showNotification("Address deleted successfully");
     } catch (error) {
       console.error("Error deleting address:", error);
-      showNotification("Failed to delete address", "error");
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showNotification("Failed to delete address", "error");
+      }
     } finally {
       setLoading(false);
       setIsDeleteModalOpen(false);

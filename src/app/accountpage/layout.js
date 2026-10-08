@@ -8,6 +8,7 @@ import { FiLogOut } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { VscSignOut } from "react-icons/vsc";
 import { useAuth } from "@/context/AuthContext";
+import AuthPage from "../common/LoginPage";
 
 export default function MyAccountLayout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -15,7 +16,7 @@ export default function MyAccountLayout({ children }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, loading, isAuthModalOpen } = useAuth();
 
   const accountDetails = {
     name: user?.name || "User",
@@ -45,11 +46,29 @@ export default function MyAccountLayout({ children }) {
   }, [pathname]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    logout();
     router.push('/');
     setShowLogoutConfirm(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-700" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    if (isAuthModalOpen) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-700" />
+        </div>
+      );
+    }
+    return <AuthPage onClose={() => router.push('/')} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-3 md:p-6 lg:p-8">
