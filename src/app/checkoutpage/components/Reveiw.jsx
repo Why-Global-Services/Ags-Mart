@@ -15,10 +15,11 @@ import {
 } from "lucide-react";
 import {
   getCheckout,
+  getShippingEstimate,
   Paymentverification,
   placeOrder,
+  verifyCoupon,
 } from "@/app/interceptor/interseptor";
-import { verifyCoupon } from "@/app/interceptor/interseptor";
 import { gaEvent } from "@/app/lib/ga";
 import { showToast } from "@/app/utils/toast";
 import { useAuth } from "@/context/AuthContext";
@@ -30,6 +31,7 @@ const Review = ({
   isBuyNow,
   deliveryAddressId,
   billingAddressId,
+  deliveryPincode,
 }) => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -49,6 +51,9 @@ const Review = ({
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [freeProductInfo, setFreeProductInfo] = useState(null);
   const [shipping, setShipping] = useState(50);
+  const [shippingQuote, setShippingQuote] = useState(null);
+  const [isFreeShipping, setIsFreeShipping] = useState(false);
+  const [shippingLoading, setShippingLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [showLoginModal, setShowLoginModal] = useState(false);
   const[showAuth, setShowAuth]=useState(false)
@@ -195,7 +200,7 @@ const Review = ({
       items: mappedItems,
       totalPrice: subtotal,
       initialSubtotal: subtotal,
-      shipping: subtotal > 499 ? 0 : 50,
+      shipping: 50,
       coupons: [],
     };
   }, []);
@@ -265,6 +270,7 @@ const Review = ({
         totalPrice: subtotal,
         initialSubtotal: subtotal,
         shipping: data?.pricing?.shipping ?? 50,
+        quote: data?.pricing?.quote || null,
         coupons: mappedCoupons,
       };
     } catch (err) {
@@ -274,6 +280,8 @@ const Review = ({
         totalPrice: 0,
         initialSubtotal: 0,
         shipping: 50,
+        isFreeShipping: false,
+        quote: null,
         coupons: [],
       };
     }
@@ -291,6 +299,8 @@ const Review = ({
           setTotalPrice(processedData.totalPrice);
           setInitialSubtotal(processedData.initialSubtotal);
           setShipping(processedData.shipping);
+          setIsFreeShipping(Boolean(processedData.isFreeShipping));
+          if (processedData.quote) setShippingQuote(processedData.quote);
           setAvailableCoupons(processedData.coupons);
         }
       } else {
@@ -300,6 +310,8 @@ const Review = ({
           setTotalPrice(processedData.totalPrice);
           setInitialSubtotal(processedData.initialSubtotal);
           setShipping(processedData.shipping);
+          setIsFreeShipping(Boolean(processedData.isFreeShipping));
+          if (processedData.quote) setShippingQuote(processedData.quote);
           setAvailableCoupons(processedData.coupons);
         }
       }
@@ -311,6 +323,85 @@ const Review = ({
       isMounted = false;
     };
   }, [isBuyNow, buyNowItem, processBuyNowData, processCartData]);
+
+  // Live Shiprocket dynamic shipping rate calculation
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchLiveShipping = async () => {
+      const activePincode =
+        deliveryPincode ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("selectedDeliveryPincode")
+          : null);
+      const activeAddressId =
+        deliveryAddressId ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("selectedDeliveryAddress")
+          : null);
+
+      if (!activePincode && !activeAddressId) return;
+      if (!totalPrice && !initialSubtotal) return;
+
+      const currentSubtotal = totalPrice || initialSubtotal;
+      const currentDiscount = couponDiscount || 0;
+      const subtotalAfterCoupon = Math.max(0, currentSubtotal - currentDiscount);
+
+
+
+      try {
+        setShippingLoading(true);
+        const estimatePayload = {
+          deliveryPincode: activePincode,
+          deliveryAddressId: activeAddressId,
+          paymentMethod,
+          couponCode: appliedCoupons[0]?.isValid ? appliedCoupons[0].code : null,
+          isBuyNow,
+          buyNowItem: isBuyNow ? buyNowItem : null,
+          cartItems: !isBuyNow
+            ? items.map((it) => ({
+                productId: it._id,
+                variantId: it.variantId || null,
+                quantity: it.quantity || 1,
+                price: it.selectedVariant?.price?.salePrice || 0,
+              }))
+            : null,
+          subtotal: currentSubtotal,
+        };
+
+        const res = await getShippingEstimate(estimatePayload);
+        if (!isCancelled && res?.success && res?.data) {
+          const rateData = res.data;
+          setShipping(rateData.shipping);
+          setIsFreeShipping(Boolean(rateData.isFreeShipping));
+          setShippingQuote(rateData.quote);
+        }
+      } catch (err) {
+        console.warn("Dynamic shipping rate request failed:", err);
+      } finally {
+        if (!isCancelled) {
+          setShippingLoading(false);
+        }
+      }
+    };
+
+    fetchLiveShipping();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    deliveryPincode,
+    deliveryAddressId,
+    paymentMethod,
+    appliedCoupons,
+    totalPrice,
+    initialSubtotal,
+    couponDiscount,
+    isBuyNow,
+    buyNowItem,
+    items,
+  ]);
 
 
   const total = useMemo(() => {
@@ -396,17 +487,17 @@ const Review = ({
 
     if (isBuyNow) {
       setTotalPrice(initialSubtotal);
-      setShipping(50);
     } else {
       try {
         const res = await getCheckout();
         const data = res?.data ?? res;
 
         const backendSubtotal = data?.pricing?.subtotal ?? 0;
-        const backendShipping = data?.pricing?.shipping ?? 0;
+        const backendShipping = data?.pricing?.shipping ?? 50;
 
         setTotalPrice(backendSubtotal);
         setShipping(backendShipping);
+        if (data?.pricing?.quote) setShippingQuote(data.pricing.quote);
       } catch (err) {
         console.log("Reset failed:", err);
       }
@@ -1142,10 +1233,30 @@ const Review = ({
             </div>
           )}
 
-          <div className="flex justify-between text-xs md:text-sm text-gray-700 font-[Poppins]">
-            <span>Shipping</span>
-            <span>₹{shipping.toFixed(2)}</span>
+          <div className="flex justify-between items-center text-xs md:text-sm text-gray-700 font-[Poppins]">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span>Shipping</span>
+              {shippingLoading && (
+                <span className="text-[10px] text-emerald-600 animate-pulse font-normal">
+                  (calculating live rate...)
+                </span>
+              )}
+              {shippingQuote?.courierName && (
+                <span className="text-[11px] text-gray-500 font-normal">
+                  via {shippingQuote.courierName}
+                </span>
+              )}
+            </div>
+            <span>
+              ₹{Number(shipping || 0).toFixed(2)}
+            </span>
           </div>
+
+          {shippingQuote?.fallbackApplied && (
+            <p className="text-[11px] text-amber-700 -mt-1 font-normal">
+              Standard delivery estimate (live courier unavailable)
+            </p>
+          )}
 
           <div className="flex justify-between pt-2 md:pt-3 border-t border-gray-200 font-bold text-base md:text-lg text-gray-700 font-[Poppins]">
             <span>Total</span>

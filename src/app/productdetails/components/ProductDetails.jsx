@@ -910,8 +910,8 @@ const ProductDetailsPage = () => {
                   <FiTruck className="text-xl" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-900">Free Delivery</h4>
-                  <p className="text-[11px] text-gray-500">On orders above ₹999</p>
+                  <h4 className="text-xs font-bold text-gray-900">Fast Delivery</h4>
+                  <p className="text-[11px] text-gray-500">Live courier rates</p>
                 </div>
               </div>
 

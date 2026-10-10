@@ -377,8 +377,7 @@ const CartPage = () => {
       0
     );
 
-  const shipping =
-    subtotal > 499 ? 0 : 50;
+  const shipping = 50;
 
   const total = subtotal + shipping;
 
@@ -457,7 +456,7 @@ const CartPage = () => {
                 <p className="text-gray-600 mb-6">
                   Remove{" "}
                   <strong>
-                    "{deleteConfirm.name}"
+                    &quot;{deleteConfirm.name}&quot;
                   </strong>{" "}
                   from cart?
                 </p>

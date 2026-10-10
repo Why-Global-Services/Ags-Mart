@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Image from "next/image";
 import { Modal, Button, Input, Upload, Rate, Select } from "antd";
-import { Check, Package, Truck, MapPin, X, ChevronRight, Clock, PackageCheck, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
+import { Check, Package, Truck, MapPin, X, ChevronRight, Clock, PackageCheck, CheckCircle2, AlertCircle, RotateCcw, ExternalLink } from "lucide-react";
 import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
 import { motion } from "framer-motion";
 import {
@@ -175,6 +175,47 @@ const OrderTracking = ({ order }) => {
           )}
         </div>
       </div>
+
+      {/* Live Shipping & Courier Details Banner (Shiprocket) */}
+      {(order.shiprocket?.awbCode || order.shiprocket?.courierName || order.shiprocket?.status) && (
+        <div className="bg-slate-50 border-b border-gray-200 p-4 md:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs md:text-sm">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-700">
+              {order.shiprocket.courierName && (
+                <div>
+                  <span className="text-gray-500 font-medium">Courier: </span>
+                  <span className="font-semibold text-gray-900">{order.shiprocket.courierName}</span>
+                </div>
+              )}
+              {order.shiprocket.awbCode && (
+                <div>
+                  <span className="text-gray-500 font-medium">AWB: </span>
+                  <span className="font-mono font-semibold text-gray-900">{order.shiprocket.awbCode}</span>
+                </div>
+              )}
+              {order.shiprocket.status && (
+                <div>
+                  <span className="text-gray-500 font-medium">Shipping Status: </span>
+                  <span className="font-semibold text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
+                    {order.shiprocket.status}
+                  </span>
+                </div>
+              )}
+            </div>
+            {order.shiprocket.trackingUrl && (
+              <a
+                href={order.shiprocket.trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg shadow-2xs transition-colors shrink-0"
+              >
+                <Truck className="w-3.5 h-3.5" />
+                Live Tracking <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Progress Bar */}
       <div className="px-4 md:px-6 pt-4 md:pt-6 pb-2">
@@ -476,12 +517,59 @@ export default function Orders() {
   } = useSelector((state) => state.orders);
 
   useEffect(() => {
+    let isFetching = false;
+
+    // Initial fetch
     dispatch(fetchOrders());
+
+    // Auto-poll orders every 35 seconds while My Orders page is active
+    const pollInterval = setInterval(async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
+      if (isFetching) return;
+      isFetching = true;
+      try {
+        await dispatch(fetchOrders()).unwrap();
+      } catch (err) {
+        // Silently catch background poll failures
+      } finally {
+        isFetching = false;
+      }
+    }, 35000);
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible" && !isFetching) {
+        isFetching = true;
+        dispatch(fetchOrders())
+          .unwrap()
+          .catch(() => {})
+          .finally(() => {
+            isFetching = false;
+          });
+      }
+    };
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibility);
+    }
+
+    return () => {
+      clearInterval(pollInterval);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibility);
+      }
+    };
   }, [dispatch]);
 
-  const filteredOrders = orders.filter((o) => {
+  // Ensure newest order appears first (safely without mutating original array)
+  const sortedOrders = [...orders].sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+
+  const filteredOrders = sortedOrders.filter((o) => {
     if (activeTab === "all") return true;
-    return o.orderStatus.toLowerCase() === activeTab.toLowerCase();
+    return o.orderStatus?.toLowerCase() === activeTab.toLowerCase();
   });
 
   const handleReturnClick = (item) => {
@@ -931,7 +1019,7 @@ export default function Orders() {
               >
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div className="min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 flex-wrap">
                       <p className="font-bold text-gray-900">
                         Order #{order.orderId}
                       </p>
@@ -942,6 +1030,12 @@ export default function Orders() {
                       >
                         {order.orderStatus}
                       </span>
+                      {order.shiprocket?.awbCode && (
+                        <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-medium w-max flex items-center gap-1">
+                          <Truck className="w-3 h-3 text-emerald-600" />
+                          {order.shiprocket.courierName ? `${order.shiprocket.courierName} • ` : ""}AWB: {order.shiprocket.awbCode}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
                       {new Date(order.createdAt).toLocaleDateString()}

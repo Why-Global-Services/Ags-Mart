@@ -40,7 +40,11 @@ export const fetchOrders = createAsyncThunk(
     try {
       const response = await getOrders();
       if (response.success) {
-        return response.data || [];
+        const orderList = Array.isArray(response.data) ? [...response.data] : [];
+        orderList.sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        return orderList;
       } else {
         return rejectWithValue(response.message || 'Failed to fetch orders');
       }
@@ -352,11 +356,21 @@ const ordersSlice = createSlice({
         state.loading = false;
         state.orders = action.payload;
         state.error = null;
+        if (state.selectedOrder) {
+          const fresh = action.payload.find(
+            (o) => o._id === state.selectedOrder._id || o.orderId === state.selectedOrder.orderId
+          );
+          if (fresh) {
+            state.selectedOrder = fresh;
+          }
+        }
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        state.orders = [];
+        if (!state.orders || state.orders.length === 0) {
+          state.orders = [];
+        }
       });
 
     // Fetch Product Review

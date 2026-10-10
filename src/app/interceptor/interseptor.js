@@ -479,6 +479,23 @@ export const getCheckout = async () => {
   return res.data;
 };
 
+export const getShippingEstimate = async (payload = {}) => {
+  try {
+    const res = await apiInstance.post(`/shipping-estimate`, payload);
+    return res.data;
+  } catch (error) {
+    console.warn("Shipping estimate API error:", error?.response?.data?.message || error.message);
+    return {
+      success: false,
+      data: {
+        shipping: 50,
+        isFreeShipping: false,
+        quote: { fallbackApplied: true, rate: 50 },
+      },
+    };
+  }
+};
+
 export const removeUpdateWishlist = async (productId, variantId) => {
     const guestId = localStorage.getItem("guestId");
   console.log(productId, variantId,"this is the ids");

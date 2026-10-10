@@ -52,13 +52,21 @@ const Shipping = ({ onAddressUpdate }) => {
   // ------------------ NOTIFY PARENT ------------------
   useEffect(() => {
     if (onAddressUpdate) {
+      const deliveryObj = deliveryAddresses.find(
+        (a) => a._id === selectedDeliveryAddress
+      );
+      const billingObj = billingAddresses.find(
+        (a) => a._id === selectedBillingAddress
+      );
       onAddressUpdate(
         selectedDeliveryAddress,
-        selectedBillingAddress
+        selectedBillingAddress,
+        deliveryObj,
+        billingObj
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeliveryAddress, selectedBillingAddress]);
+  }, [selectedDeliveryAddress, selectedBillingAddress, deliveryAddresses, billingAddresses]);
 
   // ------------------ SYNC ADDRESS TO LOCAL STORAGE ------------------
   useEffect(() => {
@@ -67,6 +75,12 @@ const Shipping = ({ onAddressUpdate }) => {
         "selectedDeliveryAddress",
         selectedDeliveryAddress
       );
+      const deliveryObj = deliveryAddresses.find(
+        (a) => a._id === selectedDeliveryAddress
+      );
+      if (deliveryObj?.zipCode) {
+        localStorage.setItem("selectedDeliveryPincode", String(deliveryObj.zipCode).trim());
+      }
     }
 
     if (selectedBillingAddress) {
@@ -75,7 +89,7 @@ const Shipping = ({ onAddressUpdate }) => {
         selectedBillingAddress
       );
     }
-  }, [selectedDeliveryAddress, selectedBillingAddress]);
+  }, [selectedDeliveryAddress, selectedBillingAddress, deliveryAddresses]);
 
   // ------------------ FETCH ADDRESSES ------------------
   const fetchAddresses = async () => {

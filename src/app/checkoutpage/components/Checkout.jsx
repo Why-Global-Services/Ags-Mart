@@ -57,10 +57,15 @@ const Checkout = () => {
     loadCheckoutData();
   }, [isBuyNow, urlProductId, urlVariantId, router]);
 
+  const [selectedDeliveryPincode, setSelectedDeliveryPincode] = useState(null);
+
   // USE useCallback TO MEMOIZE THE FUNCTION - THIS FIXES THE INFINITE LOOP
-  const handleAddressUpdate = useCallback((deliveryId, billingId) => {
+  const handleAddressUpdate = useCallback((deliveryId, billingId, deliveryObj) => {
     setSelectedDeliveryAddress(deliveryId);
     setSelectedBillingAddress(billingId);
+    if (deliveryObj?.zipCode) {
+      setSelectedDeliveryPincode(String(deliveryObj.zipCode).trim());
+    }
   }, []); // Empty dependency array since it only uses setState
 
 if (authLoading) {
@@ -124,6 +129,7 @@ if (!user) {
             isBuyNow={isBuyNow}
             deliveryAddressId={selectedDeliveryAddress}
             billingAddressId={selectedBillingAddress}
+            deliveryPincode={selectedDeliveryPincode}
           />
         </div>
       </div>
