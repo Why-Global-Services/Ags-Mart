@@ -1060,6 +1060,8 @@ import {
   FaPrint,
   FaDownload,
   FaCalendarAlt,
+  FaTruck,
+  FaSyncAlt,
 } from "react-icons/fa";
 import { useReactToPrint } from "react-to-print";
 import axios from "axios";
@@ -1104,26 +1106,50 @@ const Order = () => {
   const printRef = useRef();
   const invoicePrintRef = useRef(); 
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  // useEffect(() => {
-  //   filterOrders();
-  // }, [orders, searchText, dateRange, monthFilter, statusFilter]);
-
-  const fetchOrders = async () => {
+  const fetchOrders = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await getOrder();
-      setOrders(response.data || []);
+      const updatedOrders = response.data || [];
+      setOrders(updatedOrders);
+      setSelectedOrder((prev) => {
+        if (!prev) return null;
+        return (
+          updatedOrders.find(
+            (o) => o._id === prev._id || o.orderId === prev.orderId
+          ) || prev
+        );
+      });
     } catch (error) {
       console.error("Error fetching orders:", error);
-      message.error("Failed to fetch orders");
+      if (!silent) message.error("Failed to fetch orders");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchOrders();
+
+    // Live auto-polling every 30 seconds for real-time status updates without manual reload
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchOrders(true);
+      }
+    }, 30000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchOrders(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const handleOpenReturnModal = (orderId, product) => {
     console.log(product, "return products ");
@@ -1614,7 +1640,16 @@ const handlePrint = useReactToPrint({
 },
       {
         name: "Order Status",
-        cell: (row) => row.orderStatus,
+        cell: (row) => (
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-medium text-gray-800">{row.orderStatus}</span>
+            {row.shiprocket?.awbCode && (
+              <span className="text-[11px] text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                AWB: {row.shiprocket.awbCode}
+              </span>
+            )}
+          </div>
+        ),
         center: true,
         width: "200px",
       },
@@ -1835,6 +1870,15 @@ const handlePrint = useReactToPrint({
             >
               Reset
             </button>
+
+            <button
+              type="button"
+              onClick={() => fetchOrders(false)}
+              className="w-full sm:w-auto h-10 bg-indigo-600 cursor-pointer text-white px-4 rounded-xl hover:bg-indigo-700 transition duration-300 text-sm font-medium shadow-sm shrink-0 flex items-center justify-center gap-2"
+              title="Refresh order and shipping statuses"
+            >
+              <FaSyncAlt className={loading ? "animate-spin" : ""} /> Refresh
+            </button>
           </div>
         </div>
 
@@ -2010,6 +2054,63 @@ const handlePrint = useReactToPrint({
                   ) : (
                     <p>No address provided</p>
                   )}
+                </div>
+              </div>
+
+              {/* Shipping & Courier Details (Shiprocket) */}
+              <div className="border p-4 rounded mb-6 bg-slate-50/70">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FaTruck className="text-indigo-600" /> Shipping & Courier Details (Shiprocket)
+                  </h2>
+                  <Button
+                    size="small"
+                    onClick={() => fetchOrders(false)}
+                    className="text-xs"
+                  >
+                    Refresh Status
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500 block">Shipping Status:</span>
+                    <span className="font-semibold text-gray-800">
+                      {selectedOrder.shiprocket?.status || selectedOrder.orderStatus || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Shipment ID:</span>
+                    <span className="font-semibold font-mono text-gray-800">
+                      {selectedOrder.shiprocket?.shipmentId || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">AWB / Tracking Number:</span>
+                    <span className="font-semibold font-mono text-gray-800">
+                      {selectedOrder.shiprocket?.awbCode || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Courier Name:</span>
+                    <span className="font-semibold text-gray-800">
+                      {selectedOrder.shiprocket?.courierName || "N/A"}
+                    </span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-gray-500 block">Tracking URL:</span>
+                    {selectedOrder.shiprocket?.trackingUrl ? (
+                      <a
+                        href={selectedOrder.shiprocket.trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 hover:text-indigo-800 underline font-medium inline-flex items-center gap-1"
+                      >
+                        Track on Shiprocket &rarr;
+                      </a>
+                    ) : (
+                      <span className="text-gray-600">N/A</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
