@@ -58,11 +58,13 @@ const Checkout = () => {
   }, [isBuyNow, urlProductId, urlVariantId, router]);
 
   const [selectedDeliveryPincode, setSelectedDeliveryPincode] = useState(null);
+  const [selectedDeliveryAddressObj, setSelectedDeliveryAddressObj] = useState(null);
 
   // USE useCallback TO MEMOIZE THE FUNCTION - THIS FIXES THE INFINITE LOOP
   const handleAddressUpdate = useCallback((deliveryId, billingId, deliveryObj) => {
     setSelectedDeliveryAddress(deliveryId);
     setSelectedBillingAddress(billingId);
+    setSelectedDeliveryAddressObj(deliveryObj || null);
     if (deliveryObj?.zipCode) {
       setSelectedDeliveryPincode(String(deliveryObj.zipCode).trim());
     }
@@ -129,6 +131,7 @@ if (!user) {
             isBuyNow={isBuyNow}
             deliveryAddressId={selectedDeliveryAddress}
             billingAddressId={selectedBillingAddress}
+            deliveryAddressObj={selectedDeliveryAddressObj}
             deliveryPincode={selectedDeliveryPincode}
           />
         </div>

@@ -152,7 +152,20 @@ export const Register = async (data) => {
 };
 
 export const Login = async (data) => {
-  const res = await apiInstance.post(`/login`, data);
+  const { identifier, phone, email, password } = data || {};
+  const rawId = (identifier || phone || email || "").toString().trim();
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawId);
+  const digitsOnly = rawId.replace(/\D/g, "");
+
+  const payload = {
+    identifier: rawId,
+    password,
+    // Provide backwards-compatible fields for backend environments expecting phone or email
+    ...(isEmail ? { email: rawId.toLowerCase() } : {}),
+    ...(!isEmail && (digitsOnly.length === 10 || (digitsOnly.length === 12 && digitsOnly.startsWith("91"))) ? { phone: digitsOnly } : {}),
+  };
+
+  const res = await apiInstance.post(`/login`, payload);
   return res;
 };
 

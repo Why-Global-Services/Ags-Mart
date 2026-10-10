@@ -1,13 +1,13 @@
-// components/common/AuthPage.jsx
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { FiArrowLeft, FiEye, FiEyeOff } from "react-icons/fi";
 
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { showToast } from "../utils/toast";
-  import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 // import {Loginpopupimage} from "../../../public/Loginpopupimage.jpg";
 
 import {
@@ -25,13 +25,11 @@ import {
 const AuthPage = ({ onClose }) => {
   const router = useRouter();
   const { login } = useAuth();
-
-
-const pathname = usePathname();
-
+  const pathname = usePathname();
 
   /* ================= STATE ================= */
 
+  const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState("login");
   // login | signup | forgot | otp | reset
 
@@ -39,6 +37,7 @@ const pathname = usePathname();
   const [showPassword, setShowPassword] = useState(false);
 
   const [phone, setPhone] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -48,7 +47,11 @@ const pathname = usePathname();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
 
-  /* ================= ESC CLOSE ================= */
+  /* ================= MOUNT & ESC CLOSE ================= */
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleEsc = (e) => {
@@ -98,26 +101,46 @@ const pathname = usePathname();
     }
   };
 
+  const handleLoginIdentifierChange = (e) => {
+    setLoginIdentifier(e.target.value);
+  };
+
   /* ================= LOGIN ================= */
 
- const handleLogin = async (e) => {
-  e.preventDefault();
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
-  if (!phone || !form.password) {
-    return showToast.error("All fields required");
-  }
+    const trimmedIdentifier = (loginIdentifier || "").trim();
+    const enteredPassword = form.password;
 
-  if (phone.length !== 10) {
-    return showToast.error("Phone number must be 10 digits");
-  }
+    if (!trimmedIdentifier) {
+      return showToast.error("Please enter your mobile number or email address.");
+    }
 
-  setLoading(true);
+    if (!enteredPassword) {
+      return showToast.error("Please enter your password.");
+    }
 
-  try {
-    const res = await Login({
-      phone,
-      password: form.password,
-    });
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedIdentifier);
+    const isDigitsOnly = /^\d+$/.test(trimmedIdentifier);
+
+    if (isEmail) {
+      // Valid email format
+    } else if (isDigitsOnly) {
+      if (trimmedIdentifier.length !== 10) {
+        return showToast.error("Phone number must be 10 digits");
+      }
+    } else {
+      return showToast.error("Please enter a valid 10-digit mobile number or email address.");
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await Login({
+        identifier: trimmedIdentifier,
+        password: enteredPassword,
+      });
 
     if (res?.token) {
       localStorage.setItem("token", res.token);
@@ -143,7 +166,18 @@ const pathname = usePathname();
       router.push(redirectPath); // 🔥 same page redirect
     }
   } catch (err) {
-    showToast.error(err.response?.data?.message || "Login failed");
+    const rawMsg = err.response?.data?.message || err.message || "";
+    if (
+      rawMsg === "Phone number and password are required" ||
+      rawMsg === "Mobile number or email, and password are required" ||
+      rawMsg === "Phone number not found" ||
+      rawMsg === "Account not found with provided credentials" ||
+      rawMsg === "Invalid password"
+    ) {
+      showToast.error("Invalid mobile number/email or password.");
+    } else {
+      showToast.error(rawMsg || "Invalid mobile number/email or password.");
+    }
   } finally {
     setLoading(false);
   }
@@ -295,7 +329,7 @@ const pathname = usePathname();
 
   /* ================= RENDER ================= */
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 backdrop-blur-sm p-4"
       onClick={() => {
@@ -304,7 +338,7 @@ const pathname = usePathname();
     >
       {/* MODAL — two-column layout */}
       <div
-        className="bg-white  shadow-2xl flex overflow-hidden relative"
+        className="bg-white shadow-2xl flex overflow-hidden relative"
         style={{ maxWidth: 780, width: "100%", maxHeight: "90vh" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -368,19 +402,16 @@ const pathname = usePathname();
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className={labelClass}>
-                  Phone Number <span className="text-[#E8650A]">*</span>
+                  Mobile Number or Email <span className="text-[#E8650A]">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">
-                    +91
-                  </span>
                   <input
-                    type="tel"
-                    placeholder="9876543210"
-                    value={phone}
-                    onChange={handlePhoneChange}
-                    className={inputClassWithPrefix}
-                    maxLength={10}
+                    type="text"
+                    placeholder="Enter 10-digit mobile number or email"
+                    value={loginIdentifier}
+                    onChange={handleLoginIdentifierChange}
+                    className={inputClass}
+                    autoComplete="username"
                   />
                 </div>
               </div>
@@ -725,6 +756,12 @@ const pathname = usePathname();
       </div>
     </div>
   );
+
+  if (mounted && typeof document !== "undefined") {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };
 
 export default AuthPage;

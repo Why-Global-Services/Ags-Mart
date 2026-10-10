@@ -22,6 +22,8 @@ const Addresses = () => {
     zipCode: "",
     country: "",
     phone: "",
+    email: "",
+    confirmEmail: "",
     addressType: "home",
     checkoutAddress: "",
   });
@@ -87,12 +89,17 @@ const Addresses = () => {
     country: addr.country,
     fullName: addr.fullName,
     phone: addr.phone,
+    email: addr.email || "",
     addressType: addr.addressType,
     id: addr._id,
   });
 
   const validateForm = () => {
     const newErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanEmail = (tempAddress.email || "").trim();
+    const cleanConfirm = (tempAddress.confirmEmail || "").trim();
+
     if (!tempAddress.fullName.trim())
       newErrors.fullName = "Full name is required";
     if (!tempAddress.addressLine1.trim())
@@ -102,6 +109,18 @@ const Addresses = () => {
     if (!tempAddress.zipCode.trim()) newErrors.zipCode = "ZIP code is required";
     if (!tempAddress.country.trim()) newErrors.country = "Country is required";
     if (!tempAddress.phone.trim()) newErrors.phone = "Phone is required";
+
+    if (!cleanEmail) {
+      newErrors.email = "Email address is required";
+    } else if (!emailRegex.test(cleanEmail)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!cleanConfirm) {
+      newErrors.confirmEmail = "Please confirm your email address";
+    } else if (cleanEmail.toLowerCase() !== cleanConfirm.toLowerCase()) {
+      newErrors.confirmEmail = "Email addresses do not match";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -128,6 +147,8 @@ const Addresses = () => {
       zipCode: "",
       country: "",
       phone: "",
+      email: "",
+      confirmEmail: "",
       addressType: "home",
       checkoutAddress: "",
     });
@@ -148,6 +169,8 @@ const Addresses = () => {
         zipCode: tempAddress.zipCode,
         country: tempAddress.country,
         phone: tempAddress.phone,
+        email: tempAddress.email.trim().toLowerCase(),
+        confirmEmail: tempAddress.confirmEmail.trim().toLowerCase(),
         addressType: tempAddress.addressType,
         checkoutAddress:
           editingType === "billing" ? "billingAddress" : "deliveryAddress",
@@ -217,6 +240,8 @@ const Addresses = () => {
       zipCode: addr.zip,
       country: addr.country,
       phone: addr.phone,
+      email: addr.email || "",
+      confirmEmail: addr.email || "",
       addressType: addr.addressType,
       checkoutAddress:
         type === "billing" ? "billingAddress" : "deliveryAddress",
@@ -310,6 +335,7 @@ const Addresses = () => {
                 </p>
                 <p>{addr.country}</p>
                 <p>Phone: {addr.phone}</p>
+                {addr.email && <p>Email: {addr.email}</p>}
                 <p>Type: {addr.addressType}</p>
               </div>
             </div>
@@ -551,6 +577,40 @@ const Addresses = () => {
               />
               {errors.phone && (
                 <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={tempAddress.email}
+                onChange={handleChange}
+                className={`w-full px-3.5 py-2.5 rounded-lg border ${errors.email ? "border-red-500" : "border-gray-300"
+                  } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
+                placeholder="customer@example.com"
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Email Address *
+              </label>
+              <input
+                type="email"
+                name="confirmEmail"
+                value={tempAddress.confirmEmail}
+                onChange={handleChange}
+                className={`w-full px-3.5 py-2.5 rounded-lg border ${errors.confirmEmail ? "border-red-500" : "border-gray-300"
+                  } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
+                placeholder="customer@example.com"
+              />
+              {errors.confirmEmail && (
+                <p className="mt-1 text-sm text-red-600">{errors.confirmEmail}</p>
               )}
             </div>
             <div>

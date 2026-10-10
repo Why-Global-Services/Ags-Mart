@@ -29,6 +29,8 @@ const Shipping = ({ onAddressUpdate }) => {
     fullName: "",
     addressType: "HOME",
     phone: "",
+    email: "",
+    confirmEmail: "",
     addressLine1: "",
     landMark: "",
     city: "",
@@ -41,6 +43,8 @@ const Shipping = ({ onAddressUpdate }) => {
     fullName: "",
     addressType: "WORK",
     phone: "",
+    email: "",
+    confirmEmail: "",
     addressLine1: "",
     landMark: "",
     city: "",
@@ -115,6 +119,7 @@ const Shipping = ({ onAddressUpdate }) => {
         fullName: a?.fullName || "",
         addressType: a?.addressType || "",
         phone: a?.phone || "",
+        email: a?.email || "",
         addressLine1: a?.addressLine1 || "",
         landMark: a?.landMark || "",
         city: a?.city || "",
@@ -205,6 +210,23 @@ const Shipping = ({ onAddressUpdate }) => {
   const handleDeliverySaveAddress = async (e) => {
     e.preventDefault();
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanEmail = (deliveryFormData?.email || "").trim();
+    const cleanConfirm = (deliveryFormData?.confirmEmail || "").trim();
+
+    if (!cleanEmail) {
+      return showToast.error("Email address is required");
+    }
+    if (!emailRegex.test(cleanEmail)) {
+      return showToast.error("Please enter a valid email address");
+    }
+    if (!cleanConfirm) {
+      return showToast.error("Please confirm your email address");
+    }
+    if (cleanEmail.toLowerCase() !== cleanConfirm.toLowerCase()) {
+      return showToast.error("Email and confirm email do not match");
+    }
+
     const formattedData = {
       fullName: deliveryFormData?.fullName || "",
       addressLine1: deliveryFormData?.addressLine1 || "",
@@ -214,6 +236,8 @@ const Shipping = ({ onAddressUpdate }) => {
       zipCode: deliveryFormData?.zipCode || "",
       country: "India",
       phone: deliveryFormData?.phone || "",
+      email: cleanEmail.toLowerCase(),
+      confirmEmail: cleanConfirm.toLowerCase(),
       addressType: deliveryFormData?.addressType || "HOME",
       checkoutAddress: "deliveryAddress",
     };
@@ -258,6 +282,8 @@ const Shipping = ({ onAddressUpdate }) => {
   const handleDeliveryEdit = (address) => {
     setDeliveryFormData({
       ...address,
+      email: address.email || "",
+      confirmEmail: address.email || "",
       landMark: address.landMark || "",
     });
 
@@ -314,6 +340,8 @@ const Shipping = ({ onAddressUpdate }) => {
       fullName: "",
       addressType: "HOME",
       phone: "",
+      email: "",
+      confirmEmail: "",
       addressLine1: "",
       landMark: "",
       city: "",
@@ -377,6 +405,23 @@ const Shipping = ({ onAddressUpdate }) => {
   const handleBillingSaveAddress = async (e) => {
     e.preventDefault();
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanEmail = (billingFormData?.email || "").trim();
+    const cleanConfirm = (billingFormData?.confirmEmail || "").trim();
+
+    if (!cleanEmail) {
+      return showToast.error("Email address is required");
+    }
+    if (!emailRegex.test(cleanEmail)) {
+      return showToast.error("Please enter a valid email address");
+    }
+    if (!cleanConfirm) {
+      return showToast.error("Please confirm your email address");
+    }
+    if (cleanEmail.toLowerCase() !== cleanConfirm.toLowerCase()) {
+      return showToast.error("Email and confirm email do not match");
+    }
+
     const formattedData = {
       fullName: billingFormData?.fullName || "",
       addressLine1: billingFormData?.addressLine1 || "",
@@ -386,6 +431,8 @@ const Shipping = ({ onAddressUpdate }) => {
       zipCode: billingFormData?.zipCode || "",
       country: "India",
       phone: billingFormData?.phone || "",
+      email: cleanEmail.toLowerCase(),
+      confirmEmail: cleanConfirm.toLowerCase(),
       addressType: billingFormData?.addressType || "WORK",
       checkoutAddress: "billingAddress",
     };
@@ -433,6 +480,8 @@ const Shipping = ({ onAddressUpdate }) => {
   const handleBillingEdit = (address) => {
     setBillingFormData({
       ...address,
+      email: address.email || "",
+      confirmEmail: address.email || "",
       landMark: address.landMark || "",
     });
 
@@ -489,6 +538,8 @@ const Shipping = ({ onAddressUpdate }) => {
       fullName: "",
       addressType: "WORK",
       phone: "",
+      email: "",
+      confirmEmail: "",
       addressLine1: "",
       landMark: "",
       city: "",
@@ -736,6 +787,16 @@ const AddressSection = ({
                     "No phone"}
                 </p>
 
+                {address?.email ? (
+                  <p className="text-gray-600 text-sm flex items-center gap-1.5">
+                    <span className="text-gray-400">✉</span> {address.email}
+                  </p>
+                ) : (
+                  <p className="text-amber-600 text-xs font-semibold flex items-center gap-1 mt-0.5 bg-amber-50 px-2 py-0.5 rounded w-fit border border-amber-200/60">
+                    <span>⚠️ Email missing — click Edit to add contact email</span>
+                  </p>
+                )}
+
                 <p className="text-gray-600 text-sm">
                   {address?.addressLine1 ||
                     "N/A"}
@@ -831,6 +892,8 @@ const AddressForm = ({
     {[
       "fullName",
       "phone",
+      "email",
+      "confirmEmail",
       "addressLine1",
       "landMark",
       "city",
@@ -847,6 +910,10 @@ const AddressForm = ({
             ? "Street Address *"
             : field === "landMark"
             ? "Landmark"
+            : field === "email"
+            ? "Email Address *"
+            : field === "confirmEmail"
+            ? "Confirm Email Address *"
             : field
                 .charAt(0)
                 .toUpperCase() +
@@ -863,6 +930,8 @@ const AddressForm = ({
           type={
             field === "phone"
               ? "tel"
+              : field === "email" || field === "confirmEmail"
+              ? "email"
               : "text"
           }
           id={`address-${field}`}

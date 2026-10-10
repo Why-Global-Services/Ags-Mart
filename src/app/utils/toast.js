@@ -10,6 +10,7 @@ const defaultOptions = {
     fontSize: "15px",
     padding: "16px 24px",
     maxWidth: "500px",
+    zIndex: 999999,
   },
 };
 

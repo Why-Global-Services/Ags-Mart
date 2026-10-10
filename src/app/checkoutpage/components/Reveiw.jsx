@@ -19,6 +19,7 @@ import {
   Paymentverification,
   placeOrder,
   verifyCoupon,
+  getAddress,
 } from "@/app/interceptor/interseptor";
 import { gaEvent } from "@/app/lib/ga";
 import { showToast } from "@/app/utils/toast";
@@ -31,6 +32,7 @@ const Review = ({
   isBuyNow,
   deliveryAddressId,
   billingAddressId,
+  deliveryAddressObj,
   deliveryPincode,
 }) => {
   const router = useRouter();
@@ -69,8 +71,11 @@ const Review = ({
     { value: "RazorPay", label: "RazorPay (UPI/Cards/NetBanking)" },
   ];
 
+  // Mandatory email regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   // Address validation function
-  const validateAddressSelection = useCallback(() => {
+  const validateAddressSelection = useCallback(async () => {
     const deliveryAddress =
       deliveryAddressId || localStorage.getItem("selectedDeliveryAddress");
     const billingAddress =
@@ -84,8 +89,29 @@ const Review = ({
       return "Please select a billing address before proceeding with payment.";
     }
 
+    // Verify delivery address email
+    let currentDeliveryEmail = (deliveryAddressObj?.email || "").toString().trim();
+
+    // If deliveryAddressObj is missing or doesn't have email, fetch from authoritative getAddress API
+    if (!currentDeliveryEmail || !emailRegex.test(currentDeliveryEmail)) {
+      try {
+        const res = await getAddress();
+        const addressList = res?.address || [];
+        const found = addressList.find(
+          (a) => a?._id?.toString() === deliveryAddress?.toString()
+        );
+        currentDeliveryEmail = (found?.email || "").toString().trim();
+      } catch (err) {
+        console.warn("Could not fetch authoritative address for email check:", err);
+      }
+    }
+
+    if (!currentDeliveryEmail || !emailRegex.test(currentDeliveryEmail)) {
+      return "Please add a valid email address to your delivery address before placing your order.";
+    }
+
     return null;
-  }, [deliveryAddressId, billingAddressId]);
+  }, [deliveryAddressId, billingAddressId, deliveryAddressObj]);
 
   const firePurchaseEvent = (order) => {
     if (!order) return;
@@ -702,9 +728,10 @@ const Review = ({
       else setShowLoginModal(true);
       return false;
     }
-    const addressValidationError = validateAddressSelection();
+    const addressValidationError = await validateAddressSelection();
     if (addressValidationError) {
       setAddressError(addressValidationError);
+      showToast.error(addressValidationError);
       return;
     }
 

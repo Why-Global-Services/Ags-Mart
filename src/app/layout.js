@@ -149,12 +149,14 @@ export default function RootLayout({ children }) {
 
             {children}
 
-                        {/* ✅ Custom Toaster with bgvariant-2 and black theme */}
+                        {/* ✅ Custom Toaster with bgvariant-2 and black theme (high z-index to render above modals) */}
             <Toaster
               position="top-center"
               reverseOrder={false}
               gutter={8}
-              containerStyle={{}}
+              containerStyle={{
+                zIndex: 999999,
+              }}
               toastOptions={{
                 // Default options for all toasts
                 duration: 4000,
