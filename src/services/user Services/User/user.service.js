@@ -39,31 +39,78 @@ const createUser = async (req) => {
   };
 };
 
-// Login User
+// Login User (Mobile Number OR Email)
 const loginUser = async (req) => {
-  const { phone, password } = req.body;
+  const { identifier, phone, email, password } = req.body;
+  const rawIdentifier = (identifier !== undefined && identifier !== null && String(identifier).trim() !== "")
+    ? String(identifier).trim()
+    : (phone !== undefined && phone !== null && String(phone).trim() !== "")
+    ? String(phone).trim()
+    : (email !== undefined && email !== null && String(email).trim() !== "")
+    ? String(email).trim()
+    : "";
 
-  if (!phone || !password) {
+  if (!rawIdentifier) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Phone number and password are required"
+      "Please enter your mobile number or email address."
     );
   }
 
-  // Find user and explicitly select password field
-  const user = await User.findOne({ phoneNumber: phone });
-
-  if (!user) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Phone number not found");
+  if (!password) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Please enter your password."
+    );
   }
-  console.log(user);
+
+  // Determine whether rawIdentifier is an email or phone number
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let query = {};
+
+  if (emailRegex.test(rawIdentifier)) {
+    const normalizedEmail = rawIdentifier.toLowerCase().trim();
+    query = { email: normalizedEmail };
+  } else {
+    // Digits only normalization for phone number
+    const digitsOnly = rawIdentifier.replace(/\D/g, "");
+    // Support 10-digit standard or if provided with country code 91
+    let normalizedPhone = digitsOnly;
+    if (digitsOnly.length === 12 && digitsOnly.startsWith("91")) {
+      normalizedPhone = digitsOnly.slice(2);
+    }
+    query = { phoneNumber: normalizedPhone };
+  }
+
+  // Find users matching query safely
+  const matchingUsers = await User.find(query);
+
+  if (!matchingUsers || matchingUsers.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid mobile number/email or password.");
+  }
+
+  // Handle ambiguous account matches safely
+  if (matchingUsers.length > 1) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Multiple accounts found matching credentials. Please contact support or login using your registered mobile number."
+    );
+  }
+
+  const user = matchingUsers[0];
+
+  if (!user.password) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Password authentication is not configured for this account. Please reset your password."
+    );
+  }
 
   // Access password field explicitly
-  const userPassword = await Bcrypt.compare(password, user.password);
-  console.log(userPassword);
+  const isPasswordValid = await Bcrypt.compare(password, user.password);
 
-  if (!userPassword) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid password");
+  if (!isPasswordValid) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid mobile number/email or password.");
   }
 
   // Check if user is blocked
@@ -82,6 +129,7 @@ const loginUser = async (req) => {
       id: user._id,
       name: user.name,
       phoneNumber: user.phoneNumber,
+      email: user.email || null,
     },
   };
 };

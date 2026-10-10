@@ -18,6 +18,7 @@ const logger = require("../../../config/logger");
 const { performance } = require("perf_hooks");
 const { sendOrderCreatedWhatsApp } = require("../../../utils/aiSensy");
 const { findProductVariant } = require("../../../utils/productVariant");
+const sendmail = require("../../../utils/sendmail");
 const {
   createShiprocketOrder,
   getShippingRateEstimate,
@@ -221,23 +222,20 @@ class OrderService {
       }
 
       /* ================================
-         SEND WHATSAPP (AISENSY)
+         SEND CUSTOMER STATUS EMAIL (AGS MART)
       ================================ */
-      try {
-        await sendOrderCreatedWhatsApp({
-          name: order.userName,
-          email: order.email,
-          phone: order.contactNumber,
-          orderId: order.orderId,
-          amount: order.totalPrice,
-          paymentType: order.paymentMethod,
-
-          awbNumber: order.shiprocket?.awbCode || "-",
-          courierName: order.shiprocket?.courierName || "-",
-          shippingStatus: order.shiprocket?.status || "Order Confirmed",
-        });
-      } catch (err) {
-        console.error("❌ WhatsApp send failed:", err.message);
+      if (order.orderStatus === "Ordered") {
+        try {
+          await sendmail.sendOrderStatusEmail({
+            order,
+            status: "Ordered",
+          });
+        } catch (emailErr) {
+          logger.warn("Initial order status email error (non-fatal):", {
+            orderId: order.orderId,
+            error: emailErr.message,
+          });
+        }
       }
 
       /* ================================ */
@@ -697,12 +695,13 @@ calculateDiscountAmount(coupon, totalAmount) {
     _id: address._id,
     fullName: address.fullName || "",
     addressLine1: address.addressLine1 || "",
-    landMark: address.landMark || "",   // ✅ FIX
+    landMark: address.landMark || "",
     city: address.city || "",
     state: address.state || "",
-    zipCode: address.zipCode || "",     // ✅ FIX
+    zipCode: address.zipCode || "",
     country: address.country || "India",
     phone: address.phone || "",
+    email: address.email || "",
     addressType: address.addressType || "",
     checkoutAddress: address.checkoutAddress || "",
   };
@@ -725,7 +724,11 @@ buildOrderPayload({
   console.log("userData", userData);
   const userName = userData.fullName || userData.userName || "Customer";
   const contactNumber = userData.phone || userData.contactNumber || "Not Provided";
-  const email = userData.email || "no-email@example.com";
+  // Copy authoritative delivery/shipping address confirmed contact email as the order contact-email snapshot
+  const email =
+    userData.deliveryAddress?.email ||
+    userData.billingAddress?.email ||
+    "no-email@example.com";
 
 const validatedCartItems = cartItems.map((item) => {
   // ✅ Use the normalizeProductType helper
@@ -1668,6 +1671,19 @@ const validatedCartItems = cartItems.map((item) => {
         orderId: order.orderId,
       });
 
+      // Send initial order status email for paid online order
+      try {
+        await sendmail.sendOrderStatusEmail({
+          order,
+          status: "Ordered",
+        });
+      } catch (emailErr) {
+        logger.warn("Razorpay order status email error (non-fatal):", {
+          orderId: order.orderId,
+          error: emailErr.message,
+        });
+      }
+
       return {
         success: true,
         message: "Payment verified successfully",
@@ -1898,7 +1914,17 @@ async updateStockSecure(order, session) {
       throw new ApiError(404, "Addresses not found");
     }
 
-    console.log("🎯 [getUserWithAddresses] Successfully retrieved addresses");
+    // Enforce mandatory delivery address email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const deliveryEmail = (deliveryAddress.email || "").toString().trim();
+    if (!deliveryEmail || !emailRegex.test(deliveryEmail)) {
+      throw new ApiError(
+        400,
+        "Please add a valid email address to your delivery address before placing your order."
+      );
+    }
+
+    console.log("🎯 [getUserWithAddresses] Successfully retrieved addresses with valid email");
 
 return {
   ...userData,

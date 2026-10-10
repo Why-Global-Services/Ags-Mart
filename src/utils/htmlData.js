@@ -149,3 +149,131 @@ exports.notificationTemplate = (mailData) => {
     </html>
   `;
 };
+
+exports.orderStatusEmailTemplate = ({
+  orderId,
+  customerName = "Valued Customer",
+  status = "Order Placed",
+  statusMessage = "",
+  courierName = null,
+  awbCode = null,
+  trackingUrl = null,
+  orderPlacedAt = null,
+  totalAmount = null,
+}) => {
+  const safeCustomer = sanitizeHtml(String(customerName || "Customer"));
+  const safeOrderId = sanitizeHtml(String(orderId || ""));
+  const safeStatus = sanitizeHtml(String(status || ""));
+  const safeCourier = courierName ? sanitizeHtml(String(courierName)) : null;
+  const safeAwb = awbCode ? sanitizeHtml(String(awbCode)) : null;
+  const safeTrackingUrl = trackingUrl ? sanitizeHtml(String(trackingUrl)) : null;
+  const safeMessage = statusMessage ? sanitizeHtml(String(statusMessage)) : "";
+
+  // Dynamic badge accent color based on status
+  let badgeColor = "#2d7a22";
+  let badgeBg = "#ecfdf5";
+  if (status === "Cancelled") {
+    badgeColor = "#dc2626";
+    badgeBg = "#fef2f2";
+  } else if (status === "Returned") {
+    badgeColor = "#d97706";
+    badgeBg = "#fffbeb";
+  } else if (status === "Shipped" || status === "Out for Delivery") {
+    badgeColor = "#2563eb";
+    badgeBg = "#eff6ff";
+  } else if (status === "Delivered") {
+    badgeColor = "#16a34a";
+    badgeBg = "#f0fdf4";
+  }
+
+  const trackingSection = (safeAwb || safeCourier || safeTrackingUrl) ? `
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: left;">
+      <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 700; color: #1e293b; font-family: 'Poppins', sans-serif;">
+        📦 Shipment & Delivery Details
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        ${safeCourier ? `
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; width: 140px;">Courier Partner:</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">${safeCourier}</td>
+          </tr>` : ""}
+        ${safeAwb ? `
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">AWB / Tracking No:</td>
+            <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-weight: 700;">${safeAwb}</td>
+          </tr>` : ""}
+      </table>
+      ${safeTrackingUrl ? `
+        <div style="margin-top: 16px; text-align: center;">
+          <a href="${safeTrackingUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: #0284c7; color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">
+            Track Your Package &rarr;
+          </a>
+        </div>` : ""}
+    </div>
+  ` : "";
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    </head>
+    <body style="margin: 0; padding: 24px; background: #f8fafc; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;">
+      <div style="max-width: 580px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+        
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #1a4a13 0%, #2d7a22 100%); padding: 28px 24px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-family: 'Poppins', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">Ags Mart</h1>
+          <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.9;">Your Trusted Agriculture & Retail Partner</p>
+        </div>
+
+        <!-- Body -->
+        <div style="padding: 32px 28px;">
+          <p style="margin: 0 0 16px; font-size: 16px; color: #334155;">
+            Dear <strong>${safeCustomer}</strong>,
+          </p>
+          <p style="margin: 0 0 20px; font-size: 15px; color: #475569; line-height: 1.6;">
+            We are writing to update you on the status of your order <strong>#${safeOrderId}</strong>.
+          </p>
+
+          <!-- Status Highlight Card -->
+          <div style="background: ${badgeBg}; border: 1px solid ${badgeColor}33; border-radius: 12px; padding: 18px 20px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: ${badgeColor};">
+              Current Status
+            </p>
+            <p style="margin: 0; font-size: 22px; font-weight: 700; color: ${badgeColor}; font-family: 'Poppins', sans-serif;">
+              ${safeStatus}
+            </p>
+            ${safeMessage ? `<p style="margin: 8px 0 0; font-size: 13px; color: #475569;">${safeMessage}</p>` : ""}
+          </div>
+
+          ${trackingSection}
+
+          ${totalAmount ? `
+            <div style="margin: 20px 0; padding: 12px 16px; background: #f1f5f9; border-radius: 8px; font-size: 14px; color: #334155; display: flex; justify-content: space-between;">
+              <span>Total Order Value:</span>
+              <strong>₹${Number(totalAmount).toFixed(2)}</strong>
+            </div>
+          ` : ""}
+
+          <!-- Support & Help -->
+          <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b; line-height: 1.6;">
+            <p style="margin: 0 0 6px;">Need assistance with your order?</p>
+            <p style="margin: 0;">
+              Contact our support team at <a href="mailto:support@agsmart.in" style="color: #2d7a22; font-weight: 600; text-decoration: none;">support@agsmart.in</a> or visit our portal at <a href="https://agsmart.in" style="color: #2d7a22; font-weight: 600; text-decoration: none;">agsmart.in</a>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #0f172a; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
+          <p style="margin: 0 0 4px;">© ${currentYear} Ags Mart. All rights reserved.</p>
+          <p style="margin: 0; font-size: 11px; opacity: 0.8;">Thank you for shopping with us!</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};

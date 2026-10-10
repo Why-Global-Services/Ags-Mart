@@ -58,6 +58,7 @@ const userSchema = new mongoose.Schema(
         zipCode: String,
         country: String,
         phone: String,
+        email: String,
         landMark: String,
         addressType: {
           type: String,

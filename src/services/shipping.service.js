@@ -7,6 +7,7 @@ const { User } = require("../models/users.model");
 const ApiError = require("../utils/apiError");
 const config = require("../config/config");
 const logger = require("../config/logger");
+const sendmail = require("../utils/sendmail");
 const {
   trackShipment,
   calculateShipmentDimensions,
@@ -402,6 +403,27 @@ const handleShiprocketWebhook = async (req) => {
     );
   }
 
+  // Send customer order status email if status transitioned or changed
+  if (shouldTransition && targetOrderStatus) {
+    try {
+      const eventId = rawAwb || order.shiprocket?.awbCode || order.shiprocket?.shipmentId || undefined;
+      await sendmail.sendOrderStatusEmail({
+        order: updatedOrder,
+        status: targetOrderStatus,
+        eventIdentifier: eventId,
+        courierName: updatedOrder.shiprocket?.courierName,
+        awbCode: updatedOrder.shiprocket?.awbCode,
+        trackingUrl: updatedOrder.shiprocket?.trackingUrl,
+      });
+    } catch (mailErr) {
+      logger.error("Failed to send customer order status email from webhook", {
+        orderId: order.orderId,
+        status: targetOrderStatus,
+        error: mailErr.message,
+      });
+    }
+  }
+
   logger.info("Shiprocket webhook processed successfully", {
     orderId: order.orderId,
     previousStatus: currentStatus,
@@ -490,6 +512,25 @@ const syncOrderTracking = async (orderId) => {
       { $set: updateFields },
       { new: true }
     );
+
+    if (shouldTransition && targetStatus) {
+      try {
+        await sendmail.sendOrderStatusEmail({
+          order: updated,
+          status: targetStatus,
+          eventIdentifier: awb || order.shiprocket?.shipmentId || undefined,
+          courierName: courier || updated?.shiprocket?.courierName,
+          awbCode: awb || updated?.shiprocket?.awbCode,
+          trackingUrl: trackUrl || updated?.shiprocket?.trackingUrl,
+        });
+      } catch (mailErr) {
+        logger.error("Failed to send customer order status email from syncOrderTracking", {
+          orderId,
+          status: targetStatus,
+          error: mailErr.message,
+        });
+      }
+    }
 
     return {
       success: true,

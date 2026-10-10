@@ -1912,6 +1912,22 @@ const editOrders = async (req, res) => {
     );
   }
 
+  // ✅ Send status update notification email if status actually changed
+  if (orderStatus && orderStatus !== findOrder.orderStatus) {
+    try {
+      await sendmail.sendOrderStatusEmail({
+        order: updateOrder,
+        status: orderStatus,
+        eventIdentifier: updateOrder.shiprocket?.awbCode || updateOrder.shiprocket?.shipmentId || undefined,
+        courierName: updateOrder.shiprocket?.courierName,
+        awbCode: updateOrder.shiprocket?.awbCode,
+        trackingUrl: updateOrder.shiprocket?.trackingUrl,
+      });
+    } catch (err) {
+      console.error("Failed to send order status email from admin editOrders:", err.message);
+    }
+  }
+
   // ✅ Update payment status for all products if changed
   if (paymentStatus) {
     await orderDetailsModel.findByIdAndUpdate(

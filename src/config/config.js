@@ -20,14 +20,15 @@ const envVarsSchema = Joi.object()
     JWT_VERIFY_EMAIL_EXPIRATION_MINUTES: Joi.number()
       .default(10)
       .description("minutes after which verify email token expires"),
-    // SMTP / Email (DISABLED)
-    // SMTP_HOST: Joi.string().description("server that will send the emails"),
-    // SMTP_PORT: Joi.number().description("port to connect to the email server"),
-    // SMTP_USERNAME: Joi.string().description("username for email server"),
-    // SMTP_PASSWORD: Joi.string().description("password for email server"),
-    // EMAIL_FROM: Joi.string().description(
-    //   "the from field in the emails sent by the app"
-    // ),
+    // SMTP / Email configuration options
+    SMTP_HOST: Joi.string().allow("").description("server that will send the emails"),
+    SMTP_PORT: Joi.number().allow(null, "").default(587).description("port to connect to the email server"),
+    SMTP_USERNAME: Joi.string().allow("").description("username for email server"),
+    SMTP_PASSWORD: Joi.string().allow("").description("password for email server"),
+    EMAIL_FROM: Joi.string().allow("").description(
+      "the from field in the emails sent by the app"
+    ),
+    ENABLE_EMAIL: Joi.boolean().default(false).description("Master switch to enable outgoing emails"),
     ENCRYPTION_SECRETKEY: Joi.string().description("Encryption Decryption Key"),
 
     // Google OAuth (DISABLED)
@@ -71,21 +72,22 @@ module.exports = {
       envVars.JWT_RESET_PASSWORD_EXPIRATION_MINUTES,
     verifyEmailExpirationMinutes: envVars.JWT_VERIFY_EMAIL_EXPIRATION_MINUTES,
   },
-  // EMAIL / SMTP (DISABLED)
-  // email: {
-  //   smtp: {
-  //     host: envVars.SMTP_HOST,
-  //     port: envVars.SMTP_PORT,
-  //     auth: {
-  //       user: envVars.SMTP_USERNAME,
-  //       pass: envVars.SMTP_PASSWORD,
-  //     },
-  //     tls: {
-  //       rejectUnauthorized: false,
-  //     },
-  //   },
-  //   adminEmail: envVars.ADMIN_EMAIL,
-  // },
+  email: {
+    smtp: {
+      host: envVars.SMTP_HOST,
+      port: envVars.SMTP_PORT,
+      auth: {
+        user: envVars.SMTP_USERNAME,
+        pass: envVars.SMTP_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    },
+    from: envVars.EMAIL_FROM || envVars.SMTP_USERNAME,
+    enabled: envVars.ENABLE_EMAIL || false,
+    adminEmail: envVars.ADMIN_EMAIL,
+  },
 
   // GOOGLE OAUTH (DISABLED)
   // google: {

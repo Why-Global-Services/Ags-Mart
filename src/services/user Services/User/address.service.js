@@ -75,6 +75,8 @@ const addAddress = async (req, res) => {
     zipCode,
     country,
     phone,
+    email,
+    confirmEmail,
     addressType,
     checkoutAddress,
   } = formattedData || {};
@@ -97,6 +99,28 @@ const addAddress = async (req, res) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "Provide all Details");
   }
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let validatedEmail = null;
+
+  if (email !== undefined || confirmEmail !== undefined) {
+    const rawEmail = String(email || "").trim();
+    const rawConfirm = String(confirmEmail || "").trim();
+
+    if (!rawEmail || !rawConfirm) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Both email and confirm email are required");
+    }
+
+    if (!emailRegex.test(rawEmail)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Invalid email address format");
+    }
+
+    if (rawEmail.toLowerCase() !== rawConfirm.toLowerCase()) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Email and confirm email do not match");
+    }
+
+    validatedEmail = rawEmail.toLowerCase();
+  }
+
   let userDetails = await User.findById(userId);
   if (!userDetails) {
     throw new ApiError(httpStatus.NOT_FOUND, "User not found");
@@ -111,6 +135,7 @@ const addAddress = async (req, res) => {
     zipCode,
     country,
     phone,
+    email: validatedEmail || undefined,
     addressType: addressType || "home",
     checkoutAddress: checkoutAddress || "billingAddress",
   };
@@ -154,6 +179,8 @@ const updateAddress = async (req, res) => {
     zipCode,
     country,
     phone,
+    email,
+    confirmEmail,
     addressType,
     checkoutAddress,
   } = req.body;
@@ -164,6 +191,30 @@ const updateAddress = async (req, res) => {
 
   if (!_id) {
     throw new ApiError(httpStatus.BAD_REQUEST, "No address ID provided");
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let validatedEmail = undefined;
+
+  if (email !== undefined || confirmEmail !== undefined) {
+    const rawEmail = String(email || "").trim();
+    const rawConfirm = String(confirmEmail || "").trim();
+
+    if (rawEmail || rawConfirm) {
+      if (!rawEmail || !rawConfirm) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Both email and confirm email are required");
+      }
+
+      if (!emailRegex.test(rawEmail)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Invalid email address format");
+      }
+
+      if (rawEmail.toLowerCase() !== rawConfirm.toLowerCase()) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Email and confirm email do not match");
+      }
+
+      validatedEmail = rawEmail.toLowerCase();
+    }
   }
 
   let userDetails = await User.findById(userId);
@@ -178,6 +229,7 @@ const updateAddress = async (req, res) => {
         zipCode,
         country,
         phone,
+        email: validatedEmail !== undefined ? validatedEmail : item.email,
         addressType,
         checkoutAddress,
       };
@@ -187,7 +239,7 @@ const updateAddress = async (req, res) => {
     return item;
   });
 
-  userDetails.save();
+  await userDetails.save();
   return {
     success: true,
     message: "Address updated Successfully",
