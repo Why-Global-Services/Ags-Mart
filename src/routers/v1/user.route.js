@@ -102,6 +102,12 @@ router
 router.route("/moveToCart").put(verifyToken, userController.moveToCartData);
 
 router.route("/getCheckout").get(verifyToken, userController.getCheckout);
+router
+  .route("/shipping-estimate")
+  .post(optionalVerifyToken, userController.getShippingEstimate);
+router
+  .route("/shipping-rate")
+  .post(userController.getShippingEstimate);
 
 // Address
 router.route("/addAddress").post(verifyToken, userController.addAddressData);

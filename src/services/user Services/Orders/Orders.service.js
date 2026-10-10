@@ -18,7 +18,11 @@ const logger = require("../../../config/logger");
 const { performance } = require("perf_hooks");
 const { sendOrderCreatedWhatsApp } = require("../../../utils/aiSensy");
 const { findProductVariant } = require("../../../utils/productVariant");
-const { createShiprocketOrder } = require("../../../utils/shiprocket");
+const {
+  createShiprocketOrder,
+  getShippingRateEstimate,
+  calculateShipmentDimensions,
+} = require("../../../utils/shiprocket");
 
 class OrderService {
   constructor() {
@@ -93,11 +97,18 @@ class OrderService {
       });
 
       // Phase 2: Pricing Calculation
+      const deliveryPincode =
+        preparationResult.userData?.deliveryAddress?.zipCode ||
+        req.body?.deliveryPincode ||
+        null;
+
       const pricing = await this.calculatePricing({
         cartItems: preparationResult.cartItems,
         totalAmount: preparationResult.totalAmount,
         couponCode,
         userId,
+        paymentMethod,
+        deliveryPincode,
       });
 
       const finalCartItems = pricing.cartItems || preparationResult.cartItems;
@@ -260,12 +271,20 @@ class OrderService {
 /**
  * UPDATED: Enhanced pricing calculation with automatic discounts
  */
-async calculatePricing({ cartItems, totalAmount, couponCode, userId, paymentMethod }) {
+async calculatePricing({
+  cartItems,
+  totalAmount,
+  couponCode,
+  userId,
+  paymentMethod,
+  deliveryPincode = null,
+}) {
   console.log("💰 Starting simplified pricing calculation:", {
     cartItemsCount: cartItems.length,
     totalAmount,
     couponCode,
     paymentMethod,
+    deliveryPincode,
   });
 
     let updatedCartItems = [...cartItems];
@@ -343,8 +362,16 @@ if (
 
   console.log("📊 Subtotal after coupon:", subtotalAfterCoupon);
 
-  // Step 4: Add shipping charge (configurable)
-  const shippingCharge = this.calculateShippingCharge(cartItems, subtotalAfterCoupon);
+  // Step 4: Add shipping charge (configurable + dynamic)
+  const shippingResult = await this.calculateShippingCharge({
+    cartItems: updatedCartItems,
+    subtotalAfterCoupon,
+    deliveryPincode,
+    paymentMethod,
+  });
+
+  const shippingCharge = shippingResult.shipping;
+  const shippingQuote = shippingResult.quote;
 
   console.log("📦 Shipping charge:", shippingCharge);
 
@@ -357,6 +384,7 @@ if (
     couponDetails: couponResult.couponDetails,
     subtotalAfterCoupon: subtotalAfterCoupon, // After coupon discount
     shipping: shippingCharge,
+    quote: shippingQuote,
     finalTotal: Number(finalTotal.toFixed(2)),
   };
 
@@ -747,9 +775,12 @@ const validatedCartItems = cartItems.map((item) => {
         discount: pricing.couponDiscount || 0, // Only coupon discount
         tax: 0, // No tax calculation
         shippingCharge: pricing.shipping,
+        shippingDetails: pricing.quote || null,
         finalAmount: pricing.finalTotal,
       },
     ],
+    shippingCharge: pricing.shipping,
+    shippingQuote: pricing.quote || null,
     paymentMethod,
     paymentStatus: "Pending",
     totalPrice: pricing.finalTotal,
@@ -1351,31 +1382,82 @@ const validatedCartItems = cartItems.map((item) => {
   }
 
   /**
- * Calculate shipping charge based on category & price
- */
-/**
- * Calculate shipping charge based on category & price
- */
-calculateShippingCharge(cartItems, subtotalAfterCoupon) {
-  // Configuration - change these values as needed
-  const SHIPPING_CHARGE = 50; // Default shipping charge
-  const FREE_SHIPPING_THRESHOLD = 999; // Free shipping above this amount
-  
-  console.log("📦 Calculating shipping:", {
-    subtotalAfterCoupon,
-    freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
-    defaultShipping: SHIPPING_CHARGE,
-  });
+   * Calculate shipping charge based on category, price, pincode, and Shiprocket live rate
+   */
+  async calculateShippingCharge(paramsOrCartItems, maybeSubtotal) {
+    let cartItems;
+    let subtotalAfterCoupon;
+    let deliveryPincode = null;
+    let paymentMethod = "COD";
 
-  // Apply free shipping if subtotal is above threshold
-  if (subtotalAfterCoupon >= FREE_SHIPPING_THRESHOLD) {
-    console.log("✅ Free shipping applied (above threshold)");
-    return 0;
+    if (Array.isArray(paramsOrCartItems)) {
+      cartItems = paramsOrCartItems;
+      subtotalAfterCoupon = Number(maybeSubtotal) || 0;
+    } else if (paramsOrCartItems && typeof paramsOrCartItems === "object") {
+      cartItems = paramsOrCartItems.cartItems || [];
+      subtotalAfterCoupon = Number(paramsOrCartItems.subtotalAfterCoupon) || 0;
+      deliveryPincode = paramsOrCartItems.deliveryPincode || null;
+      paymentMethod = paramsOrCartItems.paymentMethod || "COD";
+    } else {
+      cartItems = [];
+      subtotalAfterCoupon = 0;
+    }
+
+    const DEFAULT_SHIPPING =
+      process.env.DEFAULT_SHIPPING_CHARGE !== undefined
+        ? Number(process.env.DEFAULT_SHIPPING_CHARGE)
+        : 50;
+
+    console.log("📦 Calculating shipping:", {
+      subtotalAfterCoupon,
+      defaultShipping: DEFAULT_SHIPPING,
+      deliveryPincode,
+      paymentMethod,
+    });
+
+    // Dynamic Shiprocket rate calculation for all orders
+    const cleanPin = deliveryPincode ? String(deliveryPincode).trim() : null;
+    const pincodeRegex = /^[1-9][0-9]{5}$/;
+
+    if (cleanPin && pincodeRegex.test(cleanPin)) {
+      try {
+        const dimensions = calculateShipmentDimensions(cartItems);
+        const rateResult = await getShippingRateEstimate({
+          deliveryPincode: cleanPin,
+          weight: dimensions.weight,
+          length: dimensions.length,
+          breadth: dimensions.breadth,
+          height: dimensions.height,
+          cod: paymentMethod === "COD" ? 1 : 0,
+          declaredValue: subtotalAfterCoupon,
+        });
+
+        if (rateResult.available && rateResult.rate >= 0) {
+          console.log(`📦 Applying live Shiprocket shipping rate: ₹${rateResult.rate}`);
+          return {
+            shipping: rateResult.rate,
+            quote: {
+              ...rateResult,
+              provider: "Shiprocket",
+            },
+          };
+        }
+      } catch (err) {
+        console.warn("Dynamic shipping rate calculation failed, falling back to default:", err.message);
+      }
+    }
+
+    console.log(`📦 Applying standard shipping charge: ₹${DEFAULT_SHIPPING}`);
+    return {
+      shipping: DEFAULT_SHIPPING,
+      quote: {
+        fallbackApplied: true,
+        rate: DEFAULT_SHIPPING,
+        provider: "DefaultFallback",
+        deliveryPincode: cleanPin,
+      },
+    };
   }
-
-  console.log(`📦 Applying ₹${SHIPPING_CHARGE} shipping charge`);
-  return SHIPPING_CHARGE;
-}
   /**
    * Validate stock for a single product
    */

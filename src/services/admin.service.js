@@ -1811,6 +1811,7 @@ const getOrder = async (req, res) => {
         billingAddress: 1,
         createdAt: 1,
         updatedAt: 1,
+        shiprocket: 1,
         userDetails: {
           name: "$userDetails.name",
           email: "$userDetails.email",

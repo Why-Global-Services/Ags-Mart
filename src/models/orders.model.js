@@ -144,12 +144,28 @@ const orderDetailsSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        shippingCharge: {
+          type: Number,
+          default: 0,
+        },
+        shippingDetails: {
+          type: mongoose.Schema.Types.Mixed,
+          default: null,
+        },
         finalAmount: {
           type: Number,
           required: true,
         },
       },
     ],
+    shippingCharge: {
+      type: Number,
+      default: 0,
+    },
+    shippingQuote: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     totalPrice: {
       type: Number,
     },
@@ -282,6 +298,9 @@ orderDetailsSchema.index(
 // ✅ Additional indexes for performance
 orderDetailsSchema.index({ userId: 1, createdAt: -1 });
 orderDetailsSchema.index({ orderId: 1 });
+orderDetailsSchema.index({ "shiprocket.shipmentId": 1 }, { sparse: true });
+orderDetailsSchema.index({ "shiprocket.awbCode": 1 }, { sparse: true });
+orderDetailsSchema.index({ "shiprocket.orderId": 1 }, { sparse: true });
 orderDetailsSchema.index({ paymentStatus: 1, orderStatus: 1 });
 orderDetailsSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

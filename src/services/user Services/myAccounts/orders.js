@@ -53,6 +53,13 @@ const getOrder = async (req, res) => {
         reason: { $first: "$reason" },
         returnImage: { $first: "$returnImage" },
         orderDetails: { $push: "$orderDetails" },
+        shiprocket: { $first: "$shiprocket" },
+        deliveryAddress: { $first: "$deliveryAddress" },
+      },
+    },
+    {
+      $sort: {
+        createdAt: -1,
       },
     },
   ]);
@@ -120,6 +127,8 @@ const getSingleOrders = async (req) => {
         reason: { $first: "$reason" },
         returnImage: { $first: "$returnImage" },
         orderDetails: { $push: "$orderDetails" },
+        shiprocket: { $first: "$shiprocket" },
+        deliveryAddress: { $first: "$deliveryAddress" },
       },
     },
   ]);

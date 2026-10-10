@@ -87,7 +87,8 @@ const policy = require("../services/user Services/Policy.service");
 const { getFAQ } = require("../services/admin Services/faq/faq.service");
 const { createTestimonial, getTestimonial, updateTestimonial, deleteTestimonial } = require("../services/user Services/testimonial/testimonial.service");
 const { getActiveTopbarMessages } = require("../services/admin Services/topbarMessage/topbarMessage.service");
-const { idGenerator } = require("../services/user Services/guestId")
+const { idGenerator } = require("../services/user Services/guestId");
+const shippingService = require("../services/shipping.service");
 
 
 const CreateUsers = catchAsync(async (req, res) => {
@@ -494,7 +495,14 @@ const IDGenerator = async (req, res) => {
   res.status(200).send(data);
 };
 
+const getShippingEstimate = catchAsync(async (req, res) => {
+  const data = await shippingService.getShippingEstimateHandler(req);
+  res.status(200).send(data);
+});
+
 module.exports = {
+  getShippingEstimate,
+  calculateShippingEstimate: getShippingEstimate,
   CreateUserQuery,
   ForgotPassword,
   VerifyResetOtp,
@@ -572,5 +580,5 @@ module.exports = {
   getActiveTopbarsController,
   IDGenerator,
   cartMerge,
-  wishMerge
+  wishMerge,
 };

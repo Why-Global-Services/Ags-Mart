@@ -274,8 +274,12 @@ if (hasAnyDiscountedItem) {
 
   const discountedTotal = totalPrice - discountAmount;
 
-  const shippingCharge = discountedTotal >= 999 ? 0 : 50;
+  const DEFAULT_SHIPPING =
+    process.env.DEFAULT_SHIPPING_CHARGE !== undefined
+      ? Number(process.env.DEFAULT_SHIPPING_CHARGE)
+      : 50;
 
+  const shippingCharge = DEFAULT_SHIPPING;
   const finalPrice = discountedTotal + shippingCharge;
 
   /* ---------------- RESPONSE ---------------- */

@@ -40,6 +40,9 @@ const envVarsSchema = Joi.object()
 
     RAZORPAY_KEY: Joi.string().description("razorpay key id"),
     RAZORPAY_SECRET: Joi.string().description("razorpay secret key"),
+    SHIPROCKET_WEBHOOK_TOKEN: Joi.string().allow("").description("Shiprocket webhook token"),
+    SHIPROCKET_PICKUP_PINCODE: Joi.string().allow("").description("Shiprocket pickup pincode"),
+    DEFAULT_SHIPPING_CHARGE: Joi.number().default(50).description("Default fallback shipping charge"),
     // STRIPE (DISABLED)
     // STRIPE_PUBLISHABLE_KEY: Joi.string().description("Stripe publishable key"),
     // STRIPE_SECRET_KEY: Joi.string().description("Stripe secret key"),
@@ -94,6 +97,14 @@ module.exports = {
   razorpay: {
     keyId: envVars.RAZORPAY_KEY,
     secretKey: envVars.RAZORPAY_SECRET,
+  },
+  shiprocket: {
+    webhookToken: envVars.SHIPROCKET_WEBHOOK_TOKEN,
+    pickupPincode: envVars.SHIPROCKET_PICKUP_PINCODE,
+  },
+  shipping: {
+    defaultShippingCharge: envVars.DEFAULT_SHIPPING_CHARGE,
+    pickupPincode: envVars.SHIPROCKET_PICKUP_PINCODE,
   },
   // STRIPE (DISABLED)
   // stripe: {

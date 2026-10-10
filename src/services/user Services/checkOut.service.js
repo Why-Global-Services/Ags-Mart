@@ -4,6 +4,10 @@ const { getCart } = require("./Cart/cart.service");
 const ApiError = require("../../utils/apiError");
 const { Product } = require("../../models/Product.model");
 const { findProductVariant } = require("../../utils/productVariant");
+const {
+  calculateShipmentDimensions,
+  getShippingRateEstimate,
+} = require("../../utils/shiprocket");
 
 // ============================================================
 // IMAGE HELPER
@@ -605,13 +609,69 @@ const checkOut = async (req) => {
   // ==========================================================
   // SHIPPING
   // ==========================================================
-  let shippingCharge = 50;
+  const DEFAULT_SHIPPING =
+    process.env.DEFAULT_SHIPPING_CHARGE !== undefined
+      ? Number(process.env.DEFAULT_SHIPPING_CHARGE)
+      : 50;
 
-  if (
-    totalSalePrice >=
-    999
-  ) {
-    shippingCharge = 0;
+  let shippingCharge = DEFAULT_SHIPPING;
+  let shippingQuote = null;
+
+  // Check if delivery pincode is passed via query/body or present in user's saved addresses
+  const queryPincode = req.query?.pincode || req.body?.pincode;
+  const defaultAddressPincode = Array.isArray(userAddress?.address)
+    ? userAddress.address[0]?.zipCode
+    : null;
+  const effectivePincode = queryPincode || defaultAddressPincode;
+  const pincodeRegex = /^[1-9][0-9]{5}$/;
+
+  if (effectivePincode && pincodeRegex.test(String(effectivePincode).trim())) {
+    try {
+      const dimensions = calculateShipmentDimensions(enrichedCartItems);
+      const rateResult = await getShippingRateEstimate({
+        deliveryPincode: String(effectivePincode).trim(),
+        weight: dimensions.weight,
+        length: dimensions.length,
+        breadth: dimensions.breadth,
+        height: dimensions.height,
+        cod: 1,
+        declaredValue: totalSalePrice,
+      });
+
+      if (rateResult.available && rateResult.rate >= 0) {
+        shippingCharge = rateResult.rate;
+        shippingQuote = {
+          ...rateResult,
+          provider: "Shiprocket",
+        };
+      } else {
+        shippingCharge = DEFAULT_SHIPPING;
+        shippingQuote = {
+          ...rateResult,
+          fallbackApplied: true,
+          rate: DEFAULT_SHIPPING,
+          provider: "DefaultFallback",
+          message: rateResult.message || "Courier rates unavailable, standard delivery rate applied",
+        };
+      }
+    } catch (err) {
+      shippingCharge = DEFAULT_SHIPPING;
+      shippingQuote = {
+        available: false,
+        fallbackApplied: true,
+        rate: DEFAULT_SHIPPING,
+        provider: "DefaultFallback",
+      };
+    }
+  } else {
+    shippingCharge = DEFAULT_SHIPPING;
+    shippingQuote = {
+      available: false,
+      fallbackApplied: true,
+      rate: DEFAULT_SHIPPING,
+      provider: "DefaultEstimate",
+      message: "Standard delivery estimate. Live rates updated upon selecting delivery address.",
+    };
   }
 
   // ==========================================================
@@ -674,6 +734,9 @@ const checkOut = async (req) => {
 
         shipping:
           shippingCharge,
+
+        quote:
+          shippingQuote,
 
         total:
           finalTotal,

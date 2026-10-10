@@ -33,11 +33,44 @@ async function shiprocketLogin() {
   return authToken;
 }
 
+let cachedPickupPincode = null;
+
+/**
+ * Extracts numeric weight in grams from a unit string (e.g., "500g", "1 kg", "250 ml").
+ * Returns grams or null if unable to parse.
+ */
+function parseWeightFromUnit(unitStr) {
+  if (!unitStr || typeof unitStr !== "string") return null;
+  const str = unitStr.toLowerCase().trim();
+
+  // e.g. "1.5 kg" or "2kg"
+  const kgMatch = str.match(/([0-9.]+)\s*(?:kg|kilo|kilogram)/);
+  if (kgMatch && !isNaN(parseFloat(kgMatch[1]))) {
+    return Math.round(parseFloat(kgMatch[1]) * 1000);
+  }
+
+  // e.g. "500 g" or "250gm" or "500grams"
+  const gMatch = str.match(/([0-9.]+)\s*(?:g|gm|gms|gram|grams)/);
+  if (gMatch && !isNaN(parseFloat(gMatch[1]))) {
+    return Math.round(parseFloat(gMatch[1]));
+  }
+
+  // e.g. "500 ml" or "1 l"
+  const lMatch = str.match(/([0-9.]+)\s*(?:l|ltr|liter|litre)/);
+  if (lMatch && !isNaN(parseFloat(lMatch[1]))) {
+    return Math.round(parseFloat(lMatch[1]) * 1000);
+  }
+  const mlMatch = str.match(/([0-9.]+)\s*(?:ml|milliliter)/);
+  if (mlMatch && !isNaN(parseFloat(mlMatch[1]))) {
+    return Math.round(parseFloat(mlMatch[1]));
+  }
+
+  return null;
+}
+
 /**
  * Calculates shipment dimensions and weight for an array of items.
- * Each item has:
- *   shipping: { productWeight, dimension: { length, width, height } }
- *   quantity: number
+ * Supports varied item structures with fallback values.
  *
  * Database Units:
  *   productWeight = grams (g)
@@ -48,34 +81,244 @@ async function shiprocketLogin() {
  *   length, breadth, height = centimeters (cm)
  */
 function calculateShipmentDimensions(items) {
-  let totalWeightKg = 0;
+  if (!Array.isArray(items) || items.length === 0) {
+    return {
+      length: 10,
+      breadth: 10,
+      height: 10,
+      weight: 0.5,
+    };
+  }
+
+  let totalWeightGrams = 0;
   let maxLength = 0;
   let maxWidth = 0;
   let totalHeight = 0;
 
   items.forEach((item) => {
-    const shipping = item.shipping || {};
-    const dimension = shipping.dimension || {};
+    const shipping = item.shipping || item.selectedVariant?.shipping || {};
+    const dimension = shipping.dimension || item.dimension || {};
 
-    // Database stores weight in grams -> convert to kg for Shiprocket
-    const weightInGrams = Number(shipping.productWeight) || 0;
-    const length = Number(dimension.length) || 0;
-    const width = Number(dimension.width) || 0;
-    const height = Number(dimension.height) || 0;
-    const qty = Number(item.quantity) || 1;
+    let weightInGrams = Number(shipping.productWeight || item.productWeight || item.weight) || 0;
 
-    totalWeightKg += (weightInGrams / 1000) * qty;
+    // If weight not explicitly defined, try parsing unit string
+    if (weightInGrams <= 0) {
+      const unit =
+        item.variantDetails?.unit ||
+        item.selectedUnit ||
+        item.unit ||
+        item.selectedVariant?.unit ||
+        "";
+      const parsedGrams = parseWeightFromUnit(unit);
+      if (parsedGrams && parsedGrams > 0) {
+        weightInGrams = parsedGrams;
+      }
+    }
+
+    // Fallback to 500g default per item if still 0
+    if (weightInGrams <= 0) {
+      weightInGrams = 500;
+    }
+
+    const length = Number(dimension.length) > 0 ? Number(dimension.length) : 10;
+    const width = Number(dimension.width || dimension.breadth) > 0 ? Number(dimension.width || dimension.breadth) : 10;
+    const height = Number(dimension.height) > 0 ? Number(dimension.height) : 10;
+    const qty = Math.max(1, Number(item.quantity) || 1);
+
+    totalWeightGrams += weightInGrams * qty;
     maxLength = Math.max(maxLength, length);
     maxWidth = Math.max(maxWidth, width);
     totalHeight += height * qty;
   });
 
+  const totalWeightKg = totalWeightGrams / 1000;
+
   return {
-    length: Math.max(1, Math.round(maxLength)),
-    breadth: Math.max(1, Math.round(maxWidth)),
-    height: Math.max(1, Math.round(totalHeight)),
-    weight: parseFloat(Math.max(0.01, totalWeightKg).toFixed(3)),
+    length: Math.max(1, Math.round(maxLength || 10)),
+    breadth: Math.max(1, Math.round(maxWidth || 10)),
+    height: Math.max(1, Math.round(totalHeight || 10)),
+    weight: parseFloat(Math.max(0.05, totalWeightKg).toFixed(3)),
   };
+}
+
+/**
+ * Resolves the pickup pincode for rate calculation and shipment.
+ */
+async function getPickupPincode() {
+  if (process.env.SHIPROCKET_PICKUP_PINCODE) {
+    return String(process.env.SHIPROCKET_PICKUP_PINCODE).trim();
+  }
+
+  if (cachedPickupPincode) {
+    return cachedPickupPincode;
+  }
+
+  try {
+    const token = await shiprocketLogin();
+    const pickupRes = await axios.get(`${SHIPROCKET_API}/settings/company/pickup`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 5000,
+    });
+
+    const pin = pickupRes.data?.data?.shipping_address?.[0]?.pin_code;
+    if (pin) {
+      cachedPickupPincode = String(pin).trim();
+      return cachedPickupPincode;
+    }
+  } catch (err) {
+    console.warn("Could not fetch pickup pincode from Shiprocket account, using fallback:", err.message);
+  }
+
+  return "600001"; // Default Tamil Nadu / Chennai fallback pincode
+}
+
+/**
+ * Fetches courier serviceability and dynamic shipping rate from Shiprocket.
+ * Does NOT book or create any shipment.
+ *
+ * @param {object} params
+ * @param {string} [params.pickupPincode]
+ * @param {string} params.deliveryPincode
+ * @param {number} [params.weight=0.5] - in kg
+ * @param {number} [params.length=10] - in cm
+ * @param {number} [params.breadth=10] - in cm
+ * @param {number} [params.height=10] - in cm
+ * @param {number|boolean} [params.cod=0] - 1 for COD, 0 for Prepaid
+ * @param {number} [params.declaredValue=0]
+ * @returns {Promise<object>}
+ */
+async function getShippingRateEstimate({
+  pickupPincode,
+  deliveryPincode,
+  weight = 0.5,
+  length = 10,
+  breadth = 10,
+  height = 10,
+  cod = 0,
+  declaredValue = 0,
+}) {
+  const cleanDeliveryPin = String(deliveryPincode || "").trim();
+  const pincodeRegex = /^[1-9][0-9]{5}$/;
+
+  if (!pincodeRegex.test(cleanDeliveryPin)) {
+    return {
+      success: false,
+      available: false,
+      fallbackApplied: true,
+      rate: 50,
+      message: "Invalid or unsupported delivery pincode format (must be 6 digits)",
+    };
+  }
+
+  const effectivePickupPin = pickupPincode ? String(pickupPincode).trim() : await getPickupPincode();
+
+  let token;
+  try {
+    token = await shiprocketLogin();
+  } catch (authErr) {
+    console.warn("Shiprocket login failed for rate estimate:", authErr.message);
+    return {
+      success: false,
+      available: false,
+      fallbackApplied: true,
+      rate: 50,
+      message: "Shiprocket service unavailable, using default shipping rate",
+    };
+  }
+
+  const numericWeight = Math.max(0.05, Number(weight) || 0.5);
+  const isCod = cod === 1 || cod === true || cod === "COD";
+
+  const queryParams = {
+    pickup_postcode: effectivePickupPin,
+    delivery_postcode: cleanDeliveryPin,
+    weight: numericWeight.toFixed(3),
+    cod: isCod ? 1 : 0,
+    declared_value: Math.max(0, Number(declaredValue) || 0),
+    length: Math.max(1, Math.round(Number(length) || 10)),
+    breadth: Math.max(1, Math.round(Number(breadth) || 10)),
+    height: Math.max(1, Math.round(Number(height) || 10)),
+  };
+
+  try {
+    const response = await axios.get(`${SHIPROCKET_API}/courier/serviceability/`, {
+      params: queryParams,
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 6000,
+    });
+
+    const courierData = response.data?.data;
+    const availableCouriers = Array.isArray(courierData?.available_courier_companies)
+      ? courierData.available_courier_companies
+      : [];
+
+    if (availableCouriers.length === 0) {
+      return {
+        success: true,
+        available: false,
+        fallbackApplied: true,
+        rate: 50,
+        pickupPincode: effectivePickupPin,
+        deliveryPincode: cleanDeliveryPin,
+        message: "No couriers available for this delivery pincode, standard rate applied",
+      };
+    }
+
+    // Sort couriers by rate ascending to get the best/cheapest rate
+    const validCouriers = availableCouriers
+      .filter((c) => Number(c.rate) > 0)
+      .sort((a, b) => Number(a.rate) - Number(b.rate));
+
+    if (validCouriers.length === 0) {
+      return {
+        success: true,
+        available: false,
+        fallbackApplied: true,
+        rate: 50,
+        pickupPincode: effectivePickupPin,
+        deliveryPincode: cleanDeliveryPin,
+        message: "No valid rates available, standard rate applied",
+      };
+    }
+
+    const bestCourier = validCouriers[0];
+    const bestRate = Math.round(Number(bestCourier.rate));
+
+    return {
+      success: true,
+      available: true,
+      fallbackApplied: false,
+      rate: bestRate,
+      courierName: bestCourier.courier_name,
+      courierCompanyId: bestCourier.courier_company_id,
+      estimatedDays: bestCourier.estimated_delivery_days || bestCourier.etd || "3-5 days",
+      pickupPincode: effectivePickupPin,
+      deliveryPincode: cleanDeliveryPin,
+      weight: queryParams.weight,
+      dimensions: {
+        length: queryParams.length,
+        breadth: queryParams.breadth,
+        height: queryParams.height,
+      },
+      allCouriers: validCouriers.slice(0, 5).map((c) => ({
+        id: c.courier_company_id,
+        name: c.courier_name,
+        rate: Math.round(Number(c.rate)),
+        etd: c.estimated_delivery_days || c.etd || "3-5 days",
+      })),
+    };
+  } catch (error) {
+    console.warn("Shiprocket serviceability API request failed:", error.response?.data?.message || error.message);
+    return {
+      success: false,
+      available: false,
+      fallbackApplied: true,
+      rate: 50,
+      pickupPincode: effectivePickupPin,
+      deliveryPincode: cleanDeliveryPin,
+      message: error.response?.data?.message || "Courier serviceability check failed, standard rate applied",
+    };
+  }
 }
 
 /**
@@ -285,6 +528,9 @@ async function allShipmentDetails() {
 module.exports = {
   createShiprocketOrder,
   calculateShipmentDimensions,
+  getShippingRateEstimate,
+  getPickupPincode,
+  parseWeightFromUnit,
   trackShipment,
   shiprocketLogin,
   allShipmentDetails,
