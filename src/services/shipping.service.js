@@ -406,7 +406,7 @@ const handleShiprocketWebhook = async (req) => {
   // Send customer order status email if status transitioned or changed
   if (shouldTransition && targetOrderStatus) {
     try {
-      const eventId = rawAwb || order.shiprocket?.awbCode || order.shiprocket?.shipmentId || undefined;
+      const eventId = awb || order.shiprocket?.awbCode || order.shiprocket?.shipmentId || undefined;
       await sendmail.sendOrderStatusEmail({
         order: updatedOrder,
         status: targetOrderStatus,

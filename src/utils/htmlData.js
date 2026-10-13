@@ -225,7 +225,7 @@ exports.orderStatusEmailTemplate = ({
         
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #1a4a13 0%, #2d7a22 100%); padding: 28px 24px; text-align: center; color: white;">
-          <h1 style="margin: 0; font-family: 'Poppins', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">Ags Mart</h1>
+          <h1 style="margin: 0; font-family: 'Poppins', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">Agrowmed</h1>
           <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.9;">Your Trusted Agriculture & Retail Partner</p>
         </div>
 
@@ -262,14 +262,14 @@ exports.orderStatusEmailTemplate = ({
           <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b; line-height: 1.6;">
             <p style="margin: 0 0 6px;">Need assistance with your order?</p>
             <p style="margin: 0;">
-              Contact our support team at <a href="mailto:support@agsmart.in" style="color: #2d7a22; font-weight: 600; text-decoration: none;">support@agsmart.in</a> or visit our portal at <a href="https://agsmart.in" style="color: #2d7a22; font-weight: 600; text-decoration: none;">agsmart.in</a>.
+              Contact our support team at <a href="mailto:sales@agrowmed.com" style="color: #2d7a22; font-weight: 600; text-decoration: none;">sales@agrowmed.com</a> or visit our portal at <a href="https://agrowmed.com/" style="color: #2d7a22; font-weight: 600; text-decoration: none;">https://agrowmed.com/</a>.
             </p>
           </div>
         </div>
 
         <!-- Footer -->
         <div style="background: #0f172a; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
-          <p style="margin: 0 0 4px;">© ${currentYear} Ags Mart. All rights reserved.</p>
+          <p style="margin: 0 0 4px;">© ${currentYear} Agrowmed. All rights reserved.</p>
           <p style="margin: 0; font-size: 11px; opacity: 0.8;">Thank you for shopping with us!</p>
         </div>
       </div>
