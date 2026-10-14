@@ -324,9 +324,16 @@ const ProductDetailsPage = () => {
   };
 
   const getSelectedUnitRequest = () => {
-    const variantId = selectedVariant?._id || selectedVariant?.id;
+    const isNonVariant = product?.productType === "nonVariant";
+    const variantId = isNonVariant
+      ? product?.rawData?.nonVariant?._id ||
+        product?.rawData?.nonVariant?.id ||
+        null
+      : selectedVariant?._id || selectedVariant?.id;
     const isValidUnitVariant =
-      isUnitOnlyProduct || unitVariants.length > 0
+      isNonVariant
+        ? true
+        : isUnitOnlyProduct || unitVariants.length > 0
         ? unitVariants.some(
             (variant, idx) =>
               String(variant._id || variant.id || idx) === String(variantId),
@@ -451,10 +458,18 @@ const ProductDetailsPage = () => {
 
       if (product.productType === "nonVariant") {
         buyNowItemData.productType = "nonVariant";
-        buyNowItemData.variantId = null;
+        buyNowItemData.variantId =
+          product.rawData?.nonVariant?._id ||
+          product.rawData?.nonVariant?.id ||
+          variantId ||
+          null;
         buyNowItemData.variantType = null;
         buyNowItemData.variantDetails = {};
-        buyNowItemData.stockCount = product.rawData.nonVariant?.stockCount || 0;
+        buyNowItemData.stockCount = product.rawData?.nonVariant?.stockCount || 0;
+        buyNowItemData.priceBreakdown =
+          product.rawData?.nonVariant?.price || priceBreakdown;
+        buyNowItemData.productImage =
+          product.rawData?.nonVariant?.nonVariantImages?.[0] || displayImage;
       }
 
       localStorage.setItem("buyNowItem", JSON.stringify(buyNowItemData));

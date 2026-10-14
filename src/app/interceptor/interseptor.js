@@ -5,6 +5,7 @@ const apiInstance = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     "https://agsmartapi.whydev.in/v1/user",
+    
 });
 
 // ✅ Public authentication routes that NEVER require a token or session-expiry logout on failure
@@ -495,17 +496,13 @@ export const getCheckout = async () => {
 export const getShippingEstimate = async (payload = {}) => {
   try {
     const res = await apiInstance.post(`/shipping-estimate`, payload);
-    return res.data;
+    return res;
   } catch (error) {
-    console.warn("Shipping estimate API error:", error?.response?.data?.message || error.message);
-    return {
-      success: false,
-      data: {
-        shipping: 50,
-        isFreeShipping: false,
-        quote: { fallbackApplied: true, rate: 50 },
-      },
-    };
+    console.warn(
+      "Shipping estimate API error:",
+      error?.response?.data?.message || error.message
+    );
+    throw error;
   }
 };
 
@@ -628,6 +625,33 @@ export const getOrders = async () => {
     throw new Error(
       error.response?.data?.message || "Failed to fetch addresses"
     );
+  }
+};
+
+export const getOrderTracking = async (orderId) => {
+  if (!orderId) {
+    throw new Error("Order ID is required to fetch tracking details");
+  }
+  const cleanId = String(orderId).trim();
+  try {
+    const response = await apiInstance.get(`/track/${cleanId}`);
+    return response;
+  } catch (error) {
+    // Fallback to /shipping/track/:orderId if /user/track/:orderId is unavailable
+    try {
+      const apiBase = (
+        process.env.NEXT_PUBLIC_API_BASE_URL ||
+        "https://agsmartapi.whydev.in/v1/user"
+      ).replace(/\/user\/?$/, "");
+      const res = await axios.get(`${apiBase}/shipping/track/${cleanId}`);
+      return res.data;
+    } catch (fallbackErr) {
+      throw new Error(
+        error.response?.data?.message ||
+        fallbackErr.response?.data?.message ||
+        "Failed to fetch order tracking details"
+      );
+    }
   }
 };
 

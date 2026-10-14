@@ -1,11 +1,11 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import OrderDetailsMain from './components/OrderDetailsMain'
 
 const Page = () => {
   return (
-    <div>
-        <OrderDetailsMain />
-    </div>
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">Loading order details...</div>}>
+      <OrderDetailsMain />
+    </Suspense>
   )
 }
 

@@ -62,6 +62,9 @@ const Review = ({
   const [completedOrderId, setCompletedOrderId] = useState(null);
   const razorpayOrderRef = useRef(null);
   const isSubmittingRef = useRef(false);
+  const hasLiveShippingQuoteRef = useRef(false);
+  const latestShippingRequestIdRef = useRef(0);
+  const lastShippingConfigKeyRef = useRef("");
 
   // Define Razorpay key directly or use environment variable with fallback
   const razorpayKey = "rzp_test_S3g71UVxt2B922";
@@ -324,7 +327,10 @@ const Review = ({
           setItems(processedData.items);
           setTotalPrice(processedData.totalPrice);
           setInitialSubtotal(processedData.initialSubtotal);
-          setShipping(processedData.shipping);
+          // Only initialize fallback shipping if no live shipping quote has been established
+          if (!hasLiveShippingQuoteRef.current) {
+            setShipping(processedData.shipping);
+          }
           setIsFreeShipping(Boolean(processedData.isFreeShipping));
           if (processedData.quote) setShippingQuote(processedData.quote);
           setAvailableCoupons(processedData.coupons);
@@ -335,7 +341,10 @@ const Review = ({
           setItems(processedData.items);
           setTotalPrice(processedData.totalPrice);
           setInitialSubtotal(processedData.initialSubtotal);
-          setShipping(processedData.shipping);
+          // Only initialize fallback shipping if no live shipping quote has been established
+          if (!hasLiveShippingQuoteRef.current) {
+            setShipping(processedData.shipping);
+          }
           setIsFreeShipping(Boolean(processedData.isFreeShipping));
           if (processedData.quote) setShippingQuote(processedData.quote);
           setAvailableCoupons(processedData.coupons);
@@ -357,11 +366,14 @@ const Review = ({
     const fetchLiveShipping = async () => {
       const activePincode =
         deliveryPincode ||
+        deliveryAddressObj?.pincode ||
+        deliveryAddressObj?.postalCode ||
         (typeof window !== "undefined"
           ? localStorage.getItem("selectedDeliveryPincode")
           : null);
       const activeAddressId =
         deliveryAddressId ||
+        deliveryAddressObj?._id ||
         (typeof window !== "undefined"
           ? localStorage.getItem("selectedDeliveryAddress")
           : null);
@@ -373,7 +385,29 @@ const Review = ({
       const currentDiscount = couponDiscount || 0;
       const subtotalAfterCoupon = Math.max(0, currentSubtotal - currentDiscount);
 
+      // Increment request ID to ignore stale out-of-order responses
+      const currentRequestId = ++latestShippingRequestIdRef.current;
 
+      // Detect if order configuration (product, address, pincode, payment method) changed
+      const currentConfigKey = `${isBuyNow ? "buynow" : "cart"}:${
+        isBuyNow
+          ? `${buyNowItem?.productId || ""}_${buyNowItem?.variantId || ""}_${buyNowItem?.quantity || 1}`
+          : items.map((it) => `${it._id}_${it.variantId}_${it.quantity}`).join(",")
+      }:${activeAddressId || ""}:${activePincode || ""}:${paymentMethod}`;
+
+      if (lastShippingConfigKeyRef.current !== currentConfigKey) {
+        lastShippingConfigKeyRef.current = currentConfigKey;
+        hasLiveShippingQuoteRef.current = false;
+      }
+
+      console.log("[Checkout Shipping] Requesting shipping estimate:", {
+        requestId: currentRequestId,
+        isBuyNow: Boolean(isBuyNow),
+        pincodePrefix: activePincode ? `${String(activePincode).slice(0, 3)}***` : "none",
+        hasDeliveryAddress: Boolean(activeAddressId),
+        paymentMethod,
+        subtotal: currentSubtotal,
+      });
 
       try {
         setShippingLoading(true);
@@ -396,16 +430,84 @@ const Review = ({
         };
 
         const res = await getShippingEstimate(estimatePayload);
-        if (!isCancelled && res?.success && res?.data) {
-          const rateData = res.data;
-          setShipping(rateData.shipping);
-          setIsFreeShipping(Boolean(rateData.isFreeShipping));
-          setShippingQuote(rateData.quote);
+
+        // Check for stale response
+        if (isCancelled || currentRequestId !== latestShippingRequestIdRef.current) {
+          console.log(
+            `[Checkout Shipping] Stale shipping response discarded (req #${currentRequestId}, latest #${latestShippingRequestIdRef.current})`
+          );
+          return;
+        }
+
+        // Defensive extraction supporting:
+        // 1. Interceptor return: { success: true, data: { shipping: 149, ... } }
+        // 2. Further-unwrapped return: { shipping: 149, ... }
+        // 3. Raw Axios response: { data: { success: true, data: { shipping: 149, ... } } }
+        let rateData = null;
+        let rateDataSource = "unknown";
+
+        if (res) {
+          if (res.data && (typeof res.data.shipping === "number" || typeof res.data.shippingCharge === "number")) {
+            rateData = res.data;
+            rateDataSource = "res.data";
+          } else if (res.data?.data && (typeof res.data.data.shipping === "number" || typeof res.data.data.shippingCharge === "number")) {
+            rateData = res.data.data;
+            rateDataSource = "res.data.data";
+          } else if (typeof res.shipping === "number" || typeof res.shippingCharge === "number") {
+            rateData = res;
+            rateDataSource = "res (direct unwrapped)";
+          }
+        }
+
+        if (rateData) {
+          const dynamicShipping = Number(rateData.shipping ?? rateData.shippingCharge);
+          const quote = rateData.quote || res?.quote || null;
+          const isFallback = Boolean(quote?.fallbackApplied);
+
+          if (!isNaN(dynamicShipping) && dynamicShipping >= 0) {
+            setShipping(dynamicShipping);
+            setIsFreeShipping(Boolean(rateData.isFreeShipping || dynamicShipping === 0));
+            if (quote) {
+              setShippingQuote(quote);
+            }
+            hasLiveShippingQuoteRef.current = !isFallback;
+
+            console.log("[Checkout Shipping] Shipping estimate parsed successfully:", {
+              requestId: currentRequestId,
+              rateDataSource,
+              hasTopLevelSuccess: res?.success !== undefined ? res.success : "N/A",
+              chosenShipping: dynamicShipping,
+              courierName: quote?.courierName || quote?.provider || "N/A",
+              fallbackApplied: isFallback,
+              isFreeShipping: Boolean(rateData.isFreeShipping || dynamicShipping === 0),
+            });
+          }
+        } else {
+          console.warn("[Checkout Shipping] Unrecognized rate data structure:", res);
         }
       } catch (err) {
-        console.warn("Dynamic shipping rate request failed:", err);
+        console.warn("[Checkout Shipping] Dynamic shipping rate request failed:", {
+          requestId: currentRequestId,
+          errorMessage: err?.response?.data?.message || err?.message || "Unknown error",
+          statusCode: err?.response?.status,
+        });
+
+        if (!isCancelled && currentRequestId === latestShippingRequestIdRef.current) {
+          if (!hasLiveShippingQuoteRef.current) {
+            setShipping(50);
+            setShippingQuote({
+              fallbackApplied: true,
+              rate: 50,
+              provider: "DefaultFallback",
+              message:
+                err?.response?.data?.message ||
+                err?.message ||
+                "Courier rates unavailable, standard delivery rate applied",
+            });
+          }
+        }
       } finally {
-        if (!isCancelled) {
+        if (!isCancelled && currentRequestId === latestShippingRequestIdRef.current) {
           setShippingLoading(false);
         }
       }
@@ -419,6 +521,7 @@ const Review = ({
   }, [
     deliveryPincode,
     deliveryAddressId,
+    deliveryAddressObj,
     paymentMethod,
     appliedCoupons,
     totalPrice,

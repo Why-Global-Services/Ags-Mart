@@ -94,12 +94,15 @@
 //   );
 // }
 
-import React from 'react'
+import React, { Suspense } from 'react'
 import Orders from './orders/components/Orders'
 
 const page = () => {
   return (
-<Orders/>  )
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">Loading orders...</div>}>
+      <Orders/>
+    </Suspense>
+  )
 }
 
 export default page

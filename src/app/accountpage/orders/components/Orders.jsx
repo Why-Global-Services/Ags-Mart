@@ -1,6 +1,7 @@
 // Orders.jsx
 "use client";
 import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import Image from "next/image";
 import { Modal, Button, Input, Upload, Rate, Select } from "antd";
@@ -202,16 +203,31 @@ const OrderTracking = ({ order }) => {
                 </div>
               )}
             </div>
-            {order.shiprocket.trackingUrl && (
-              <a
-                href={order.shiprocket.trackingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg shadow-2xs transition-colors shrink-0"
-              >
-                <Truck className="w-3.5 h-3.5" />
-                Live Tracking <ExternalLink className="w-3 h-3" />
-              </a>
+            {order.orderId && (
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/track?orderId=${encodeURIComponent(order.orderId)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg shadow-2xs transition-colors shrink-0"
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  Live Tracking <ExternalLink className="w-3 h-3" />
+                </a>
+                {order.shiprocket?.trackingUrl &&
+                  typeof order.shiprocket.trackingUrl === "string" &&
+                  order.shiprocket.trackingUrl.startsWith("http") && (
+                    <a
+                      href={order.shiprocket.trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 underline px-1 py-1 shrink-0"
+                      title="Courier Partner Tracking"
+                    >
+                      Courier Link <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+              </div>
             )}
           </div>
         </div>
@@ -496,6 +512,8 @@ const getStatusColor = (status) => {
 
 export default function Orders() {
   const dispatch = useDispatch();
+  const searchParams = useSearchParams();
+  const orderIdQuery = searchParams ? searchParams.get("orderId") : null;
   
   // Select state from Redux
   const {
@@ -515,6 +533,16 @@ export default function Orders() {
     imageError,
     returnType,
   } = useSelector((state) => state.orders);
+
+  // Auto-select order if orderId query parameter is provided (e.g. from redirect or direct URL)
+  useEffect(() => {
+    if (orderIdQuery && orders && orders.length > 0 && !selectedOrder) {
+      const match = orders.find((o) => o.orderId === orderIdQuery);
+      if (match) {
+        dispatch(setSelectedOrder(match));
+      }
+    }
+  }, [orderIdQuery, orders, selectedOrder, dispatch]);
 
   useEffect(() => {
     let isFetching = false;
