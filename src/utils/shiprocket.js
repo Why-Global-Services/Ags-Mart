@@ -322,6 +322,60 @@ async function getShippingRateEstimate({
 }
 
 /**
+ * Validates and normalizes an Indian phone number for Shiprocket.
+ * Accepts:
+ * - 10-digit number starting with 6-9
+ * - 11-digit number starting with 0, where remaining 10 digits start with 6-9
+ * - 12-digit number starting with 91, where remaining 10 digits start with 6-9
+ * - 13-digit number starting with 091, where remaining 10 digits start with 6-9
+ * Returns normalized 10-digit string.
+ * Throws clear Error if invalid.
+ */
+function normalizeIndianPhoneNumber(rawPhone, fieldName = "Phone number") {
+  if (rawPhone === undefined || rawPhone === null || String(rawPhone).trim() === "") {
+    throw new Error(`${fieldName} is missing`);
+  }
+
+  const rawStr = String(rawPhone).trim();
+  const digits = rawStr.replace(/\D/g, "");
+
+  let normalized = null;
+
+  if (digits.length === 10) {
+    normalized = digits;
+  } else if (digits.length === 11 && digits.startsWith("0")) {
+    normalized = digits.slice(1);
+  } else if (digits.length === 12 && digits.startsWith("91")) {
+    normalized = digits.slice(2);
+  } else if (digits.length === 13 && digits.startsWith("091")) {
+    normalized = digits.slice(3);
+  } else {
+    throw new Error(
+      `Invalid ${fieldName}: "${rawStr}". Must be a valid 10-digit mobile number (optionally prefixed with +91 or 0).`
+    );
+  }
+
+  if (!/^[6-9]\d{9}$/.test(normalized)) {
+    throw new Error(
+      `Invalid ${fieldName}: "${rawStr}". Indian mobile numbers must be 10 digits starting with 6, 7, 8, or 9.`
+    );
+  }
+
+  return normalized;
+}
+
+/**
+ * Sanitizes sensitive credentials and tokens from error messages.
+ */
+function sanitizeErrorMessage(msg) {
+  if (!msg || typeof msg !== "string") return "Unknown Shiprocket error";
+  return msg
+    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, "Bearer [REDACTED]")
+    .replace(/(password|token|secret|key|authorization)=([^&\s]+)/gi, "$1=[REDACTED]")
+    .trim();
+}
+
+/**
  * Creates a Shiprocket order.
  * Inspects all products in order.orderDetails[0].products,
  * supports both unitOnly variants and non-variant products,
@@ -367,14 +421,34 @@ async function createShiprocketOrder(
       let hsn = "";
       let itemName = productDoc.productName || "Product";
 
-      if (variantId) {
+      const rawProductType = String(
+        productDoc.productType || p.productType || ""
+      ).trim().toLowerCase();
+
+      const isVariant =
+        rawProductType === "variant" ||
+        rawProductType === "variation" ||
+        (Array.isArray(productDoc.variant?.unitOnlyVariants) &&
+          productDoc.variant.unitOnlyVariants.length > 0 &&
+          rawProductType !== "nonvariant" &&
+          rawProductType !== "nonvariation");
+
+      if (isVariant) {
+        if (!variantId) {
+          throw new Error(
+            `Variant ID is missing for variant product "${productDoc.productName || productDoc._id}"`
+          );
+        }
+
         const unitVariants = productDoc.variant?.unitOnlyVariants || [];
         const variant = unitVariants.find(
-          (item) => String(item._id) === String(variantId)
+          (item) => String(item._id || item.id) === String(variantId)
         );
 
         if (!variant) {
-          throw new Error(`Variant ${variantId} not found for product ${productDoc._id}`);
+          throw new Error(
+            `Variant ${variantId} not found for product "${productDoc.productName || productDoc._id}"`
+          );
         }
 
         if (variant.unit) {
@@ -382,15 +456,28 @@ async function createShiprocketOrder(
         }
 
         // Use variant-level shipping if defined, fallback to product-level shipping
-        shippingDetails = (variant.shipping && (Number(variant.shipping.productWeight) > 0 || Number(variant.shipping.dimension?.length) > 0))
-          ? variant.shipping
-          : (productDoc.shipping || {});
+        shippingDetails =
+          variant.shipping &&
+          (Number(variant.shipping.productWeight) > 0 ||
+            Number(variant.shipping.dimension?.length) > 0)
+            ? variant.shipping
+            : productDoc.shipping || {};
 
-        sku = variant.skuCode || variant.productCode || productDoc.inventory?.sku || productDoc.inventory?.productCode || String(variant._id);
+        sku =
+          variant.skuCode ||
+          variant.productCode ||
+          productDoc.inventory?.sku ||
+          productDoc.inventory?.productCode ||
+          String(variant._id || variant.id);
         hsn = variant.shipping?.hsnCode || productDoc.shipping?.hsnCode || "";
       } else {
         shippingDetails = productDoc.shipping || {};
-        sku = productDoc.nonVariant?.skuCode || productDoc.nonVariant?.productCode || productDoc.inventory?.sku || productDoc.inventory?.productCode || String(productDoc._id);
+        sku =
+          productDoc.nonVariant?.skuCode ||
+          productDoc.nonVariant?.productCode ||
+          productDoc.inventory?.sku ||
+          productDoc.inventory?.productCode ||
+          String(productDoc._id);
         hsn = productDoc.shipping?.hsnCode || "";
       }
 
@@ -411,7 +498,7 @@ async function createShiprocketOrder(
 
       orderItems.push({
         name: itemName,
-        sku,
+        sku: sku || `SKU-${String(productId).slice(-6)}`,
         units: quantity,
         selling_price: price,
         discount: 0,
@@ -438,6 +525,20 @@ async function createShiprocketOrder(
     const effectiveBilling = billingAddress || order?.billingAddress || {};
     const effectiveDelivery = deliveryAddress || order?.deliveryAddress || effectiveBilling;
 
+    const rawBillingPhone =
+      effectiveBilling.phone || order?.contactNumber || "";
+    const rawShippingPhone =
+      effectiveDelivery.phone || effectiveBilling.phone || order?.contactNumber || "";
+
+    const billingPhone = normalizeIndianPhoneNumber(
+      rawBillingPhone,
+      "Billing phone number"
+    );
+    const shippingPhone = normalizeIndianPhoneNumber(
+      rawShippingPhone,
+      "Shipping phone number"
+    );
+
     const payload = {
       order_id: order.orderId,
       order_date: new Date().toISOString().slice(0, 19).replace("T", " "),
@@ -454,7 +555,7 @@ async function createShiprocketOrder(
       billing_country: effectiveBilling.country || "India",
       billing_pincode: Number(effectiveBilling.zipCode) || 0,
       billing_email: userEmail || order?.email || "customer@example.com",
-      billing_phone: effectiveBilling.phone || order?.contactNumber || "9999999999",
+      billing_phone: billingPhone,
 
       // Shipping info
       shipping_is_billing: true,
@@ -467,7 +568,7 @@ async function createShiprocketOrder(
       shipping_country: effectiveDelivery.country || "India",
       shipping_pincode: Number(effectiveDelivery.zipCode || effectiveBilling.zipCode) || 0,
       shipping_email: userEmail || order?.email || "customer@example.com",
-      shipping_phone: effectiveDelivery.phone || effectiveBilling.phone || "9999999999",
+      shipping_phone: shippingPhone,
 
       order_items: orderItems,
 
@@ -495,11 +596,32 @@ async function createShiprocketOrder(
     console.log("Shiprocket Order Response:", shiprocketOrder.data);
     return shiprocketOrder.data;
   } catch (error) {
+    let sanitizedMessage = error.message || "Failed to create Shiprocket order";
+
+    if (error.response?.data) {
+      const data = error.response.data;
+      if (typeof data === "string") {
+        sanitizedMessage = data;
+      } else if (data.message) {
+        sanitizedMessage = data.message;
+        if (data.errors && typeof data.errors === "object") {
+          const detailMessages = Object.entries(data.errors)
+            .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(", ") : errs}`)
+            .join("; ");
+          if (detailMessages) {
+            sanitizedMessage += ` (${detailMessages})`;
+          }
+        }
+      }
+    }
+
+    sanitizedMessage = sanitizeErrorMessage(sanitizedMessage);
+
     console.error(
       "Error creating Shiprocket order:",
-      error.response?.data || error.message
+      sanitizedMessage
     );
-    return null;
+    throw new Error(sanitizedMessage);
   }
 }
 

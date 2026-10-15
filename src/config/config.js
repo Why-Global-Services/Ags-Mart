@@ -44,6 +44,7 @@ const envVarsSchema = Joi.object()
     SHIPROCKET_WEBHOOK_TOKEN: Joi.string().allow("").description("Shiprocket webhook token"),
     SHIPROCKET_PICKUP_PINCODE: Joi.string().allow("").description("Shiprocket pickup pincode"),
     DEFAULT_SHIPPING_CHARGE: Joi.number().default(50).description("Default fallback shipping charge"),
+    FRONTEND_URL: Joi.string().allow("").default("https://agrowmed.com").description("Frontend website URL for email and tracking links"),
     // STRIPE (DISABLED)
     // STRIPE_PUBLISHABLE_KEY: Joi.string().description("Stripe publishable key"),
     // STRIPE_SECRET_KEY: Joi.string().description("Stripe secret key"),
@@ -108,6 +109,7 @@ module.exports = {
     defaultShippingCharge: envVars.DEFAULT_SHIPPING_CHARGE,
     pickupPincode: envVars.SHIPROCKET_PICKUP_PINCODE,
   },
+  frontendUrl: (envVars.FRONTEND_URL || "https://agrowmed.com").replace(/\/+$/, ""),
   // STRIPE (DISABLED)
   // stripe: {
   //   keyId: envVars.STRIPE_PUBLISHABLE_KEY,

@@ -108,6 +108,9 @@ router
 router
   .route("/shipping-rate")
   .post(userController.getShippingEstimate);
+router
+  .route("/track/:orderId")
+  .get(userController.trackOrder);
 
 // Address
 router.route("/addAddress").post(verifyToken, userController.addAddressData);

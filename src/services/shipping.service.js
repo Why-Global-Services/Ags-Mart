@@ -117,12 +117,17 @@ const extractPayload = (body) => {
     body.courier_name ||
     null;
 
-  const trackingUrl =
+  const rawTrackingUrl =
     data.tracking_url ||
     data.trackingUrl ||
-    data.channel_order_id_url ||
     body.tracking_url ||
     null;
+
+  const cleanAwb = awb ? String(awb).trim() : null;
+  const trackingUrl =
+    rawTrackingUrl && typeof rawTrackingUrl === "string" && rawTrackingUrl.startsWith("http")
+      ? rawTrackingUrl.trim()
+      : (cleanAwb ? `https://shiprocket.co/tracking/${cleanAwb}` : null);
 
   const eventTimestamp =
     data.current_timestamp ||
@@ -133,13 +138,13 @@ const extractPayload = (body) => {
     new Date();
 
   return {
-    awb: awb ? String(awb).trim() : null,
+    awb: cleanAwb,
     shipmentId: shipmentId ? String(shipmentId).trim() : null,
     srOrderId: srOrderId ? String(srOrderId).trim() : null,
     channelOrderId: channelOrderId ? String(channelOrderId).trim() : null,
     rawStatus: rawStatus ? String(rawStatus).trim() : null,
     courierName: courierName ? String(courierName).trim() : null,
-    trackingUrl: trackingUrl ? String(trackingUrl).trim() : null,
+    trackingUrl,
     eventTimestamp,
   };
 };
@@ -484,12 +489,18 @@ const syncOrderTracking = async (orderId) => {
       trackingInfo.current_status ||
       trackingInfo.status ||
       trackData?.current_status;
-    const awb = trackingInfo.awb_code || trackData?.awb_code;
-    const courier = trackingInfo.courier_name || trackData?.courier_name;
-    const trackUrl =
+    const awb = trackingInfo.awb_code || trackData?.awb_code || order.shiprocket?.awbCode;
+    const courier = trackingInfo.courier_name || trackData?.courier_name || order.shiprocket?.courierName;
+
+    // Validate that trackUrl is a genuine HTTP URL, never a bare channel_order_id
+    const rawTrackUrl =
       trackData?.tracking_data?.track_url ||
       trackingInfo.track_url ||
       order.shiprocket?.trackingUrl;
+    const trackUrl =
+      rawTrackUrl && typeof rawTrackUrl === "string" && rawTrackUrl.startsWith("http")
+        ? rawTrackUrl
+        : (awb ? `https://shiprocket.co/tracking/${awb}` : null);
 
     const mappedStatus = mapShiprocketStatus(rawStatus);
     const shouldTransition = canTransitionStatus(order.orderStatus, mappedStatus);
@@ -536,16 +547,20 @@ const syncOrderTracking = async (orderId) => {
       success: true,
       message: "Order tracking synced successfully",
       data: updated,
+      trackingDetails: trackData?.tracking_data || null,
     };
   } catch (error) {
-    logger.error("Failed to sync Shiprocket tracking for order", {
+    logger.warn("Shiprocket tracking not yet available or failed for order (non-fatal)", {
       orderId,
       error: error.message,
     });
-    throw new ApiError(
-      httpStatus.INTERNAL_SERVER_ERROR,
-      `Failed to sync tracking: ${error.message}`
-    );
+    // Return order data gracefully instead of throwing 500
+    return {
+      success: true,
+      message: "Order tracking awaiting courier activation",
+      data: order,
+      trackingDetails: null,
+    };
   }
 };
 

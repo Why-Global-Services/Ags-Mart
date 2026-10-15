@@ -131,7 +131,7 @@ exports.notificationTemplate = (mailData) => {
             </p>
 
             <!-- CTA Button -->
-            <a href="https://agsmart.in/shoppage" style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #1a4a13 0%, #2d7a22 100%); color: white; padding: 16px 38px; border-radius: 50px; font-weight: 700; text-decoration: none; font-size: 16px; font-family: 'Poppins', sans-serif; box-shadow: 0 8px 25px rgba(26, 74, 19, 0.3); margin-bottom: 30px;">
+            <a href="https://agrowmed.com/shoppage/" style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #1a4a13 0%, #2d7a22 100%); color: white; padding: 16px 38px; border-radius: 50px; font-weight: 700; text-decoration: none; font-size: 16px; font-family: 'Poppins', sans-serif; box-shadow: 0 8px 25px rgba(26, 74, 19, 0.3); margin-bottom: 30px;">
               <span>Explore Products</span>
               <span style="font-size: 18px;">→</span>
             </a>
@@ -158,6 +158,7 @@ exports.orderStatusEmailTemplate = ({
   courierName = null,
   awbCode = null,
   trackingUrl = null,
+  courierTrackingUrl = null,
   orderPlacedAt = null,
   totalAmount = null,
 }) => {
@@ -166,8 +167,37 @@ exports.orderStatusEmailTemplate = ({
   const safeStatus = sanitizeHtml(String(status || ""));
   const safeCourier = courierName ? sanitizeHtml(String(courierName)) : null;
   const safeAwb = awbCode ? sanitizeHtml(String(awbCode)) : null;
-  const safeTrackingUrl = trackingUrl ? sanitizeHtml(String(trackingUrl)) : null;
   const safeMessage = statusMessage ? sanitizeHtml(String(statusMessage)) : "";
+
+  // Guarantee safeTrackingUrl is always a fully-qualified, valid HTTP/HTTPS URL
+  const frontendBase = (
+    process.env.FRONTEND_URL && !process.env.FRONTEND_URL.includes("localhost")
+      ? process.env.FRONTEND_URL
+      : (process.env.NODE_ENV === "production"
+          ? "https://agrowmed.com"
+          : (process.env.FRONTEND_URL || "https://agrowmed.com"))
+  ).replace(/\/+$/, "");
+
+  let safeTrackingUrl = null;
+  if (trackingUrl && typeof trackingUrl === "string") {
+    const trimmed = trackingUrl.trim();
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      safeTrackingUrl = trimmed;
+    } else {
+      // If a non-URL or bare order ID was passed, convert to dedicated tracking URL
+      safeTrackingUrl = `${frontendBase}/track?orderId=${encodeURIComponent(trimmed)}`;
+    }
+  } else if (orderId) {
+    safeTrackingUrl = `${frontendBase}/track?orderId=${encodeURIComponent(orderId)}`;
+  }
+
+  // Optional direct courier tracking link
+  let safeCourierTrackingUrl = null;
+  if (courierTrackingUrl && typeof courierTrackingUrl === "string" && courierTrackingUrl.startsWith("http")) {
+    safeCourierTrackingUrl = courierTrackingUrl.trim();
+  } else if (safeAwb) {
+    safeCourierTrackingUrl = `https://shiprocket.co/tracking/${safeAwb}`;
+  }
 
   // Dynamic badge accent color based on status
   let badgeColor = "#2d7a22";
@@ -186,7 +216,7 @@ exports.orderStatusEmailTemplate = ({
     badgeBg = "#f0fdf4";
   }
 
-  const trackingSection = (safeAwb || safeCourier || safeTrackingUrl) ? `
+  const trackingSection = safeTrackingUrl ? `
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: left;">
       <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 700; color: #1e293b; font-family: 'Poppins', sans-serif;">
         📦 Shipment & Delivery Details
@@ -196,19 +226,29 @@ exports.orderStatusEmailTemplate = ({
           <tr>
             <td style="padding: 6px 0; color: #64748b; width: 140px;">Courier Partner:</td>
             <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">${safeCourier}</td>
-          </tr>` : ""}
+          </tr>` : `
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; width: 140px;">Delivery Partner:</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 500;">Assigned upon dispatch</td>
+          </tr>`}
         ${safeAwb ? `
           <tr>
             <td style="padding: 6px 0; color: #64748b;">AWB / Tracking No:</td>
             <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-weight: 700;">${safeAwb}</td>
           </tr>` : ""}
       </table>
-      ${safeTrackingUrl ? `
-        <div style="margin-top: 16px; text-align: center;">
-          <a href="${safeTrackingUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: #0284c7; color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">
-            Track Your Package &rarr;
-          </a>
-        </div>` : ""}
+      <div style="margin-top: 18px; text-align: center;">
+        <a href="${safeTrackingUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: linear-gradient(135deg, #1a4a13 0%, #2d7a22 100%); color: #ffffff !important; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; box-shadow: 0 4px 15px rgba(26, 74, 19, 0.25);">
+          Track Your Package &rarr;
+        </a>
+        ${safeCourierTrackingUrl && safeCourierTrackingUrl !== safeTrackingUrl ? `
+          <div style="margin-top: 8px;">
+            <a href="${safeCourierTrackingUrl}" target="_blank" rel="noopener noreferrer" style="font-size: 12px; color: #2d7a22; text-decoration: underline; font-weight: 500;">
+              View on ${safeCourier || "Courier"} Website
+            </a>
+          </div>
+        ` : ""}
+      </div>
     </div>
   ` : "";
 

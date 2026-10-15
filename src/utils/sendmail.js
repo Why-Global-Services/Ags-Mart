@@ -113,7 +113,7 @@ const mailService = async (sendTo, subject, htmlDataForMail) => {
     const mailOption = {
       from: smtpConfig.from,
       to: sanitizedEmail,
-      subject: subject || "Ags Mart Notification",
+      subject: subject || "Agrowmed Mart Notification",
       html: htmlDataForMail,
     };
 
@@ -181,42 +181,42 @@ const getStatusSubjectAndMessage = (status, orderId) => {
   switch (status) {
     case "Ordered":
       return {
-        subject: `Your Ags Mart Order #${orderId} Has Been Placed Successfully`,
+        subject: `Your AGROMED Mart Order #${orderId} Has Been Placed Successfully`,
         message: "Thank you for your order! We have received your order and are currently preparing it for processing.",
       };
     case "Packing":
       return {
-        subject: `Your Ags Mart Order #${orderId} is Being Packed`,
+        subject: `Your AGROWMED Mart Order #${orderId} is Being Packed`,
         message: "Great news! Your items are carefully being picked and packed for shipment.",
       };
     case "Shipped":
       return {
-        subject: `Your Ags Mart Order #${orderId} Has Been Shipped`,
+        subject: `Your AGROWMED Mart Order #${orderId} Has Been Shipped`,
         message: "Your order is on the way! Our courier partner has picked up your package and it is in transit.",
       };
     case "Out for Delivery":
       return {
-        subject: `Your Ags Mart Order #${orderId} is Out for Delivery`,
+        subject: `Your AGROWMED Mart Order #${orderId} is Out for Delivery`,
         message: "Your package is out for delivery today. Please ensure someone is available at the delivery address.",
       };
     case "Delivered":
       return {
-        subject: `Your Ags Mart Order #${orderId} Has Been Delivered`,
+        subject: `Your AGROWMED Mart Order #${orderId} Has Been Delivered`,
         message: "Your package has been successfully delivered. We hope you love your purchase!",
       };
     case "Cancelled":
       return {
-        subject: `Your Ags Mart Order #${orderId} Has Been Cancelled`,
+        subject: `Your AGROWMED Mart Order #${orderId} Has Been Cancelled`,
         message: "Your order has been cancelled. If this was unexpected or you have questions, please reach out to our support team.",
       };
     case "Returned":
       return {
-        subject: `Update on Your Ags Mart Order #${orderId} - Returned/RTO`,
+        subject: `Update on Your AGROWMED Mart Order #${orderId} - Returned/RTO`,
         message: "Your order has been marked as returned or return-to-origin. Please contact support if you need further assistance.",
       };
     default:
       return {
-        subject: `Status Update on Your Ags Mart Order #${orderId}: ${status}`,
+        subject: `Status Update on Your AGROWMED Mart Order #${orderId}: ${status}`,
         message: `Your order status has been updated to ${status}.`,
       };
   }
@@ -238,6 +238,9 @@ exports.sendOrderStatusEmail = async ({
   status,
   eventIdentifier = null,
   isRetry = false,
+  courierName = null,
+  awbCode = null,
+  trackingUrl = null,
 }) => {
   if (!order || !order.orderId || !status) {
     return { success: false, reason: "Missing order or status" };
@@ -265,10 +268,33 @@ exports.sendOrderStatusEmail = async ({
     order.orderId
   );
 
+  // Resolve base URL for frontend
+  const frontendBaseUrl = (
+    process.env.FRONTEND_URL && !process.env.FRONTEND_URL.includes("localhost")
+      ? process.env.FRONTEND_URL
+      : (process.env.NODE_ENV === "production"
+          ? "https://agrowmed.com"
+          : (process.env.FRONTEND_URL || "https://agrowmed.com"))
+  ).replace(/\/+$/, "");
+
+  // Dedicated Agrowmed customer tracking URL (never relative, never raw order ID as host)
+  const agrowmedTrackingUrl = `${frontendBaseUrl}/track?orderId=${encodeURIComponent(order.orderId)}`;
+
+  const resolvedCourier = courierName || order.shiprocket?.courierName || null;
+  const resolvedAwb = awbCode || order.shiprocket?.awbCode || null;
+
+  // Validate passed trackingUrl: must be genuine http/https URL, never bare channel_order_id
+  const rawShiprocketUrl = trackingUrl || order.shiprocket?.trackingUrl || null;
+  const validShiprocketUrl =
+    rawShiprocketUrl && typeof rawShiprocketUrl === "string" && rawShiprocketUrl.startsWith("http")
+      ? rawShiprocketUrl
+      : (resolvedAwb ? `https://shiprocket.co/tracking/${resolvedAwb}` : null);
+
   const shipmentDetails = {
-    awbCode: order.shiprocket?.awbCode || null,
-    courierName: order.shiprocket?.courierName || null,
-    trackingUrl: order.shiprocket?.trackingUrl || null,
+    awbCode: resolvedAwb,
+    courierName: resolvedCourier,
+    trackingUrl: agrowmedTrackingUrl,
+    courierTrackingUrl: validShiprocketUrl,
     shipmentId: order.shiprocket?.shipmentId || null,
   };
 
@@ -325,6 +351,7 @@ exports.sendOrderStatusEmail = async ({
     courierName: shipmentDetails.courierName,
     awbCode: shipmentDetails.awbCode,
     trackingUrl: shipmentDetails.trackingUrl,
+    courierTrackingUrl: shipmentDetails.courierTrackingUrl,
     orderPlacedAt: order.orderPlacedAt || order.createdAt,
     totalAmount: order.totalPrice,
   });

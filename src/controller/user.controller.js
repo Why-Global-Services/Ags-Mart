@@ -500,9 +500,16 @@ const getShippingEstimate = catchAsync(async (req, res) => {
   res.status(200).send(data);
 });
 
+const trackOrder = catchAsync(async (req, res) => {
+  const { orderId } = req.params;
+  const result = await shippingService.syncOrderTracking(orderId);
+  res.status(200).send(result);
+});
+
 module.exports = {
   getShippingEstimate,
   calculateShippingEstimate: getShippingEstimate,
+  trackOrder,
   CreateUserQuery,
   ForgotPassword,
   VerifyResetOtp,

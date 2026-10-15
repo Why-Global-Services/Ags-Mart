@@ -175,9 +175,13 @@ class OrderService {
                 ? String(shiprocketResult.status)
                 : "CREATED",
             trackingUrl:
-              shiprocketResult.tracking_url ||
-              shiprocketResult.channel_order_id ||
-              null,
+              (shiprocketResult.tracking_url &&
+              typeof shiprocketResult.tracking_url === "string" &&
+              shiprocketResult.tracking_url.startsWith("http"))
+                ? shiprocketResult.tracking_url
+                : (shiprocketResult.awb_code
+                    ? `https://shiprocket.co/tracking/${shiprocketResult.awb_code}`
+                    : null),
             error: null,
           };
 
@@ -192,10 +196,19 @@ class OrderService {
             {
               $set: {
                 "shiprocket.status": "FAILED",
-                "shiprocket.error": "Shiprocket order creation returned null",
+                "shiprocket.error": "Shiprocket order creation returned empty response",
               },
             }
           );
+          order.shiprocket = {
+            orderId: null,
+            shipmentId: null,
+            awbCode: null,
+            courierName: null,
+            status: "FAILED",
+            trackingUrl: null,
+            error: "Shiprocket order creation returned empty response",
+          };
         }
       } catch (shiprocketErr) {
         logger.error("❌ Shiprocket order creation failed:", {
@@ -214,6 +227,15 @@ class OrderService {
               },
             }
           );
+          order.shiprocket = {
+            orderId: null,
+            shipmentId: null,
+            awbCode: null,
+            courierName: null,
+            status: "FAILED",
+            trackingUrl: null,
+            error: shiprocketErr.message,
+          };
         } catch (dbErr) {
           logger.error("Failed to persist Shiprocket error status to DB:", {
             error: dbErr.message,
@@ -222,7 +244,7 @@ class OrderService {
       }
 
       /* ================================
-         SEND CUSTOMER STATUS EMAIL (AGS MART)
+         SEND CUSTOMER STATUS EMAIL (AGROWMED MART)
       ================================ */
       if (order.orderStatus === "Ordered") {
         try {
@@ -1095,18 +1117,31 @@ const validatedCartItems = cartItems.map((item) => {
 
     console.log("✅ Buy now items processed successfully");
 
+    const resolvedVariantId =
+      variant._id ||
+      product.nonVariant?._id ||
+      (mappedProductType === "nonVariation" ? product._id : null);
+
+    const productImage =
+      (Array.isArray(variant?.variantImages) && variant.variantImages[0]) ||
+      (Array.isArray(product.nonVariant?.nonVariantImages) &&
+        product.nonVariant.nonVariantImages[0]) ||
+      (Array.isArray(product.productImages) && product.productImages[0]) ||
+      product.productImage ||
+      "/combo.jpg";
+
     return {
       cartItems: [
         {
           productId: product._id,
-          variantId: variant._id,
+          variantId: resolvedVariantId,
           productType: mappedProductType,
           quantity,
           price: basePrice,
           tax: tax,
           subtotal,
           productName: product.productName || product.name,
-          productImage: product.productImages?.[0] || product.productImage,
+          productImage: productImage,
           selectedVariant: variant,
           productCategory: product.productCategory,
         },
@@ -1367,8 +1402,8 @@ const validatedCartItems = cartItems.map((item) => {
   /**
    * Enhanced variant finding for new product structure
    */
-  findProductVariant(product, variantId) {
-    return findProductVariant(product, variantId);
+  findProductVariant(product, variantId, productType) {
+    return findProductVariant(product, variantId, productType);
   }
 
   /**

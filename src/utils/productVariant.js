@@ -1,20 +1,29 @@
-const findProductVariant = (product, variantId) => {
-  if (!product || !variantId) return null;
+const findProductVariant = (product, variantId, productType) => {
+  if (!product) return null;
+
+  const rawProductType = String(product.productType || productType || "").trim();
+  const isNonVariant =
+    rawProductType === "nonVariant" || rawProductType === "nonVariation";
+
+  if (isNonVariant) {
+    return (
+      product.nonVariant || {
+        price: product.price || {},
+        stockCount: product.stockCount || 0,
+        _id: product._id,
+      }
+    );
+  }
+
+  if (!variantId) return null;
 
   const normalizedVariantId = String(variantId).trim();
-  if (!normalizedVariantId) return null;
-
-  if (product.productType === "nonVariant") {
-    const nonVariantId =
-      product.nonVariant?._id != null
-        ? String(product.nonVariant._id).trim()
-        : product.nonVariant?.id != null
-          ? String(product.nonVariant.id).trim()
-          : "";
-    return nonVariantId === normalizedVariantId ||
-      String(product._id || "").trim() === normalizedVariantId
-      ? product.nonVariant
-      : null;
+  if (
+    !normalizedVariantId ||
+    normalizedVariantId === "null" ||
+    normalizedVariantId === "undefined"
+  ) {
+    return null;
   }
 
   const pType = String(product.productType || "").trim().toLowerCase();
@@ -45,3 +54,4 @@ const findProductVariant = (product, variantId) => {
 };
 
 module.exports = { findProductVariant };
+
