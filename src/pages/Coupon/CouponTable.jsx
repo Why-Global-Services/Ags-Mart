@@ -41,6 +41,10 @@ const CouponTable = () => {
       const formatted = data.map((item) => ({
         ...item,
         offerType: item.offerType || "DISCOUNT",
+        applicabilityType: item.applicabilityType || "ALL_PRODUCTS",
+        applicableProductIds: Array.isArray(item.applicableProductIds) ? item.applicableProductIds : [],
+        applicableCategories: Array.isArray(item.applicableCategories) ? item.applicableCategories : [],
+        conditions: item.conditions || {},
         status: item.status, // Use the status field directly from API
         discount:
           item.discountType === 'percentage'
@@ -161,11 +165,38 @@ const CouponTable = () => {
       minWidth: '120px',
     },
     {
-  name: "Type",
-  selector: (row) => row.offerType,
-  sortable: true,
-  width: "140px",
-},
+      name: "Type",
+      selector: (row) => row.offerType,
+      sortable: true,
+      width: "140px",
+    },
+    {
+      name: "Applicability",
+      cell: (row) => {
+        const type = row.applicabilityType || "ALL_PRODUCTS";
+        if (type === "SELECTED_PRODUCTS") {
+          return (
+            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">
+              Selected ({row.applicableProductIds?.length || 0})
+            </span>
+          );
+        }
+        if (type === "CONDITIONAL") {
+          return (
+            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">
+              Conditional
+            </span>
+          );
+        }
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+            All Products
+          </span>
+        );
+      },
+      sortable: true,
+      minWidth: "140px",
+    },
     {
       name: 'Image',
       cell: (row) => (
@@ -461,6 +492,23 @@ const CouponTable = () => {
                 <strong>Discount: </strong>
                 {selectedCoupon.discount}
               </div>
+              <div>
+                <strong>Applicability: </strong>
+                <span className="font-medium text-emerald-800">
+                  {selectedCoupon.applicabilityType === "SELECTED_PRODUCTS"
+                    ? `Selected Products (${selectedCoupon.applicableProductIds?.length || 0} products)`
+                    : selectedCoupon.applicabilityType === "CONDITIONAL"
+                    ? "Conditional Rules"
+                    : "All Products (Storewide)"}
+                </span>
+              </div>
+              {selectedCoupon.applicabilityType === "CONDITIONAL" && (
+                <div className="bg-gray-50 p-2.5 rounded-lg border text-xs space-y-1">
+                  <div><strong>Min Subtotal: </strong> ₹{selectedCoupon.conditions?.minSubtotal ?? selectedCoupon.minPurchaseAmount ?? 0}</div>
+                  <div><strong>Min Quantity: </strong> {selectedCoupon.conditions?.minQuantity ?? 0} items</div>
+                  {selectedCoupon.firstOrderOnly && <div><strong>Restriction: </strong> First order only</div>}
+                </div>
+              )}
             </div>
           )}
         </Modal>

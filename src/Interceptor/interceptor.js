@@ -231,11 +231,7 @@ export const getReviews = async () => {
 };
 
 export const createCoupon = async (data) => {
-  const res = await apiInstance.post(`/createCoupon`, data, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+  const res = await apiInstance.post(`/createCoupon`, data);
   return res;
 };
 
@@ -250,11 +246,7 @@ export const getOneCoupon = async (id) => {
 };
 
 export const editCoupon = async (id, data) => {
-  const res = await apiInstance.put(`/editCoupon/${id}`, data, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+  const res = await apiInstance.put(`/editCoupon/${id}`, data);
   return res;
 };
 
@@ -267,7 +259,7 @@ export const updateCouponStatus = async (_id, status) => {
   const res = await apiInstance.put(`/updateCouponStatus/${_id}`, {
     status,
   });
-  return res.data;
+  return res;
 };
 
 export const adminLogin = async (data) => {

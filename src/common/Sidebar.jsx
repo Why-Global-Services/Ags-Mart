@@ -93,7 +93,7 @@ const Sidebar = ({ isCollapsed }) => {
   ) : (
     <div className="flex items-center gap-2">
       <span className="bg-emerald-600 h-7 w-7 inline-flex items-center justify-center rounded-lg text-white font-bold text-sm">AG</span>
-      {!isCollapsed && <span className="font-bold text-emerald-950 text-base">AGS-Mart</span>}
+      {!isCollapsed && <span className="font-bold text-emerald-950 text-base">AGROWMED-Mart</span>}
     </div>
   )}
 </h1>
