@@ -148,6 +148,7 @@ router
   .route("/getReviewRatingBasedOnProduct")
   .get(verifyToken, userController.getReviewRatingBasedOnProduct);
 
+router.route("/getNavbar").get(optionalVerifyToken, userController.getNavbarData);
 router.route("/getCategories").get(userController.getCategories);
 router.route("/getSubCategory").get(userController.getSubCategoryData);
 router.route("/getBannerData").get(userController.getBannerData);
@@ -200,12 +201,13 @@ router
 router.route("/getDetails").get(verifyToken, userController.fetchDetails);
 router.route("/editDetails").put(verifyToken, userController.changeDetails);
 
-router.route("/getNavbar").get(optionalVerifyToken, userController.getNavbarData);
-router.route("/coupon").post(verifyToken, userController.VerifyCoupon);
+router.route("/coupon").post(optionalVerifyToken, userController.VerifyCoupon);
+router.route("/getProductCoupons/:productId").get(optionalVerifyToken, userController.fetchProductCoupons);
+router.route("/getEligibleCoupons").post(optionalVerifyToken, userController.fetchEligibleCartCoupons);
 
 router
   .route("/getUserBasedCoupon")
-  .get( userController.fetchCoupon);
+  .get(optionalVerifyToken, userController.fetchCoupon);
 router.route("/getCategoryBasedProduct/:_id").get(userController.Product);
 router
   .route("/getSubCategoryBasedProduct/:_id")

@@ -5,165 +5,102 @@ const { orderDetailsModel } = require("../../models/orders.model");
 const { Product } = require("../../models/Product.model");
 const ApiError = require("../../utils/apiError");
 const logger = require("../../config/logger");
+const {
+  evaluateCouponEligibility,
+  evaluateProductCoupon,
+  isItemDiscounted,
+} = require("../../utils/couponEligibility");
 
-
-const isProductDiscounted = (product, item) => {
-  // Variant product
-  if (item.productType === "variant") {
-    const variant = (() => {
-      const v = product.variant;
-      if (!v) return null;
-
-      if (v.variantType === "unitOnly") {
-        return v.unitOnlyVariants?.find(x => String(x._id) === String(item.variantId));
-      }
-      return null;
-    })();
-
-    if (!variant) return false;
-
-    const { discount } = variant.price || {};
-    return discount > 0;
-  }
-
-  // Non-variant product
-  if (item.productType === "nonVariant") {
-    const { discount } = product.nonVariant?.price || {};
-    return discount > 0;
-  }
-
-  return false;
-};
-
-
+/**
+ * Validate and apply coupon for user cart or buy-now items
+ */
 const Coupon = async (req) => {
-  const userId = req.user._id;
-  const { couponCode } = req.body;
+  const userId = req.user?._id;
+  const { couponCode, isBuyNow, buyNowItem, cartItems } = req.body;
 
-  /* ---------------- CART ---------------- */
-
-  const userCart = await cart.findOne({ userId });
-
-  if (!userCart || !userCart.items.length) {
-    throw new ApiError(400, "No items found in cart");
+  if (!couponCode || !String(couponCode).trim()) {
+    throw new ApiError(400, "Coupon code is required");
   }
 
+  const cleanCode = String(couponCode).trim().toUpperCase();
 
+  /* ---------------- ITEMS RESOLUTION ---------------- */
+  let items = [];
 
-
-  const items = userCart.items;
-  /* ---------------- COUPON ---------------- */
-
-    let hasAnyDiscountedItem = false;
-
-await Promise.all(
-  items.map(async (item) => {
-    const product = await Product.findById(item.productId);
-    if (!product) return;
-
-    if (isProductDiscounted(product, item)) {
-      hasAnyDiscountedItem = true;
-    }
-  })
-);
-
-if (hasAnyDiscountedItem) {
-  throw new ApiError(
-    httpStatus.BAD_REQUEST,
-    "Coupon cannot be applied on discounted items"
-  );
-}
-
-
-  let getCoupon = null;
-
-  if (couponCode) {
-    getCoupon = await CouponModel.findOne({ code: couponCode });
-
-    if (!getCoupon) throw new ApiError(400, "Invalid Coupon Code");
-
-    const now = new Date();
-
-    if (
-      getCoupon.status !== "active" ||
-      now < getCoupon.validFrom ||
-      now > getCoupon.validUntil
-    ) {
-      throw new ApiError(400, "Coupon expired or inactive");
-    }
-
-    /* First order */
-    if (getCoupon.firstOrderOnly) {
-      const completedOrder = await orderDetailsModel.findOne({
-        userId,
-        paymentStatus: "Completed",
-      });
-
-      if (completedOrder) {
-        throw new ApiError(400, "Valid only for first order");
-      }
-    }
-
-    /* Reuse */
-    if (getCoupon.repeatUsage === "notAllowed") {
-      const used = await orderDetailsModel.findOne({
-        userId,
-        "coupon.code": getCoupon.code,
-      });
-
-      if (used) throw new ApiError(400, "Already used this coupon");
-    }
-
-    /* Limit */
-    if (
-      getCoupon.usageLimit &&
-      getCoupon.usageCount >= getCoupon.usageLimit
-    ) {
-      throw new ApiError(400, "Coupon limit exceeded");
-    }
+  if (isBuyNow && buyNowItem) {
+    items = [buyNowItem];
+  } else if (Array.isArray(cartItems) && cartItems.length > 0) {
+    items = cartItems;
+  } else if (userId) {
+    const userCart = await cart.findOne({ userId });
+    items = userCart?.items || [];
   }
 
-  /* ---------------- CART TOTAL ---------------- */
+  if (!items || !items.length) {
+    throw new ApiError(400, "No items found in cart to apply coupon");
+  }
 
-  let totalPrice = 0;
+  /* ---------------- COUPON LOOKUP ---------------- */
+  const couponDoc = await CouponModel.findOne({ code: cleanCode });
 
+  if (!couponDoc) {
+    throw new ApiError(400, "Invalid Coupon Code");
+  }
+
+  /* ---------------- ELIGIBILITY EVALUATION ---------------- */
+  const evalResult = await evaluateCouponEligibility({
+    coupon: couponDoc,
+    items,
+    user: req.user,
+    orderDetailsModel,
+  });
+
+  if (!evalResult.isEligible) {
+    throw new ApiError(400, evalResult.reason || "Coupon is not applicable");
+  }
+
+  /* ---------------- ENRICH CART ITEMS FOR RESPONSE ---------------- */
   const productDetails = await Promise.all(
     items.map(async (item) => {
-      const product = await Product.findById(item.productId);
+      const productId = item.productId || item._id;
+      const product = await Product.findById(productId);
       if (!product) return null;
 
       let salePrice = 0;
 
-      /* Variant */
-      if (item.productType === "variant") {
+      if (item.productType === "variant" || item.productType === "variation") {
         let found = null;
-
         const { variantType } = product.variant || {};
 
         if (variantType === "unitOnly") {
           found = product.variant.unitOnlyVariants?.find(
             (v) => String(v._id) === String(item.variantId)
           );
+        } else if (variantType === "sizeColor") {
+          found = product.variant.sizeColorVariants?.find(
+            (v) => String(v._id) === String(item.variantId)
+          );
+        } else if (variantType === "sizeOnly") {
+          found = product.variant.sizeOnlyVariants?.find(
+            (v) => String(v._id) === String(item.variantId)
+          );
+        } else if (variantType === "colorOnly") {
+          found = product.variant.colorOnlyVariants?.find(
+            (v) => String(v._id) === String(item.variantId)
+          );
         }
 
-        if (!found) return null;
-
-        salePrice = found.price.salePrice || 0;
-      }
-
-      /* Non Variant */
-      if (item.productType === "nonVariant") {
-        salePrice = product.nonVariant.price.salePrice || 0;
+        salePrice = found?.price?.salePrice || item.priceBreakdown?.salePrice || item.price || 0;
+      } else {
+        salePrice = product.nonVariant?.price?.salePrice || item.priceBreakdown?.salePrice || item.price || 0;
       }
 
       const qty = item.quantity || 1;
       const subtotal = salePrice * qty;
 
-      totalPrice += subtotal;
-
       return {
-        productId: item.productId,
-        variantId: item.variantId,
+        productId,
+        variantId: item.variantId || null,
         productType: item.productType,
         productName: product.productName,
         quantity: qty,
@@ -173,106 +110,12 @@ if (hasAnyDiscountedItem) {
     })
   );
 
-  /* ---------------- MIN PURCHASE ---------------- */
+  /* ---------------- TOTALS CALCULATION ---------------- */
+  const totalPrice = evalResult.cartSubtotal;
+  const discountAmount = evalResult.discountAmount;
+  const freeProduct = evalResult.freeProduct;
 
-  if (getCoupon && totalPrice < getCoupon.minPurchaseAmount) {
-    throw new ApiError(
-      400,
-      `Minimum ₹${getCoupon.minPurchaseAmount} required`
-    );
-  }
-
-  /* ---------------- DISCOUNT ---------------- */
-
-  let discountAmount = 0;
-  let freeProduct = null;
-
-  if (getCoupon) {
-    /* 💰 DISCOUNT */
-    if (getCoupon.offerType === "DISCOUNT") {
-      if (getCoupon.discountType === "percentage") {
-        discountAmount =
-          (getCoupon.discountValue / 100) * totalPrice;
-
-        if (
-          getCoupon.maxDiscountAmount &&
-          discountAmount > getCoupon.maxDiscountAmount
-        ) {
-          discountAmount = getCoupon.maxDiscountAmount;
-        }
-      }
-
-      if (getCoupon.discountType === "fixed") {
-        discountAmount = getCoupon.discountValue;
-      }
-
-      discountAmount = Math.min(discountAmount, totalPrice);
-    }
-
-    /* 🎁 FREE PRODUCT */
-    if (getCoupon.offerType === "FREE_PRODUCT") {
-      const free = getCoupon.freeProduct;
-
-      const product = await Product.findById(free.productId).lean();
-
-      if (!product) {
-        throw new ApiError(400, "Free product not found");
-      }
-
-      // Initialize free product object
-      freeProduct = {
-        productId: free.productId,
-        variantId: free.variantId,
-        productType: free.productType,
-        quantity: 1,
-        productName: product.productName,
-        productImage: null,
-        variantDetails: null,
-        price: 0,
-        isFree: true,
-      };
-
-      // Get variant-specific details
-      if (free.productType === "variant" && free.variantId) {
-        const variant = product.variant;
-        let selectedVariant = null;
-
-        if (variant?.variantType === "unitOnly") {
-          selectedVariant = variant.unitOnlyVariants?.find(
-            (v) => String(v._id) === String(free.variantId)
-          );
-          if (selectedVariant) {
-            freeProduct.variantDetails = {
-              unit: selectedVariant.unit,
-              displayName: selectedVariant.unit,
-            };
-          }
-        }
-
-        // Get variant image or fallback to product images
-        if (selectedVariant?.variantImages?.length) {
-          freeProduct.productImage = selectedVariant.variantImages[0];
-        } else if (product.productImages?.length) {
-          freeProduct.productImage = product.productImages[0];
-        }
-
-        freeProduct.price = selectedVariant?.price?.salePrice || 0;
-      } else if (free.productType === "nonVariant") {
-        // Non-variant product
-        if (product.nonVariant?.nonVariantImages?.length) {
-          freeProduct.productImage = product.nonVariant.nonVariantImages[0];
-        } else if (product.productImages?.length) {
-          freeProduct.productImage = product.productImages[0];
-        }
-
-        freeProduct.price = product.nonVariant?.price?.salePrice || 0;
-      }
-    }
-  }
-
-  /* ---------------- FINAL TOTAL ---------------- */
-
-  const discountedTotal = totalPrice - discountAmount;
+  const discountedTotal = Math.max(0, totalPrice - discountAmount);
 
   const DEFAULT_SHIPPING =
     process.env.DEFAULT_SHIPPING_CHARGE !== undefined
@@ -280,58 +123,175 @@ if (hasAnyDiscountedItem) {
       : 50;
 
   const shippingCharge = DEFAULT_SHIPPING;
-  const finalPrice = discountedTotal + shippingCharge;
-
-  /* ---------------- RESPONSE ---------------- */
+  const finalPrice = Number((discountedTotal + shippingCharge).toFixed(2));
 
   return {
     success: true,
     message: "Offer Applied",
-
     data: {
-      couponInfo: getCoupon
-        ? {
-            code: getCoupon.code,
-            type: getCoupon.offerType,
-            discountAmount,
-            freeProduct,
-          }
-        : null,
-
+      couponInfo: {
+        code: couponDoc.code,
+        type: couponDoc.offerType,
+        discountAmount,
+        freeProduct,
+        applicabilityType: couponDoc.applicabilityType,
+      },
       totals: {
-        subtotal: totalPrice,
+        subtotal: Number(totalPrice.toFixed(2)),
+        eligibleSubtotal: Number(evalResult.eligibleSubtotal.toFixed(2)),
         discount: discountAmount,
         shipping: shippingCharge,
         total: finalPrice,
       },
-
       items: productDetails.filter(Boolean),
-
-      freeProduct, // 👈 send enriched free product to frontend
+      freeProduct,
     },
   };
 };
 
-
-// Fetch active coupons
+/**
+ * Fetch all active, valid coupons
+ */
 const getCoupon = async (req) => {
-  const coupon = await CouponModel.aggregate([
-    { $match: {
-      status: "active",
-      validFrom: { $lte: new Date()},
-      validUntil: { $gte: new Date()}
-    },
-  },
-  {$sample: {size:1}}
-  ])
-
-
+  const now = new Date();
+  const coupons = await CouponModel.find({
+    status: "active",
+    validFrom: { $lte: now },
+    validUntil: { $gte: now },
+  }).sort({ createdAt: -1 });
 
   return {
     success: true,
     message: "Active coupons fetched successfully",
-    data: coupon,
+    data: coupons,
   };
 };
 
-module.exports = { Coupon, getCoupon };
+/**
+ * Get coupons applicable to a specific product
+ */
+const getProductCoupons = async (req) => {
+  const { productId } = req.params;
+  const now = new Date();
+
+  if (!productId) {
+    throw new ApiError(400, "Product ID is required");
+  }
+
+  const product = await Product.findById(productId).lean();
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  const activeCoupons = await CouponModel.find({
+    status: "active",
+    validFrom: { $lte: now },
+    validUntil: { $gte: now },
+  }).sort({ createdAt: -1 }).lean();
+
+  const applicableCoupons = [];
+
+  for (const coupon of activeCoupons) {
+    const evalRes = evaluateProductCoupon({ coupon, product, now });
+    if (evalRes.applies) {
+      applicableCoupons.push({
+        _id: coupon._id,
+        code: coupon.code,
+        message: coupon.message,
+        offerType: coupon.offerType,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        maxDiscountAmount: coupon.maxDiscountAmount,
+        minPurchaseAmount: coupon.minPurchaseAmount,
+        couponImage: coupon.couponImage,
+        offerLabel: evalRes.offerLabel,
+        conditionText: evalRes.conditionText,
+        firstOrderOnly: evalRes.firstOrderOnly,
+      });
+    }
+  }
+
+  return {
+    success: true,
+    message: "Product coupons fetched successfully",
+    data: applicableCoupons,
+  };
+};
+
+/**
+ * Evaluate all active coupons against current cart / buy-now items and user
+ */
+const getEligibleCouponsForCart = async (req) => {
+  const userId = req.user?._id;
+  const { isBuyNow, buyNowItem, cartItems } = req.body || {};
+  const now = new Date();
+
+  let items = [];
+  if (isBuyNow && buyNowItem) {
+    items = [buyNowItem];
+  } else if (Array.isArray(cartItems) && cartItems.length > 0) {
+    items = cartItems;
+  } else if (userId) {
+    const userCart = await cart.findOne({ userId });
+    items = userCart?.items || [];
+  }
+
+  const activeCoupons = await CouponModel.find({
+    status: "active",
+    validFrom: { $lte: now },
+    validUntil: { $gte: now },
+  }).sort({ createdAt: -1 }).lean();
+
+  // Preload products for evaluation
+  const productIds = items.map((it) => it.productId || it._id).filter(Boolean);
+  const products = await Product.find({ _id: { $in: productIds } }).lean();
+  const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+  const evaluatedCoupons = await Promise.all(
+    activeCoupons.map(async (coupon) => {
+      const evaluation = await evaluateCouponEligibility({
+        coupon,
+        items,
+        user: req.user,
+        now,
+        orderDetailsModel,
+        productMap,
+      });
+
+      return {
+        _id: coupon._id,
+        code: coupon.code,
+        message: coupon.message,
+        offerType: coupon.offerType,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        maxDiscountAmount: coupon.maxDiscountAmount,
+        minPurchaseAmount: coupon.minPurchaseAmount,
+        applicabilityType: coupon.applicabilityType || "ALL_PRODUCTS",
+        applicableProductIds: coupon.applicableProductIds || [],
+        freeProduct: coupon.freeProduct,
+        validFrom: coupon.validFrom,
+        validUntil: coupon.validUntil,
+        couponImage: coupon.couponImage,
+        isEligible: evaluation.isEligible,
+        reason: evaluation.reason,
+        calculatedDiscount: evaluation.discountAmount,
+        freeProductDetails: evaluation.freeProduct,
+      };
+    })
+  );
+
+  return {
+    success: true,
+    message: "Cart coupons evaluated successfully",
+    data: evaluatedCoupons,
+  };
+};
+
+module.exports = {
+  Coupon,
+  getCoupon,
+  getProductCoupons,
+  getEligibleCouponsForCart,
+  isProductDiscounted: isItemDiscounted,
+};

@@ -128,16 +128,54 @@ const couponSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // Applicability Configuration
+    applicabilityType: {
+      type: String,
+      enum: ['ALL_PRODUCTS', 'SELECTED_PRODUCTS', 'CONDITIONAL'],
+      default: 'ALL_PRODUCTS',
+    },
+    applicableProductIds: {
+      type: [String],
+      default: [],
+    },
+    applicableCategories: {
+      type: [String],
+      default: [],
+    },
+    conditions: {
+      minSubtotal: {
+        type: Number,
+        default: 0,
+      },
+      minQuantity: {
+        type: Number,
+        default: 0,
+      },
+      applicableProductIds: {
+        type: [String],
+        default: [],
+      },
+      applicableCategories: {
+        type: [String],
+        default: [],
+      },
+      firstOrderOnly: {
+        type: Boolean,
+        default: false,
+      },
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Indexes
-couponSchema.index({ code: 1 });
+// Indexes (code is already unique: true, so no duplicate code index)
 couponSchema.index({ status: 1 });
 couponSchema.index({ validFrom: 1, validUntil: 1 });
+couponSchema.index({ applicabilityType: 1 });
+couponSchema.index({ applicableProductIds: 1 });
 
 // Validation: Ensure end date is after start date
 couponSchema.pre('save', function(next) {

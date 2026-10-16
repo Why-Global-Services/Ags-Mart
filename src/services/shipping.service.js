@@ -8,6 +8,7 @@ const ApiError = require("../utils/apiError");
 const config = require("../config/config");
 const logger = require("../config/logger");
 const sendmail = require("../utils/sendmail");
+const { evaluateCouponEligibility } = require("../utils/couponEligibility");
 const {
   trackShipment,
   calculateShipmentDimensions,
@@ -786,31 +787,30 @@ const calculateOrderShippingAndPricing = async (params = {}) => {
 
   if (couponCode) {
     try {
-      const now = new Date();
+      const cleanCode = String(couponCode).trim().toUpperCase();
       const couponDoc = await CouponModel.findOne({
-        code: couponCode,
-        status: "active",
-        validFrom: { $lte: now },
-        validUntil: { $gte: now },
+        code: cleanCode,
       }).lean();
 
-      if (couponDoc && subtotal >= (couponDoc.minPurchaseAmount || 0)) {
-        if (couponDoc.discountType === "fixed") {
-          couponDiscount = Number(couponDoc.discountValue || 0);
-        } else if (couponDoc.discountType === "percentage") {
-          couponDiscount = (subtotal * Number(couponDoc.discountValue || 0)) / 100;
-          if (couponDoc.maxDiscountAmount && couponDoc.maxDiscountAmount > 0) {
-            couponDiscount = Math.min(couponDiscount, Number(couponDoc.maxDiscountAmount));
-          }
+      if (couponDoc) {
+        const evalResult = await evaluateCouponEligibility({
+          coupon: couponDoc,
+          items: enrichedItems,
+          user: userId ? { _id: userId } : null,
+          orderDetailsModel,
+        });
+
+        if (evalResult.isEligible) {
+          couponDiscount = evalResult.discountAmount;
+          couponDetails = {
+            code: couponDoc.code,
+            discountType: couponDoc.discountType,
+            discountValue: couponDoc.discountValue,
+            maxDiscount: couponDoc.maxDiscountAmount,
+            offerType: couponDoc.offerType,
+            freeProduct: evalResult.freeProduct,
+          };
         }
-        couponDiscount = Math.min(couponDiscount, subtotal);
-        couponDetails = {
-          code: couponDoc.code,
-          discountType: couponDoc.discountType,
-          discountValue: couponDoc.discountValue,
-          maxDiscount: couponDoc.maxDiscountAmount,
-          offerType: couponDoc.offerType,
-        };
       }
     } catch (err) {
       logger.warn("Coupon check failed during pricing calculation:", { error: err.message });

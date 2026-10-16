@@ -199,15 +199,28 @@ const deleteBanner = async (req, res) => {
   return { success: true, message: "Banner deleted successfully", deletedBanner: deleteBanner };
 };
 
+const parseJsonField = (val, defaultVal = []) => {
+  if (!val) return defaultVal;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      return val.includes(",") ? val.split(",").map((s) => s.trim()).filter(Boolean) : [val];
+    }
+  }
+  return val;
+};
+
 const validateCouponPayload = (body) => {
-  const { offerType, discountType, discountValue, freeProduct } = body;
+  const { offerType, discountType, discountValue, freeProduct, applicabilityType, applicableProductIds } = body;
 
   /* DISCOUNT Validation */
   if (offerType === "DISCOUNT") {
-    if (!discountType || discountValue == null || discountValue <= 0) {
+    const numVal = Number(discountValue);
+    if (!discountType || discountValue == null || isNaN(numVal) || numVal <= 0) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "Discount type and valid discount value are required for DISCOUNT coupons"
+        "Discount type and a valid discount value greater than 0 are required for DISCOUNT coupons"
       );
     }
   }
@@ -238,6 +251,17 @@ const validateCouponPayload = (body) => {
       );
     }
   }
+
+  /* Applicability validation */
+  if (applicabilityType === "SELECTED_PRODUCTS") {
+    const pIds = parseJsonField(applicableProductIds, []);
+    if (!Array.isArray(pIds) || pIds.length === 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Please select at least one product for 'Selected Products' applicability"
+      );
+    }
+  }
 };
 
 
@@ -245,59 +269,99 @@ const createCoupen = async (req) => {
   const body = req.body;
   const couponImage = req.file;
 
-  if (!body.code || !couponImage) {
-    throw new ApiError(400, "Coupon code and image are required");
+  if (!body.code) {
+    throw new ApiError(400, "Coupon code is required");
   }
 
-  /* Validate type */
+  const cleanCode = String(body.code).trim().toUpperCase();
+
+  /* Validate dates */
+  if (!body.validFrom || !body.validUntil) {
+    throw new ApiError(400, "Start date and end date are required");
+  }
+
+  const startDate = new Date(body.validFrom);
+  const endDate = new Date(body.validUntil);
+
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    throw new ApiError(400, "Invalid start or end date format");
+  }
+
+  if (endDate <= startDate) {
+    throw new ApiError(400, "End date must be after start date");
+  }
+
+  /* Image check */
+  let imageURL = body.couponImage || null;
+  if (couponImage) {
+    const key = `coupon/POVIS_${Date.now()}_${couponImage.originalname.replace(/\s+/g, "_")}`;
+    imageURL = await uploadToCloud(couponImage, key);
+  } else if (!imageURL) {
+    throw new ApiError(400, "Coupon image is required");
+  }
+
+  /* Validate type & applicability */
   validateCouponPayload(body);
 
   /* Duplicate check */
-  const exists = await CouponModel.findOne({ code: body.code.toUpperCase() });
+  const exists = await CouponModel.findOne({ code: cleanCode });
 
   if (exists) {
     throw new ApiError(400, "Coupon code already exists");
   }
 
-  /* Only ONE first-order coupon */
-  if (body.firstOrderOnly === true || body.firstOrderOnly === 'true') {
-    const existing = await CouponModel.findOne({ firstOrderOnly: true });
+  /* Only ONE active first-order coupon */
+  const isFirstOrder = body.firstOrderOnly === true || body.firstOrderOnly === 'true';
+  if (isFirstOrder) {
+    const existing = await CouponModel.findOne({ firstOrderOnly: true, status: 'active' });
 
     if (existing) {
       throw new ApiError(
         400,
-        `First order coupon already exists (${existing.code})`
+        `Active first order coupon already exists (${existing.code})`
       );
     }
   }
 
-  /* Upload Image */
-  const key = `coupon/POVIS_${Date.now()}_${couponImage.originalname}`;
-  const imageURL = await uploadToCloud(couponImage, key);
+  const applicabilityType = body.applicabilityType || 'ALL_PRODUCTS';
+  const applicableProductIds = parseJsonField(body.applicableProductIds, []);
+  const applicableCategories = parseJsonField(body.applicableCategories, []);
+  const conditions = typeof body.conditions === 'string'
+    ? parseJsonField(body.conditions, {})
+    : (body.conditions || {});
 
   // Prepare coupon data
   const couponData = {
-    code: body.code.toUpperCase(),
-    message: body.message,
-    offerType: body.offerType,
-    minPurchaseAmount: body.minPurchaseAmount || 0,
-    validFrom: body.validFrom,
-    validUntil: body.validUntil,
-    usageLimit: body.usageLimit || 1,
+    code: cleanCode,
+    message: String(body.message || "").trim(),
+    offerType: body.offerType || "DISCOUNT",
+    minPurchaseAmount: Number(body.minPurchaseAmount || 0),
+    validFrom: startDate,
+    validUntil: endDate,
+    usageLimit: Number(body.usageLimit || 1),
     repeatUsage: body.repeatUsage || 'allowed',
     cashBack: body.cashBack === true || body.cashBack === 'true',
     status: body.status || 'active',
-    firstOrderOnly: body.firstOrderOnly === true || body.firstOrderOnly === 'true',
+    firstOrderOnly: isFirstOrder,
     couponImage: imageURL,
+    applicabilityType,
+    applicableProductIds,
+    applicableCategories,
+    conditions: {
+      minSubtotal: Number(conditions.minSubtotal || body.minPurchaseAmount || 0),
+      minQuantity: Number(conditions.minQuantity || 0),
+      applicableProductIds: parseJsonField(conditions.applicableProductIds, applicableProductIds),
+      applicableCategories: parseJsonField(conditions.applicableCategories, applicableCategories),
+      firstOrderOnly: isFirstOrder,
+    },
   };
 
   // Add type-specific fields
   if (body.offerType === "DISCOUNT") {
-    couponData.discountValue = body.discountValue;
+    couponData.discountValue = Number(body.discountValue);
     couponData.discountType = body.discountType;
-    couponData.maxDiscountAmount = body.maxDiscountAmount || 0;
+    couponData.maxDiscountAmount = Number(body.maxDiscountAmount || 0);
   } else if (body.offerType === "FREE_PRODUCT") {
-    // Parse freeProduct if it's a string
     couponData.freeProduct = typeof body.freeProduct === 'string' 
       ? JSON.parse(body.freeProduct) 
       : body.freeProduct;
@@ -357,10 +421,12 @@ const editCoupon = async (req) => {
   /* Validate */
   validateCouponPayload(body);
 
+  const cleanCode = body.code ? String(body.code).trim().toUpperCase() : null;
+
   /* Duplicate Code Check */
-  if (body.code) {
+  if (cleanCode) {
     const duplicate = await CouponModel.findOne({
-      code: body.code.toUpperCase(),
+      code: cleanCode,
       _id: { $ne: _id },
     });
 
@@ -370,44 +436,72 @@ const editCoupon = async (req) => {
   }
 
   /* First Order Fix */
-  if (body.firstOrderOnly === true || body.firstOrderOnly === 'true') {
+  const isFirstOrder = body.firstOrderOnly === true || body.firstOrderOnly === 'true';
+  if (isFirstOrder) {
     const existing = await CouponModel.findOne({
       firstOrderOnly: true,
+      status: 'active',
       _id: { $ne: _id },
     });
 
     if (existing) {
       throw new ApiError(
         400,
-        `First order coupon already exists (${existing.code})`
+        `Active first order coupon already exists (${existing.code})`
       );
     }
   }
+
+  // Validate dates if provided
+  let startDate = body.validFrom ? new Date(body.validFrom) : null;
+  let endDate = body.validUntil ? new Date(body.validUntil) : null;
+
+  if (startDate && endDate && endDate <= startDate) {
+    throw new ApiError(400, "End date must be after start date");
+  }
+
+  const applicabilityType = body.applicabilityType || 'ALL_PRODUCTS';
+  const applicableProductIds = parseJsonField(body.applicableProductIds, []);
+  const applicableCategories = parseJsonField(body.applicableCategories, []);
+  const conditions = typeof body.conditions === 'string'
+    ? parseJsonField(body.conditions, {})
+    : (body.conditions || {});
 
   // Prepare update data
   const updateData = {
     message: body.message,
     offerType: body.offerType,
-    minPurchaseAmount: body.minPurchaseAmount || 0,
-    validFrom: body.validFrom,
-    validUntil: body.validUntil,
-    usageLimit: body.usageLimit || 1,
+    minPurchaseAmount: Number(body.minPurchaseAmount || 0),
+    usageLimit: Number(body.usageLimit || 1),
     repeatUsage: body.repeatUsage || 'allowed',
     cashBack: body.cashBack === true || body.cashBack === 'true',
     status: body.status || 'active',
-    firstOrderOnly: body.firstOrderOnly === true || body.firstOrderOnly === 'true',
+    firstOrderOnly: isFirstOrder,
+    applicabilityType,
+    applicableProductIds,
+    applicableCategories,
+    conditions: {
+      minSubtotal: Number(conditions.minSubtotal || body.minPurchaseAmount || 0),
+      minQuantity: Number(conditions.minQuantity || 0),
+      applicableProductIds: parseJsonField(conditions.applicableProductIds, applicableProductIds),
+      applicableCategories: parseJsonField(conditions.applicableCategories, applicableCategories),
+      firstOrderOnly: isFirstOrder,
+    },
   };
 
+  if (startDate) updateData.validFrom = startDate;
+  if (endDate) updateData.validUntil = endDate;
+
   // Update code if provided
-  if (body.code) {
-    updateData.code = body.code.toUpperCase();
+  if (cleanCode) {
+    updateData.code = cleanCode;
   }
 
   // Add type-specific fields
   if (body.offerType === "DISCOUNT") {
-    updateData.discountValue = body.discountValue;
+    updateData.discountValue = Number(body.discountValue);
     updateData.discountType = body.discountType;
-    updateData.maxDiscountAmount = body.maxDiscountAmount || 0;
+    updateData.maxDiscountAmount = Number(body.maxDiscountAmount || 0);
     // Clear freeProduct if switching from FREE_PRODUCT to DISCOUNT
     updateData.freeProduct = undefined;
   } else if (body.offerType === "FREE_PRODUCT") {
@@ -423,9 +517,11 @@ const editCoupon = async (req) => {
 
   /* Update Image if provided */
   if (image) {
-    const key = `coupon/POVIS_${Date.now()}_${image.originalname}`;
+    const key = `coupon/POVIS_${Date.now()}_${image.originalname.replace(/\s+/g, "_")}`;
     const imageURL = await uploadToCloud(image, key);
     updateData.couponImage = imageURL;
+  } else if (body.couponImage && typeof body.couponImage === 'string') {
+    updateData.couponImage = body.couponImage;
   }
 
   const updated = await CouponModel.findByIdAndUpdate(
@@ -4422,6 +4518,7 @@ module.exports = {
   editBanner,
   deleteBanner,
   createCoupen,
+  validateCouponPayload,
   getCoupon,
   getOneCoupon,
   editCoupon,

@@ -407,6 +407,16 @@ const fetchCoupon = catchAsync(async (req, res) => {
   res.status(200).send(data);
 });
 
+const fetchProductCoupons = catchAsync(async (req, res) => {
+  const data = await Coupon.getProductCoupons(req);
+  res.status(200).send(data);
+});
+
+const fetchEligibleCartCoupons = catchAsync(async (req, res) => {
+  const data = await Coupon.getEligibleCouponsForCart(req);
+  res.status(200).send(data);
+});
+
 const Product = catchAsync(async (req, res) => {
   const data = await Prodcut.getAllProducts(req);
   res.status(200).send(data);
@@ -573,6 +583,8 @@ module.exports = {
   Getaboutus,
   VerifyCoupon,
   fetchCoupon,
+  fetchProductCoupons,
+  fetchEligibleCartCoupons,
   Product,
   addAddressToCartData,
   getproductsBasedOnBrandsData,

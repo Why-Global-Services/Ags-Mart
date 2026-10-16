@@ -4,6 +4,8 @@ const { getCart } = require("./Cart/cart.service");
 const ApiError = require("../../utils/apiError");
 const { Product } = require("../../models/Product.model");
 const { findProductVariant } = require("../../utils/productVariant");
+const { orderDetailsModel } = require("../../models/orders.model");
+const { evaluateCouponEligibility } = require("../../utils/couponEligibility");
 const {
   calculateShipmentDimensions,
   getShippingRateEstimate,
@@ -123,189 +125,41 @@ const checkOut = async (req) => {
   }
 
   // ==========================================================
-  // CHECK DISCOUNT
-  // ==========================================================
-  const doesHaveDiscount =
-    cartData.items.some(
-      (item) =>
-        Number(
-          item.priceBreakdown
-            ?.discountPercentage || 0
-        ) > 0
-    );
-
-  // ==========================================================
   // COUPONS
   // ==========================================================
   let CouponData = [];
+  const currentDate = new Date();
 
-  if (!doesHaveDiscount) {
-    const currentDate =
-      new Date();
+  const rawCoupons = await CouponModel.find({
+    status: "active",
+    validFrom: { $lte: currentDate },
+    validUntil: { $gte: currentDate },
+  })
+    .select(
+      "code message offerType discountType discountValue maxDiscountAmount minPurchaseAmount freeProduct validFrom validUntil couponImage applicabilityType applicableProductIds applicableCategories conditions firstOrderOnly"
+    )
+    .sort({ createdAt: -1 })
+    .lean();
 
-    const rawCoupons =
-      await CouponModel.find({
-        status: "active",
+  CouponData = await Promise.all(
+    rawCoupons.map(async (coupon) => {
+      const evaluation = await evaluateCouponEligibility({
+        coupon,
+        items: cartData.items,
+        user: req.user,
+        now: currentDate,
+        orderDetailsModel,
+      });
 
-        validFrom: {
-          $lte: currentDate,
-        },
-
-        validUntil: {
-          $gte: currentDate,
-        },
-      })
-        .select(
-          "code message offerType discountType discountValue maxDiscountAmount minPurchaseAmount freeProduct validFrom validUntil couponImage"
-        )
-        .lean();
-
-    // ========================================================
-    // ENRICH COUPONS
-    // ========================================================
-    CouponData =
-      await Promise.all(
-        rawCoupons.map(
-          async (coupon) => {
-            if (
-              coupon.offerType ===
-                "FREE_PRODUCT" &&
-              coupon.freeProduct
-                ?.productId
-            ) {
-              try {
-                const product =
-                  await Product.findById(
-                    coupon.freeProduct
-                      .productId
-                  ).lean();
-
-                if (product) {
-                  let freeProductDetails =
-                    {
-                      productId:
-                        product._id,
-
-                      productName:
-                        product.productName,
-
-                      productType:
-                        coupon.freeProduct
-                          .productType,
-
-                      productImage:
-                        null,
-
-                      productImages:
-                        [],
-
-                      variantDetails:
-                        null,
-
-                      price: 0,
-                    };
-
-                  // ==================================================
-                  // FREE VARIANT PRODUCT
-                  // ==================================================
-                  if (
-                    coupon.freeProduct
-                      .productType ===
-                      "variant" &&
-                    coupon.freeProduct
-                      .variantId
-                  ) {
-                    const selectedVariant =
-                      findProductVariant(
-                        product,
-                        coupon.freeProduct
-                          .variantId
-                      );
-
-                    if (
-                      selectedVariant
-                    ) {
-                      freeProductDetails.variantDetails =
-                        {
-                          unit:
-                            selectedVariant.unit,
-
-                          displayName:
-                            selectedVariant.unit,
-                        };
-                    }
-
-                    const resolvedImages =
-                      resolveProductImages(
-                        product,
-                        selectedVariant
-                      );
-
-                    freeProductDetails.productImages =
-                      resolvedImages;
-
-                    freeProductDetails.productImage =
-                      resolvedImages[0] ||
-                      null;
-
-                    freeProductDetails.price =
-                      Number(
-                        selectedVariant
-                          ?.price
-                          ?.salePrice ||
-                          0
-                      );
-                  }
-
-                  // ==================================================
-                  // FREE NON-VARIANT PRODUCT
-                  // ==================================================
-                  else if (
-                    coupon.freeProduct
-                      .productType ===
-                    "nonVariant"
-                  ) {
-                    const resolvedImages =
-                      resolveProductImages(
-                        product,
-                        null
-                      );
-
-                    freeProductDetails.productImages =
-                      resolvedImages;
-
-                    freeProductDetails.productImage =
-                      resolvedImages[0] ||
-                      null;
-
-                    freeProductDetails.price =
-                      Number(
-                        product
-                          .nonVariant
-                          ?.price
-                          ?.salePrice ||
-                          0
-                      );
-                  }
-
-                  return {
-                    ...coupon,
-                    freeProductDetails,
-                  };
-                }
-              } catch (error) {
-                console.error(
-                  "Error fetching free product details:",
-                  error
-                );
-              }
-            }
-
-            return coupon;
-          }
-        )
-      );
-  }
+      return {
+        ...coupon,
+        isEligible: evaluation.isEligible,
+        reason: evaluation.reason,
+        calculatedDiscount: evaluation.discountAmount,
+        freeProductDetails: evaluation.freeProduct,
+      };
+    })
+  );
 
   // ==========================================================
   // TOTALS

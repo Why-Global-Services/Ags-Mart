@@ -24,6 +24,7 @@ const {
   getShippingRateEstimate,
   calculateShipmentDimensions,
 } = require("../../../utils/shiprocket");
+const { evaluateCouponEligibility } = require("../../../utils/couponEligibility");
 
 class OrderService {
   constructor() {
@@ -134,6 +135,15 @@ class OrderService {
         order,
         userId,
       });
+
+      // Increment coupon usage count safely inside transaction
+      if (pricing.couponDetails?.code) {
+        await CouponModel.updateOne(
+          { code: pricing.couponDetails.code },
+          { $inc: { usageCount: 1 } },
+          { session }
+        );
+      }
 
       await session.commitTransaction();
 
@@ -320,7 +330,8 @@ async calculatePricing({
   const couponResult = await this.applyCouponWithValidation(
     couponCode,
     subtotal,
-    userId
+    userId,
+    updatedCartItems
   );
 
 
@@ -520,7 +531,7 @@ async calculateAutomaticDiscounts({ userId, paymentMethod, subtotalBeforeTax }) 
   /**
    * Enhanced coupon validation with simple rate limiting
    */
-async applyCouponWithValidation(couponCode, totalAmount, userId) {
+async applyCouponWithValidation(couponCode, totalAmount, userId, cartItems = []) {
   if (!couponCode) {
     return { discount: 0, couponDetails: null };
   }
@@ -537,11 +548,9 @@ async applyCouponWithValidation(couponCode, totalAmount, userId) {
   }
 
   try {
+    const cleanCode = String(couponCode).trim().toUpperCase();
     const coupon = await CouponModel.findOne({
-      code: couponCode,
-      status: "active",
-      validFrom: { $lte: new Date() },
-      validUntil: { $gte: new Date() },
+      code: cleanCode,
     });
 
     if (!coupon) {
@@ -549,66 +558,30 @@ async applyCouponWithValidation(couponCode, totalAmount, userId) {
       throw new ApiError(400, "Invalid or expired coupon");
     }
 
-    // Check repeat usage
-    if (coupon.repeatUsage === "notAllowed") {
-      const existingOrder = await orderDetailsModel.findOne({
-        userId: userId,
-        "orderDetails.couponCode": coupon.code,
-      });
-
-      if (existingOrder) {
-        throw new ApiError(400, "You have already used this coupon");
-      }
-    }
-
-    // Check global usage limits
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      throw new ApiError(400, "Coupon usage limit exceeded");
-    }
-
-    // Check minimum purchase
-    if (totalAmount < coupon.minPurchaseAmount) {
-      throw new ApiError(
-        400,
-        `Minimum purchase of ₹${coupon.minPurchaseAmount} required`
-      );
-    }
-
-    // Calculate discount
-    let discount = this.calculateDiscountAmount(coupon, totalAmount);
-
-    // Ensure discount never exceeds total
-    discount = Math.min(discount, totalAmount);
-
-    console.log("🎟️ Coupon validation successful:", {
-      code: coupon.code,
-      discountType: coupon.discountType,
-      discountValue: coupon.discountValue,
-      calculatedDiscount: discount,
-      maxDiscountAmount: coupon.maxDiscountAmount,
-      totalAmount: totalAmount,
+    const evalResult = await evaluateCouponEligibility({
+      coupon,
+      items: cartItems,
+      user: userId ? { _id: userId } : null,
+      orderDetailsModel,
     });
 
-    // Update coupon usage
-    await CouponModel.updateOne(
-      { _id: coupon._id },
-      { $inc: { usedCount: 1 } }
-    );
+    if (!evalResult.isEligible) {
+      this.couponAttempts.set(rateLimitKey, currentAttempts + 1);
+      throw new ApiError(400, evalResult.reason || "Coupon is not applicable");
+    }
 
-    // Reset attempts on successful coupon application
+    // Reset attempts on successful coupon validation
     this.couponAttempts.delete(rateLimitKey);
 
     return {
-      discount,
+      discount: evalResult.discountAmount,
       couponDetails: {
         code: coupon.code,
         discountType: coupon.discountType,
         discountValue: coupon.discountValue,
         maxDiscount: coupon.maxDiscountAmount,
         offerType: coupon.offerType,
-        freeProduct: coupon.offerType === "FREE_PRODUCT"
-      ? coupon.freeProduct
-      : null,
+        freeProduct: evalResult.freeProduct,
       },
     };
   } catch (error) {

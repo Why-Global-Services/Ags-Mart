@@ -6,12 +6,25 @@ const ApiError = require("../utils/apiError");
 const errorConverter = (err, req, res, next) => {
   let error = err;
   if (!(error instanceof ApiError)) {
+    const isMongoError =
+      error instanceof mongoose.Error ||
+      error.code === 11000 ||
+      error.name === "MongoServerError" ||
+      error.name === "ValidationError";
+
     const statusCode =
-      error.statusCode || error instanceof mongoose.Error
-        ? httpStatus.BAD_REQUEST
-        : httpStatus.INTERNAL_SERVER_ERROR;
-    const message = error.message || httpStatus[statusCode];
-    error = new ApiError(statusCode, message, false, err.stack);
+      error.statusCode ||
+      (isMongoError ? httpStatus.BAD_REQUEST : httpStatus.INTERNAL_SERVER_ERROR);
+
+    let message = error.message || httpStatus[statusCode];
+
+    if (error.code === 11000) {
+      const keys = Object.keys(error.keyValue || {}).join(", ");
+      message = `${keys ? keys.charAt(0).toUpperCase() + keys.slice(1) : "Record"} already exists`;
+    }
+
+    const isOperational = Boolean(error.isOperational || isMongoError || error.statusCode);
+    error = new ApiError(statusCode, message, isOperational, err.stack);
   }
   next(error);
 };
