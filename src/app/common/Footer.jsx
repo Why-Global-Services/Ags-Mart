@@ -91,7 +91,7 @@ export default function Footer() {
             <Link href="/" className="inline-block">
               <div className="bg-white px-2.5 py-1 rounded-xl inline-flex items-center justify-center shadow-sm w-[170px] sm:w-[190px] md:w-[210px] h-[50px] sm:h-[54px]">
                 <Image
-                  src={logo || "/logo.png"}
+                  src={logo || "/agrowmed-logo.png"}
                   alt="Agrowmed Logo"
                   width={220}
                   height={58}

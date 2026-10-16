@@ -185,8 +185,34 @@ export const getHome = async () => {
 };
 
 export const getNavbarData = async () => {
-  const res = await apiInstance.get(`/getNavbar`);
-  return res;
+  try {
+    const res = await apiInstance.get(`/getNavbar`);
+    return res;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      try {
+        const catRes = await apiInstance.get(`/getCategories`);
+        const catList = Array.isArray(catRes?.data)
+          ? catRes.data
+          : Array.isArray(catRes)
+          ? catRes
+          : [];
+        return {
+          success: true,
+          message: "Navbar Data",
+          data: {
+            findCategory: catList,
+            details: [],
+            cartSize: 0,
+            WishlistSize: 0,
+          },
+        };
+      } catch (catErr) {
+        throw error;
+      }
+    }
+    throw error;
+  }
 };
 
 export const Otp = async (data) => {
@@ -240,19 +266,30 @@ export const addAddressToCart = async (deliveryAddress, billingAddress) => {
 
 
 export const getUserBasedCoupon = async () => {
-  const res = await apiInstance.get(`/getUserBasedCoupon`)
+  const res = await apiInstance.get(`/getUserBasedCoupon`);
   return res;
-}
+};
 
-
-export const verifyCoupon = async (couponCode) => {
-  const body = {couponCode};
-
-  console.log(body, 'coupon code verify')
-
-  const res = await apiInstance.post(`/coupon`, body)
+export const getProductCoupons = async (productId) => {
+  const res = await apiInstance.get(`/getProductCoupons/${productId}`);
   return res;
-}
+};
+
+export const getEligibleCoupons = async (payload) => {
+  const res = await apiInstance.post(`/getEligibleCoupons`, payload || {});
+  return res;
+};
+
+export const verifyCoupon = async (couponCodeOrPayload, optionalExtra = {}) => {
+  let body = {};
+  if (typeof couponCodeOrPayload === "string") {
+    body = { couponCode: couponCodeOrPayload, ...optionalExtra };
+  } else if (typeof couponCodeOrPayload === "object") {
+    body = couponCodeOrPayload;
+  }
+  const res = await apiInstance.post(`/coupon`, body);
+  return res;
+};
 
 
 export const placeOrder  = async (payload) => {

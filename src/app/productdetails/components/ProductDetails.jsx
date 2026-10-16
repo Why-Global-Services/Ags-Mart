@@ -28,10 +28,13 @@ import {
 import Link from "next/link";
 import ServiceHighlights from "@/app/component/Support";
 import { FaSpinner } from "react-icons/fa6";
-import { getProductDetails } from "@/app/interceptor/interseptor";
+import { getProductDetails, getProductCoupons } from "@/app/interceptor/interseptor";
 import { useSearchParams, useRouter } from "next/navigation";
 import Loading from "@/app/common/Loading";
 import { useAuth } from "@/context/AuthContext";
+import { Tag, Copy, Check } from "lucide-react";
+import { showToast } from "@/app/utils/toast";
+import { getApplicableCouponsForProduct } from "@/app/utils/couponHelper";
 import RecommendedProducts from "./RecommendedProducts";
 import AuthPage from "@/app/common/LoginPage";
 // CUSTOMER REVIEWS TEMPORARILY DISABLED
@@ -318,6 +321,109 @@ const ProductDetailsPage = () => {
         )
       : false;
 
+  const salePrice =
+    selectedVariant?.price?.salePrice ??
+    product?.rawData?.basePrice ??
+    0;
+  const costPrice = selectedVariant?.price?.costPrice || 0;
+  const discountPct =
+    costPrice > salePrice && costPrice > 0
+      ? Math.round(((costPrice - salePrice) / costPrice) * 100)
+      : selectedVariant?.price?.discount || 0;
+
+  const [productOffers, setProductOffers] = useState([]);
+  const [copiedCoupon, setCopiedCoupon] = useState("");
+  const reduxCoupons = useSelector((state) => state.home?.homeData?.getCouponsData) || [];
+
+  useEffect(() => {
+    let isCancelled = false;
+    const loadOffers = async () => {
+      const prodData = product?.rawData || product;
+      if (!prodData) return;
+
+      const prodId = product?.productId || prodData?._id;
+      let offersList = [];
+
+      // 1. Fetch from dedicated product coupons endpoint
+      if (prodId) {
+        try {
+          const res = await getProductCoupons(prodId);
+          const rawCoupons = Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res?.data?.coupons)
+            ? res.data.coupons
+            : Array.isArray(res?.data?.data)
+            ? res.data.data
+            : Array.isArray(res?.coupons)
+            ? res.coupons
+            : [];
+
+          if (rawCoupons.length > 0) {
+            offersList = rawCoupons.map((c) => ({
+              code: c.code,
+              offerTitle:
+                c.offerLabel ||
+                (c.offerType === "FREE_PRODUCT"
+                  ? "Free Gift"
+                  : c.discountType === "percentage"
+                  ? `${c.discountValue}% OFF`
+                  : `₹${c.discountValue} OFF`),
+              conditionText:
+                c.conditionText ||
+                (c.minPurchaseAmount > 0
+                  ? `Min. purchase ₹${c.minPurchaseAmount}`
+                  : "No minimum purchase"),
+              message: c.message || "",
+              offerType: c.offerType,
+              minPurchaseAmount: c.minPurchaseAmount || 0,
+            }));
+          }
+        } catch (err) {
+          console.warn("Could not fetch product coupons:", err);
+        }
+      }
+
+      // 2. Fallback: match against global reduxCoupons if endpoint returns empty
+      if (offersList.length === 0 && Array.isArray(reduxCoupons) && reduxCoupons.length > 0) {
+        const matching = getApplicableCouponsForProduct(reduxCoupons, prodData);
+        if (Array.isArray(matching)) {
+          offersList = matching;
+        }
+      }
+
+      // Deduplicate offers by code
+      const uniqueOffers = [];
+      const seen = new Set();
+      for (const item of offersList) {
+        const codeUpper = String(item.code || "").trim().toUpperCase();
+        if (codeUpper && !seen.has(codeUpper)) {
+          seen.add(codeUpper);
+          uniqueOffers.push(item);
+        }
+      }
+
+      if (!isCancelled) {
+        setProductOffers(uniqueOffers);
+      }
+    };
+
+    loadOffers();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [product, reduxCoupons]);
+
+  const handleCopyCoupon = (code) => {
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopiedCoupon(code);
+    showToast.success(`Coupon code ${code} copied!`);
+    setTimeout(() => {
+      setCopiedCoupon((prev) => (prev === code ? "" : prev));
+    }, 2500);
+  };
+
   const handleUnitSelect = (variantId) => {
     setSelectedVariantId(variantId);
     setSelectedImage(0);
@@ -508,16 +614,6 @@ const ProductDetailsPage = () => {
       return `Only ${selectedVariant.stockCount} left`;
     return "Out of Stock";
   };
-
-  const salePrice =
-    selectedVariant?.price?.salePrice ??
-    product?.rawData?.basePrice ??
-    0;
-  const costPrice = selectedVariant?.price?.costPrice || 0;
-  const discountPct =
-    costPrice > salePrice && costPrice > 0
-      ? Math.round(((costPrice - salePrice) / costPrice) * 100)
-      : selectedVariant?.price?.discount || 0;
 
   // Dynamically compile available tabs strictly from non-empty Admin data
   const dynamicTabs = [];
@@ -725,95 +821,219 @@ const ProductDetailsPage = () => {
           </div>
 
           {/* RIGHT: Product Information (~55% on desktop: lg:col-span-7) */}
-          <div className="lg:col-span-7 space-y-4 sm:space-y-5">
-            {/* Title & Stock Status Badge */}
-            <div className="flex items-start justify-between gap-4">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight tracking-tight">
-                {product.productName}
-              </h1>
-              {selectedVariant && (
-                <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${
-                    getStockStatus() === "In Stock"
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
-                      : getStockStatus().includes("Only")
-                        ? "bg-amber-50 text-amber-700 border border-amber-200/80"
-                        : "bg-red-50 text-red-700 border border-red-200/80"
-                  }`}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      getStockStatus() === "In Stock"
-                        ? "bg-emerald-500"
-                        : getStockStatus().includes("Only")
-                          ? "bg-amber-500"
-                          : "bg-red-500"
-                    }`}
-                  />
-                  {getStockStatus()}
-                </span>
-              )}
-            </div>
-
-            {/* Category Pill & Rating */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {product.rawData?.productCategory && (
-                <span className="bg-emerald-50/90 text-emerald-800 border border-emerald-200/60 text-xs font-bold px-3 py-1 rounded-md uppercase tracking-wide">
-                  {product.rawData.productCategory}
-                </span>
-              )}
-              {Boolean(product.rawData?.averageRating > 0 && (product.rawData?.totalReviews > 0 || product.rawData?.productReviews?.length > 0)) && (
-                <div className="flex items-center gap-1 text-xs">
-                  <div className="flex text-amber-400">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <FaStar
-                        key={s}
-                        className={
-                          s <= Math.round(product.rawData.averageRating)
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-gray-200 fill-gray-200"
-                        }
-                        size={13}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Upper Section: Info on Left, Glassy Offers on Right (Circled Empty Area) */}
+            <div className={`grid grid-cols-1 ${productOffers.length > 0 ? "lg:grid-cols-12 gap-6 items-start" : "gap-4"}`}>
+              {/* Product Info Column (Title, Category, Price, Short Description) */}
+              <div className={`${productOffers.length > 0 ? "lg:col-span-7" : "w-full"} space-y-3 sm:space-y-4`}>
+                {/* Title & Mobile Stock Badge */}
+                <div className="flex items-start justify-between gap-3">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight tracking-tight">
+                    {product.productName}
+                  </h1>
+                  {/* Stock badge visible on mobile or when no offers */}
+                  {selectedVariant && (
+                    <span
+                      className={`inline-flex ${productOffers.length > 0 ? "lg:hidden" : ""} items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${
+                        getStockStatus() === "In Stock"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                          : getStockStatus().includes("Only")
+                            ? "bg-amber-50 text-amber-700 border border-amber-200/80"
+                            : "bg-red-50 text-red-700 border border-red-200/80"
+                      }`}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          getStockStatus() === "In Stock"
+                            ? "bg-emerald-500"
+                            : getStockStatus().includes("Only")
+                              ? "bg-amber-500"
+                              : "bg-red-500"
+                        }`}
                       />
-                    ))}
+                      {getStockStatus()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Category Pill & Rating */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {product.rawData?.productCategory && (
+                    <span className="bg-emerald-50 text-emerald-800 border border-emerald-200/70 text-xs font-bold px-3 py-1 rounded-md uppercase tracking-wide">
+                      {product.rawData.productCategory}
+                    </span>
+                  )}
+                  {Boolean(
+                    product.rawData?.averageRating > 0 &&
+                      (product.rawData?.totalReviews > 0 ||
+                        product.rawData?.productReviews?.length > 0)
+                  ) && (
+                    <div className="flex items-center gap-1 text-xs">
+                      <div className="flex text-amber-400">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <FaStar
+                            key={s}
+                            className={
+                              s <= Math.round(product.rawData.averageRating)
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-gray-200 fill-gray-200"
+                            }
+                            size={13}
+                          />
+                        ))}
+                      </div>
+                      <span className="font-bold text-gray-800 ml-1">
+                        {product.rawData.averageRating.toFixed(1)}
+                      </span>
+                      <span className="text-gray-500">
+                        ({product.rawData?.totalReviews || product.rawData?.productReviews?.length} reviews)
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Price section */}
+                <div className="space-y-0.5 pt-0.5">
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <span className="text-3xl sm:text-4xl font-extrabold text-[#0f4e27]">
+                      ₹{salePrice.toLocaleString()}
+                    </span>
+                    {costPrice > salePrice && (
+                      <>
+                        <span className="text-xl text-gray-400 line-through">
+                          ₹{costPrice.toLocaleString()}
+                        </span>
+                        <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
+                          {discountPct}% OFF
+                        </span>
+                      </>
+                    )}
                   </div>
-                  <span className="font-bold text-gray-800 ml-1">
-                    {product.rawData.averageRating.toFixed(1)}
-                  </span>
-                  <span className="text-gray-500">
-                    ({product.rawData?.totalReviews || product.rawData?.productReviews?.length} reviews)
-                  </span>
+                  <p className="text-xs text-gray-500 font-medium">Inclusive of all taxes</p>
+                </div>
+
+                {/* Product short description summary - only if actual data exists */}
+                {product.description?.trim() && (
+                  <p className="text-sm text-gray-600 leading-relaxed pt-1">
+                    {product.description.split("\n")[0].slice(0, 240)}
+                    {product.description.length > 240 && !product.description.split("\n")[0].endsWith(".") ? "..." : ""}
+                  </p>
+                )}
+              </div>
+
+              {/* Right Column: In Desktop Empty Area circled by user! */}
+              {productOffers.length > 0 && (
+                <div className="lg:col-span-5 space-y-3">
+                  {/* Stock status badge placed at top of right card on desktop */}
+                  {selectedVariant && (
+                    <div className="hidden lg:flex justify-end">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                          getStockStatus() === "In Stock"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                            : getStockStatus().includes("Only")
+                              ? "bg-amber-50 text-amber-700 border border-amber-200/80"
+                              : "bg-red-50 text-red-700 border border-red-200/80"
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            getStockStatus() === "In Stock"
+                              ? "bg-emerald-500"
+                              : getStockStatus().includes("Only")
+                                ? "bg-amber-500"
+                                : "bg-red-500"
+                          }`}
+                        />
+                        {getStockStatus()}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Glassy Available Offers Card */}
+                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/95 via-emerald-50/50 to-white/90 backdrop-blur-md border border-emerald-200/90 p-4 shadow-sm">
+                    {/* Subtle aesthetic gradient accent */}
+                    <div className="absolute -top-12 -right-12 w-28 h-28 bg-emerald-400/15 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="relative flex items-center justify-between mb-3 pb-2.5 border-b border-emerald-100/90">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-[#0f4e27] text-white flex items-center justify-center shadow-2xs">
+                          <Tag className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                            Available Offers
+                          </h3>
+                          <p className="text-[10px] text-emerald-800/80 font-medium">
+                            Applicable for this item
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
+                        {productOffers.length} {productOffers.length === 1 ? "Offer" : "Offers"}
+                      </span>
+                    </div>
+
+                    {/* Offers List */}
+                    <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+                      {productOffers.map((offer, idx) => {
+                        const isCopied = copiedCoupon === offer.code;
+                        return (
+                          <div
+                            key={offer.code || idx}
+                            className="group relative bg-white/90 hover:bg-white rounded-xl p-3 border border-emerald-200/80 hover:border-emerald-400 transition-all shadow-2xs"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-xs bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded-md border border-dashed border-emerald-400 tracking-wider">
+                                  {offer.code}
+                                </span>
+                                <span className="text-xs font-bold text-emerald-800">
+                                  {offer.offerTitle}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCoupon(offer.code)}
+                                className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                                  isCopied
+                                    ? "bg-emerald-700 text-white shadow-2xs"
+                                    : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                }`}
+                                title="Copy coupon code"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    <span>Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                            <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1.5">
+                              <span>•</span>
+                              <span>{offer.conditionText}</span>
+                            </p>
+
+                            {offer.message && (
+                              <p className="text-[11px] text-gray-600 mt-1 line-clamp-2">
+                                {offer.message}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Price section */}
-            <div className="space-y-0.5 pt-0.5">
-              <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="text-3xl sm:text-4xl font-extrabold text-[#0f4e27]">
-                  ₹{salePrice.toLocaleString()}
-                </span>
-                {costPrice > salePrice && (
-                  <>
-                    <span className="text-xl text-gray-400 line-through">
-                      ₹{costPrice.toLocaleString()}
-                    </span>
-                    <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
-                      {discountPct}% OFF
-                    </span>
-                  </>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 font-medium">Inclusive of all taxes</p>
-            </div>
-
-            {/* Product short description summary - only if actual data exists from API */}
-            {product.description?.trim() && (
-              <p className="text-sm text-gray-600 leading-relaxed pt-0.5">
-                {product.description.split("\n")[0].slice(0, 240)}
-                {product.description.length > 240 && !product.description.split("\n")[0].endsWith(".") ? "..." : ""}
-              </p>
-            )}
 
             {/* Variant / Pack Size Selector */}
             {unitVariants.length > 0 && (

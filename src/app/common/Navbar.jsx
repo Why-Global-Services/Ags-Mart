@@ -216,7 +216,7 @@ const TopNavbar = () => {
             <Link href="/" className="flex items-center shrink-0 min-w-0">
               <div className="bg-white w-[140px] sm:w-[170px] md:w-[210px] lg:w-[240px] h-[48px] sm:h-[54px] md:h-[60px] max-w-full px-3 py-1.5 rounded-2xl shadow-sm hover:shadow-md transition shrink-0 flex items-center justify-center">
                 <Image
-                  src={logo || "/logo.png"}
+                  src={logo || "/agrowmed-logo.png"}
                   alt="Agrowmed Logo"
                   width={260}
                   height={70}

@@ -12,6 +12,9 @@ import {
   Tag,
   ChevronDown,
   ChevronUp,
+  Copy,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import {
   getCheckout,
@@ -19,6 +22,7 @@ import {
   Paymentverification,
   placeOrder,
   verifyCoupon,
+  getEligibleCoupons,
   getAddress,
 } from "@/app/interceptor/interseptor";
 import { gaEvent } from "@/app/lib/ga";
@@ -47,6 +51,7 @@ const Review = ({
   const [isApplying, setIsApplying] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [showAllCoupons, setShowAllCoupons] = useState(false);
+  const [copiedCouponCode, setCopiedCouponCode] = useState("");
   const [items, setItems] = useState([]);
   const [totalPrice, setTotalPrice] = useState(0);
   const [initialSubtotal, setInitialSubtotal] = useState(0);
@@ -359,6 +364,53 @@ const Review = ({
     };
   }, [isBuyNow, buyNowItem, processBuyNowData, processCartData]);
 
+  const handleCopyCode = (code) => {
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopiedCouponCode(code);
+    showToast.success(`Coupon "${code}" copied!`);
+    setTimeout(() => {
+      setCopiedCouponCode((prev) => (prev === code ? "" : prev));
+    }, 2000);
+  };
+
+  // Fetch dynamically evaluated eligible coupons for the current cart/buy-now contents
+  const fetchAvailableCoupons = useCallback(async () => {
+    try {
+      const payload = {
+        isBuyNow: Boolean(isBuyNow),
+        buyNowItem: isBuyNow ? buyNowItem : null,
+        cartItems: !isBuyNow
+          ? items.map((it) => ({
+              productId: it._id,
+              variantId: it.variantId || null,
+              quantity: it.quantity || 1,
+              price: it.selectedVariant?.price?.salePrice || 0,
+            }))
+          : null,
+      };
+      const res = await getEligibleCoupons(payload);
+      const couponList = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data?.coupons)
+        ? res.data.coupons
+        : Array.isArray(res?.coupons)
+        ? res.coupons
+        : [];
+      setAvailableCoupons(couponList);
+    } catch (err) {
+      console.warn("Failed to fetch eligible coupons for checkout:", err);
+    }
+  }, [isBuyNow, buyNowItem, items]);
+
+  useEffect(() => {
+    if (items.length > 0 || (isBuyNow && buyNowItem)) {
+      fetchAvailableCoupons();
+    }
+  }, [fetchAvailableCoupons, items.length, isBuyNow, buyNowItem, totalPrice, isLoggedIn]);
+
   // Live Shiprocket dynamic shipping rate calculation
   useEffect(() => {
     let isCancelled = false;
@@ -549,17 +601,32 @@ const Review = ({
   });
 
   const handleApplyCoupon = async (code = couponCode) => {
-    if (!code.trim()) {
+    const targetCode = (code || "").toString().trim().toUpperCase();
+    if (!targetCode) {
       showToast.error("Please enter a coupon code");
       return;
     }
     try {
       setIsApplying(true);
-      const res = await verifyCoupon(code);
+      const payload = {
+        couponCode: targetCode,
+        isBuyNow: Boolean(isBuyNow),
+        buyNowItem: isBuyNow ? buyNowItem : null,
+        cartItems: !isBuyNow
+          ? items.map((it) => ({
+              productId: it._id,
+              variantId: it.variantId || null,
+              quantity: it.quantity || 1,
+              price: it.selectedVariant?.price?.salePrice || 0,
+            }))
+          : null,
+      };
+
+      const res = await verifyCoupon(payload);
       console.log("Coupon verification response:", res);
 
       const apiRes = res?.data ?? res;
-      if (res.success) {
+      if (res.success || apiRes?.status === true) {
         const backendSubtotal = apiRes?.totals?.subtotal ?? totalPrice;
         const backendDiscount = apiRes?.totals?.discount ?? 0;
         const backendShipping = apiRes?.totals?.shipping ?? shipping;
@@ -574,7 +641,7 @@ const Review = ({
 
         setAppliedCoupons([
           {
-            code: couponInfo?.code || code,
+            code: couponInfo?.code || targetCode,
             discount:
               couponInfo.type === "FREE_PRODUCT"
                 ? "Free Product"
@@ -588,7 +655,7 @@ const Review = ({
         showToast.success("Coupon applied successfully!");
         setCouponCode("");
       } else {
-        const errorMsg = apiRes?.message || "Invalid coupon code";
+        const errorMsg = apiRes?.message || res?.message || "Invalid coupon code";
         throw new Error(errorMsg);
       }
     } catch (error) {
@@ -598,7 +665,7 @@ const Review = ({
         "Invalid coupon code";
       setAppliedCoupons([
         {
-          code: code,
+          code: targetCode,
           discount: "Invalid",
           isValid: false,
         },
@@ -913,6 +980,9 @@ const Review = ({
 
   // Helper function to check if coupon is applicable
   const isCouponApplicable = (coupon) => {
+    if (typeof coupon?.isEligible === "boolean") {
+      return coupon.isEligible;
+    }
     return totalPrice >= (coupon.minPurchaseAmount || 0);
   };
 
@@ -1156,165 +1226,220 @@ const Review = ({
           </div>
         )}
 
-        {/* Coupon Section */}
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-4 rounded-lg border border-orange-200 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Tag className="h-5 w-5 text-orange-600" />
-              <h3 className="font-semibold text-gray-800">Apply Coupon</h3>
+        {/* Coupon Section (Agrowmed Glassy Emerald Design) */}
+        <div className="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/40 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-emerald-200/90 mb-6 shadow-sm">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#0f4e27] text-white flex items-center justify-center shadow-2xs">
+                <Tag className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">Apply Coupon</h3>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  Have a discount code or special offer?
+                </p>
+              </div>
             </div>
-            {availableCoupons.length > 0 && (
-              <button
-                onClick={() => setShowAllCoupons(!showAllCoupons)}
-                className="text-xs text-orange-600 hover:text-orange-700 flex items-center gap-1 font-medium"
-              >
-                {showAllCoupons ? (
-                  <>
-                    Hide Coupons <ChevronUp className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    View {availableCoupons.length} Coupons{" "}
-                    <ChevronDown className="h-4 w-4" />
-                  </>
-                )}
-              </button>
+            {availableCoupons.filter((c) => isCouponApplicable(c)).length > 0 && (
+              <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-100 text-emerald-900 rounded-full border border-emerald-300">
+                {availableCoupons.filter((c) => isCouponApplicable(c)).length} {availableCoupons.filter((c) => isCouponApplicable(c)).length === 1 ? "Offer" : "Offers"} Available
+              </span>
             )}
           </div>
 
-          {/* Available Coupons List */}
-          {showAllCoupons && availableCoupons.length > 0 && (
-            <div className="space-y-3 mb-4 max-h-80 overflow-y-auto pr-2">
-              {availableCoupons.map((coupon, index) => {
-                const isApplicable = isCouponApplicable(coupon);
-                const isFreeProduct = coupon.offerType === "FREE_PRODUCT";
-                const freeProductDetails = coupon.freeProductDetails;
-
-                return (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      isApplicable
-                        ? "bg-white border-orange-200 hover:border-orange-400 hover:shadow-md"
-                        : "bg-gray-50 border-gray-200 opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Free Product Image */}
-                      {isFreeProduct && freeProductDetails?.productImage && (
-                        <div className="flex-shrink-0">
-                          <img
-                            src={freeProductDetails.productImage}
-                            alt={freeProductDetails.productName}
-                            className="w-16 h-16 object-cover rounded-lg border-2 border-purple-200"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          {isFreeProduct ? (
-                            <Gift className="h-4 w-4 text-orange-600 flex-shrink-0" />
-                          ) : (
-                            <Percent className="h-4 w-4 text-orange-600 flex-shrink-0" />
-                          )}
-                          <span className="font-bold text-sm text-gray-800">
-                            {coupon.code}
-                          </span>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
-                              isFreeProduct
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-orange-100 text-orange-700"
-                            }`}
-                          >
-                            {getDiscountDisplay(coupon)}
-                          </span>
-                        </div>
-
-                        <p className="text-xs text-gray-600 mb-2">
-                          {coupon.message}
-                        </p>
-
-                        {/* Free Product Details */}
-                        {isFreeProduct && freeProductDetails && (
-                          <div className="bg-purple-50 border border-purple-200 rounded-md p-2 mb-2">
-                            <p className="text-xs font-semibold text-purple-900 mb-1">
-                              🎁 Free Product Included:
-                            </p>
-                            <p className="text-xs text-purple-800 font-medium">
-                              {freeProductDetails.productName}
-                            </p>
-                            {freeProductDetails.variantDetails && (
-                              <p className="text-xs text-purple-700">
-                                {freeProductDetails.variantDetails.displayName}
-                              </p>
-                            )}
-                            {freeProductDetails.price > 0 && (
-                              <p className="text-xs text-purple-600 mt-1">
-                                Worth: ₹{freeProductDetails.price}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {!isApplicable && (
-                          <p className="text-xs text-red-500 font-medium">
-                            Min. purchase: ₹{coupon.minPurchaseAmount || 0}
-                          </p>
-                        )}
-
-                        {coupon.maxDiscountAmount > 0 && !isFreeProduct && (
-                          <p className="text-xs text-gray-500">
-                            Max discount: ₹{coupon.maxDiscountAmount}
-                          </p>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => handleApplyCoupon(coupon.code)}
-                        disabled={!isApplicable || isApplying}
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex-shrink-0 ${
-                          isApplicable
-                            ? "bg-orange-600 text-white hover:bg-orange-700"
-                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                        }`}
-                      >
-                        {isApplying ? "Applying..." : "Apply"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Manual Coupon Input */}
+          {/* 1. Manual Coupon Input */}
           <div className="relative">
             <input
               type="text"
               id="coupon-code"
               name="couponCode"
-              placeholder="Enter coupon code"
+              placeholder="ENTER COUPON CODE"
               value={couponCode}
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 pr-20 text-sm border-2 border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 pr-24 text-xs sm:text-sm font-semibold tracking-wider uppercase bg-white border border-emerald-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all placeholder:normal-case placeholder:tracking-normal placeholder:font-normal placeholder:text-gray-400 shadow-2xs"
             />
             <button
               onClick={() => handleApplyCoupon()}
-              disabled={isApplying}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-1"
+              disabled={isApplying || !couponCode.trim()}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-2 bg-[#0f4e27] hover:bg-emerald-900 text-white text-xs font-bold rounded-lg transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
             >
               {isApplying ? (
                 <>
-                  <RefreshCwIcon className="h-3 w-3 animate-spin" />
-                  Applying
+                  <RefreshCwIcon className="h-3.5 w-3.5 animate-spin" />
+                  <span>Applying</span>
                 </>
               ) : (
                 "Apply"
               )}
             </button>
           </div>
+
+          {/* 2. Available Eligible Coupons List (Directly Below Input) */}
+          {(() => {
+            const eligibleCoupons = availableCoupons.filter((c) => isCouponApplicable(c));
+            if (eligibleCoupons.length === 0) return null;
+
+            return (
+              <div className="mt-4 pt-4 border-t border-emerald-100/90 space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+                    Available Coupons for Your Cart
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 scrollbar-thin">
+                  {eligibleCoupons.map((coupon, index) => {
+                    const isFreeProduct = coupon.offerType === "FREE_PRODUCT";
+                    const freeProductDetails = coupon.freeProductDetails;
+                    const isCopied = copiedCouponCode === coupon.code;
+                    const isCurrentlyApplied = appliedCoupons.some(
+                      (ac) => ac.isValid && ac.code === coupon.code
+                    );
+
+                    return (
+                      <div
+                        key={coupon.code || index}
+                        className={`p-3.5 rounded-xl border transition-all ${
+                          isCurrentlyApplied
+                            ? "bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-500/20"
+                            : "bg-white/95 border-emerald-200/80 hover:border-emerald-400 hover:shadow-xs"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          {/* Free Product Image if applicable */}
+                          {isFreeProduct && freeProductDetails?.productImage && (
+                            <div className="shrink-0">
+                              <img
+                                src={freeProductDetails.productImage}
+                                alt={freeProductDetails.productName}
+                                className="w-14 h-14 object-cover rounded-lg border border-purple-200"
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            {/* Code Pill + Discount Value */}
+                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                              <span className="font-mono font-bold text-xs bg-emerald-50 text-emerald-950 px-2 py-0.5 rounded-md border border-dashed border-emerald-400 tracking-wider">
+                                {coupon.code}
+                              </span>
+
+                              {/* Copy button */}
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCode(coupon.code)}
+                                className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer flex items-center gap-1 ${
+                                  isCopied
+                                    ? "bg-emerald-700 text-white"
+                                    : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                }`}
+                                title="Copy coupon code"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="w-2.5 h-2.5" />
+                                    <span>Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-2.5 h-2.5" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  isFreeProduct
+                                    ? "bg-purple-100 text-purple-800 border border-purple-200"
+                                    : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                }`}
+                              >
+                                {coupon.offerLabel || getDiscountDisplay(coupon)}
+                              </span>
+
+                              {coupon.applicabilityType === "SELECTED_PRODUCTS" && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                                  Selected Items
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Message / Description */}
+                            {coupon.message && (
+                              <p className="text-xs text-gray-600 mb-1">
+                                {coupon.message}
+                              </p>
+                            )}
+
+                            {/* Free Product Details */}
+                            {isFreeProduct && freeProductDetails && (
+                              <div className="bg-purple-50/80 border border-purple-200 rounded-lg p-2 my-1.5">
+                                <p className="text-[11px] font-bold text-purple-900">
+                                  🎁 Free Product Included:
+                                </p>
+                                <p className="text-xs text-purple-800 font-medium">
+                                  {freeProductDetails.productName}
+                                </p>
+                                {freeProductDetails.price > 0 && (
+                                  <p className="text-[11px] text-purple-600 font-semibold mt-0.5">
+                                    Worth: ₹{freeProductDetails.price}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Conditions & Savings */}
+                            <div className="flex items-center gap-3 text-[11px] text-gray-500 font-medium flex-wrap">
+                              {coupon.conditionText ? (
+                                <span>• {coupon.conditionText}</span>
+                              ) : coupon.minPurchaseAmount > 0 ? (
+                                <span>• Min. purchase: ₹{coupon.minPurchaseAmount}</span>
+                              ) : null}
+
+                              {coupon.calculatedDiscount > 0 && (
+                                <span className="text-emerald-700 font-bold">
+                                  • Saves ₹{coupon.calculatedDiscount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="shrink-0">
+                            {isCurrentlyApplied ? (
+                              <span className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                <Check className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>Applied</span>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleApplyCoupon(coupon.code)}
+                                disabled={isApplying}
+                                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-700 hover:bg-[#0f4e27] text-white transition-all shadow-2xs cursor-pointer disabled:opacity-60 flex items-center gap-1"
+                              >
+                                {isApplying ? (
+                                  <>
+                                    <RefreshCwIcon className="h-3 w-3 animate-spin" />
+                                    <span>Applying</span>
+                                  </>
+                                ) : (
+                                  "Apply"
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Price Breakdown */}

@@ -19,7 +19,6 @@ import { Provider } from "react-redux";
 import { store } from "../app/store";
 import ClientProviders from "./provider/ClientProviders";
 import CategoryNavbar from "./common/CategoriesNavbar";
-import WelcomePopup from "./common/CouponPopup";
 
 
 
@@ -79,7 +78,7 @@ export const metadata = {
     siteName: "Agrowmed",
     images: [
       {
-        url: "/logo.png",
+        url: "/agrowmed-logo.png",
         width: 1200,
         height: 630,
         alt: "Agrowmed Agriculture Products",
@@ -94,7 +93,7 @@ export const metadata = {
     title: "Agrowmed | Agriculture Products Online",
     description:
       "Seeds, fertilizers, crop protection and agricultural equipment at best prices.",
-    images: ["/logo.png"],
+    images: ["/agrowmed-logo.png"],
   },
 
   robots: {
@@ -142,7 +141,6 @@ export default function RootLayout({ children }) {
               <Topbar />
               <Navbar />
               <CategoryNavbar />
-              <WelcomePopup />
               {/* <NavbarBottom /> */}
             </Suspense>
             {/* ↑↑↑ END OF CHANGE ↑↑↑ */}

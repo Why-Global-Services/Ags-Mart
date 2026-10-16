@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Eye, X, Heart, ChevronRight, ShoppingCart } from "lucide-react";
+import { Eye, X, Heart, ChevronRight, ShoppingCart, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +16,7 @@ import {
 } from "@/app/store/wishlistSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { IoOptions } from "react-icons/io5";
+import { getApplicableCouponsForProduct } from "@/app/utils/couponHelper";
 
 export default function ReuseCard({ product, type = "four", isSingleProductView = false }) {
   console.log("Grid Type:", type);
@@ -252,6 +253,12 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
   const modalPrice = selectedVariant?.price?.salePrice || displayPrice;
   const modalCostPrice = selectedVariant?.price?.costPrice || displayCostPrice;
   const modalDiscount = selectedVariant?.price?.discount || displayDiscount;
+
+  // Coupon eligibility (derived from global store without duplicate per-card API requests)
+  const coupons = useSelector((state) => state.home?.homeData?.getCouponsData) || [];
+  const isAlreadyDiscounted = Number(displayDiscount) > 0;
+  const applicableOffers = !isAlreadyDiscounted ? getApplicableCouponsForProduct(coupons, product) : [];
+  const bestOffer = applicableOffers.length > 0 ? applicableOffers[0] : null;
   const modalStock = selectedVariant?.stockCount || 0;
 
   // REAL-TIME: Selected variant wishlist & cart status
@@ -572,6 +579,17 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
                   {product.nonVariant?.stockCount > 0 
                     ? `In Stock (${product.nonVariant.stockCount} left)` 
                     : 'Out of Stock'}
+                </span>
+              </div>
+            )}
+
+            {/* APPLICABLE COUPON OFFER */}
+            {bestOffer && (
+              <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200/80 truncate">
+                <Tag className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">
+                  Use <span className="font-mono font-bold">{bestOffer.code}</span> for {bestOffer.offerTitle}
+                  {bestOffer.minPurchaseAmount > 0 ? ` (${bestOffer.conditionText})` : ""}
                 </span>
               </div>
             )}

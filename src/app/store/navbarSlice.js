@@ -56,6 +56,10 @@ const navbarSlice = createSlice({
       .addCase(fetchNavbarData.fulfilled, (state, action) => {
         const raw = Array.isArray(action.payload?.data?.findCategory)
           ? action.payload.data.findCategory
+          : Array.isArray(action.payload?.findCategory)
+          ? action.payload.findCategory
+          : Array.isArray(action.payload?.data)
+          ? action.payload.data
           : [];
 
         state.categories = raw.map((cat) => ({
@@ -63,6 +67,13 @@ const navbarSlice = createSlice({
           categoryTitle: cat.categoryTitle,
           subCategories: cat.subCategory || [],
         }));
+
+        if (typeof action.payload?.data?.cartSize === "number") {
+          state.cartSize = action.payload.data.cartSize;
+        }
+        if (typeof action.payload?.data?.WishlistSize === "number") {
+          state.wishlistSize = action.payload.data.WishlistSize;
+        }
 
         state.isAuthenticated = !!action.payload?.isAuthenticated;
 

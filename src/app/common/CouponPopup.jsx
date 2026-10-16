@@ -29,15 +29,7 @@ export default function WelcomePopup() {
   /* ---------------- INIT ---------------- */
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    fetchCoupon();
-
-    const seen = localStorage.getItem("coupon_popup_seen");
-    if (!seen) {
-      setTimeout(() => {
-        setShow(true);
-      }, 1200);
-    }
+    // Auto popup disabled per request
   }, []);
 
   /* ---------------- CLOSE ---------------- */
