@@ -15,6 +15,7 @@ import {
   FaStar,
   FaChartBar,
   FaClock,
+  FaSignOutAlt,
 } from "react-icons/fa";
 import { FaBarsProgress } from "react-icons/fa6";
 import { BiSolidOffer } from "react-icons/bi";
@@ -134,6 +135,7 @@ const Navbar = ({ toggleSidebar }) => {
   const notificationRef = useRef(null);
 
   const handleLogout = () => {
+    setIsOpen(false);
     logout();
   };
 
@@ -167,8 +169,18 @@ const Navbar = ({ toggleSidebar }) => {
         setIsNotificationOpen(false);
       }
     }
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        setIsNotificationOpen(false);
+      }
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   // const menuItems = [
@@ -311,7 +323,7 @@ const formatTime = (date) => {
 };
 
   return (
-    <div>
+    <header className="relative z-20">
       <div className="flex items-center justify-between bg-white/80 backdrop-blur-md px-4 py-3 border-b border-emerald-900/10 shadow-xs mb-0.5">
         {/* Left Section */}
 <div className="flex items-center space-x-4">
@@ -455,36 +467,52 @@ const formatTime = (date) => {
 
           {/* Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
-            <div
-              className="flex items-center space-x-2 cursor-pointer p-2 rounded-md hover:bg-gray-100"
-              onClick={() => setIsOpen(!isOpen)}
+            <button
+              type="button"
+              className="flex items-center space-x-2 cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-emerald-50/70 transition-colors border border-transparent hover:border-emerald-900/10 focus:outline-none"
+              onClick={() => setIsOpen((prev) => !prev)}
+              aria-expanded={isOpen}
+              aria-haspopup="true"
+              aria-label="User profile menu"
             >
-              {/* <img
-                src="https://randomuser.me/api/portraits/women/44.jpg"
-                alt="User"
-                className="w-8 h-8 rounded-full"
-              /> */}
-              <span className="text-gray-600 font-medium">{displayName}</span>
-              <IoIosArrowDown className="text-gray-500 transition-transform duration-200" />
-            </div>
+              <span className="text-slate-700 font-medium text-sm max-w-[120px] sm:max-w-none truncate select-none">
+                {displayName}
+              </span>
+              <IoIosArrowDown
+                className={`text-slate-500 transition-transform duration-200 text-sm ${
+                  isOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
 
             {isOpen && (
-              <div className="absolute right-0 mt-2 w-24 bg-white shadow-lg rounded-md border z-50">
-                <ul className="py-2">
-                  <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
+              <div
+                className="absolute right-0 mt-2 w-48 sm:w-52 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-lg border border-slate-200/80 p-1.5 z-50 animate-in fade-in duration-150"
+                role="menu"
+                aria-orientation="vertical"
+              >
+                <ul className="space-y-1">
+                  <li>
                     <Link
                       to="/profile"
-                      className="block w-full h-full"
+                      role="menuitem"
+                      className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-emerald-800 hover:bg-emerald-50/80 transition-colors cursor-pointer"
                       onClick={() => setIsOpen(false)}
                     >
-                      Profile
+                      <FaUser className="text-emerald-700 text-sm shrink-0" />
+                      <span>Profile</span>
                     </Link>
                   </li>
-                  <li
-                    className="px-4 py-2 hover:bg-red-100 text-red-500 cursor-pointer"
-                    onClick={handleLogout}
-                  >
-                    Logout
+                  <li className="border-t border-slate-100 pt-1">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                      onClick={handleLogout}
+                    >
+                      <FaSignOutAlt className="text-rose-500 text-sm shrink-0" />
+                      <span>Logout</span>
+                    </button>
                   </li>
                 </ul>
               </div>
@@ -534,7 +562,7 @@ const formatTime = (date) => {
           </div>
         </div>
       )}
-    </div>
+    </header>
   );
 };
 
