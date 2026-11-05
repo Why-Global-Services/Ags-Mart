@@ -37,8 +37,8 @@ const CategoryNavbar = () => {
       )
     : [];
 
-  const visibleCategories = categories.slice(0, 5);
-  const remainingCategories = categories.slice(5);
+  const visibleCategories = categories.slice(0, 6);
+  const remainingCategories = categories.slice(6);
   const hasMoreCategories = remainingCategories.length > 0;
 
   const staticItems = [

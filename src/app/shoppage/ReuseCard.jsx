@@ -428,7 +428,7 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
         {/* IMAGE CONTAINER */}
         <div className="relative overflow-hidden rounded-lg">
           <Link href={`/productdetails/?id=${productId}`}>
-            <img
+            {/* <img
               src={displayImage}
               alt={displayName}
               className={`
@@ -437,7 +437,16 @@ export default function ReuseCard({ product, type = "four", isSingleProductView 
                 group-hover:scale-110
               `}
               loading="lazy"
-            />
+            /> */}
+            <img
+  src={displayImage}
+  alt={displayName}
+  className={`
+    w-full ${getImageHeightClass()} object-contain
+    bg-white
+  `}
+  loading="lazy"
+/>
           </Link>
 
           {/* DISCOUNT BADGE - Responsive positioning */}
