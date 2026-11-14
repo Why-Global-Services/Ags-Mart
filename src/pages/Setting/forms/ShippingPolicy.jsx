@@ -53,21 +53,21 @@ const ShippingPolicy = () => {
 
   // State for sections
   const [sections, setSections] = useState(initialSections);
-  // State for form data (single document)
+  // State for form data (inputs)
   const [formData, setFormData] = useState({});
   // State for saved data (preview)
   const [savedData, setSavedData] = useState({});
-  // State for document ID
-  const [documentId, setDocumentId] = useState(null);
-  // Loading and error states
+  // Loading and feedback states
   const [loading, setLoading] = useState(false);
+  const [updatingSectionId, setUpdatingSectionId] = useState(null);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   // State for new section input
   const [newSectionName, setNewSectionName] = useState("");
   // State to toggle add section form
   const [showAddSection, setShowAddSection] = useState(false);
 
-  // Fetch terms on component mount
+  // Fetch policy on component mount
   useEffect(() => {
     fetchShippingPolicy();
   }, []);
@@ -76,26 +76,41 @@ const ShippingPolicy = () => {
     setLoading(true);
     try {
       const response = await getAllShippingPolicy();
-      const data = response.data; // Expecting a single document
+      const data = response?.data;
       if (data) {
-        // Initialize form data with all possible fields from initial sections
+        // Initialize form data with all predefined fields
         const fetchedData = {};
+        const loadedCustomSections = [];
+
         initialSections.forEach((section) => {
           fetchedData[section.titleField] =
             data[section.titleField] || section.name;
           fetchedData[section.contentField] = data[section.contentField] || "";
         });
 
-        // Also include any additional sections that might exist in the database
-        Object.keys(data).forEach((key) => {
-          if (!fetchedData.hasOwnProperty(key)) {
-            fetchedData[key] = data[key];
-          }
-        });
+        // Reconstruct custom sections from data.customSections if present
+        if (Array.isArray(data.customSections)) {
+          data.customSections.forEach((cs) => {
+            if (cs && cs.id) {
+              loadedCustomSections.push({
+                id: cs.id,
+                name: cs.name,
+                titleField: cs.titleField,
+                contentField: cs.contentField,
+                isCustom: true,
+              });
+              fetchedData[cs.titleField] = cs.title || cs.name;
+              fetchedData[cs.contentField] = cs.content || "";
+            }
+          });
+        }
 
-        setFormData(fetchedData);
+        setSections([...initialSections, ...loadedCustomSections]);
+        setFormData((prev) => ({
+          ...fetchedData,
+          ...prev,
+        }));
         setSavedData(fetchedData);
-        setDocumentId(data._id);
         setError(null);
       } else {
         // Initialize empty form if no data exists
@@ -132,30 +147,78 @@ const ShippingPolicy = () => {
       return;
     }
 
-    const title = formData[section.titleField];
-    const content = formData[section.contentField];
+    const title = (formData[section.titleField] || "").trim();
+    const content = (formData[section.contentField] || "").trim();
 
-    if (!title?.trim()) {
+    if (!title) {
       setError(`${section.name} title is required.`);
+      setSuccess(null);
       return;
     }
-    if (!content?.trim()) {
+    if (!content) {
       setError(`${section.name} content is required.`);
+      setSuccess(null);
       return;
     }
+
+    setUpdatingSectionId(sectionId);
+    setError(null);
+    setSuccess(null);
 
     try {
-      const payload = { ...formData, _id: documentId };
-      const response = await createShippingPolicy(payload);
-      setSavedData(formData);
-      setDocumentId(response.data._id || documentId);
+      const isCustom = !initialSections.some((s) => s.id === section.id);
+      let payload;
+
+      if (isCustom) {
+        payload = {
+          customSection: {
+            id: section.id,
+            name: section.name,
+            titleField: section.titleField,
+            contentField: section.contentField,
+            title,
+            content,
+          },
+        };
+      } else {
+        payload = {
+          [section.titleField]: title,
+          [section.contentField]: content,
+        };
+      }
+
+      await createShippingPolicy(payload);
+
+      // Synchronize savedData for this section only, preserving other sections
+      setSavedData((prev) => ({
+        ...prev,
+        [section.titleField]: title,
+        [section.contentField]: content,
+      }));
+
+      // Synchronize trimmed values into formData
+      setFormData((prev) => ({
+        ...prev,
+        [section.titleField]: title,
+        [section.contentField]: content,
+      }));
+
+      setSuccess(`${section.name} updated successfully!`);
       setError(null);
+
+      setTimeout(() => {
+        setSuccess(null);
+      }, 4000);
     } catch (err) {
       const errorMessage =
         err.response?.data?.message ||
-        "Failed to update shipping policy. Please try again.";
+        err.message ||
+        `Failed to update ${section.name}. Please try again.`;
       setError(errorMessage);
-      console.error("Error updating shipping policy:", err);
+      setSuccess(null);
+      console.error(`Error updating shipping policy section ${section.name}:`, err);
+    } finally {
+      setUpdatingSectionId(null);
     }
   };
 
@@ -163,17 +226,17 @@ const ShippingPolicy = () => {
     const section = sections.find((s) => s.id === sectionId);
     if (!section) return;
 
+    // Reset this section back to its savedData or default title & empty content
+    const defaultTitle = savedData[section.titleField] || section.name;
+    const defaultContent = savedData[section.contentField] || "";
+
     setFormData((prev) => ({
       ...prev,
-      [section.titleField]: section.name,
-      [section.contentField]: "",
-    }));
-    setSavedData((prev) => ({
-      ...prev,
-      [section.titleField]: section.name,
-      [section.contentField]: "",
+      [section.titleField]: defaultTitle,
+      [section.contentField]: defaultContent,
     }));
     setError(null);
+    setSuccess(null);
   };
 
   const handleAddSection = () => {
@@ -183,16 +246,23 @@ const ShippingPolicy = () => {
     }
 
     // Generate a unique ID for the new section
-    const newId = newSectionName.replace(/\s+/g, "-");
+    const newId = newSectionName.trim().replace(/\s+/g, "-");
     const titleField = `${newId.toLowerCase()}Title`;
     const contentField = `${newId.toLowerCase()}Content`;
+
+    // Avoid duplicate section IDs
+    if (sections.some((s) => s.id.toLowerCase() === newId.toLowerCase())) {
+      setError(`A section named "${newSectionName}" already exists.`);
+      return;
+    }
 
     // Create new section object
     const newSection = {
       id: newId,
       titleField,
       contentField,
-      name: newSectionName,
+      name: newSectionName.trim(),
+      isCustom: true,
     };
 
     // Add to sections array
@@ -201,7 +271,7 @@ const ShippingPolicy = () => {
     // Initialize form data for the new section
     setFormData((prev) => ({
       ...prev,
-      [titleField]: newSectionName,
+      [titleField]: newSectionName.trim(),
       [contentField]: "",
     }));
 
@@ -209,6 +279,7 @@ const ShippingPolicy = () => {
     setNewSectionName("");
     setShowAddSection(false);
     setError(null);
+    setSuccess(`Section "${newSection.name}" added. Enter details and click Update to save.`);
   };
 
   return (
@@ -219,16 +290,35 @@ const ShippingPolicy = () => {
         </h1>
         <button
           onClick={() => setShowAddSection(!showAddSection)}
-          className="px-4 py-2 bg-table text-white rounded-md hover:bg-secondary transition"
+          className="px-4 py-2 bg-table text-white rounded-md hover:bg-secondary transition cursor-pointer"
         >
-          {showAddSection ? "Cancel" : "Add"}
+          {showAddSection ? "Cancel" : "Add Section"}
         </button>
       </div>
 
+      {/* Success Message */}
+      {success && (
+        <div className="mb-6 p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg flex items-center justify-between">
+          <span>{success}</span>
+          <button
+            onClick={() => setSuccess(null)}
+            className="text-emerald-600 hover:text-emerald-900 font-bold ml-4"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
-        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
-          {error}
+        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-600 hover:text-red-900 font-bold ml-4"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -257,12 +347,13 @@ const ShippingPolicy = () => {
               id="new-section-name"
               value={newSectionName}
               onChange={(e) => setNewSectionName(e.target.value)}
+              placeholder="e.g. International Shipping"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition"
             />
           </div>
           <button
             onClick={handleAddSection}
-            className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-800 transition"
+            className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-800 transition cursor-pointer"
           >
             Add Section
           </button>
@@ -316,16 +407,22 @@ const ShippingPolicy = () => {
 
           <div className="flex gap-4">
             <button
+              type="button"
               onClick={() => handleReset(section.id)}
-              className="px-4 py-2 bg-gray-500 cursor-pointer text-white rounded-md hover:bg-gray-600 transition"
+              disabled={updatingSectionId === section.id}
+              className="px-4 py-2 bg-gray-500 cursor-pointer text-white rounded-md hover:bg-gray-600 transition disabled:opacity-50"
             >
               Reset
             </button>
             <button
+              type="button"
               onClick={() => handleUpdate(section.id)}
-              className="px-4 py-2 bg-table text-white cursor-pointer rounded-md hover:bg-secondary transition"
+              disabled={updatingSectionId === section.id}
+              className="px-4 py-2 bg-table text-white cursor-pointer rounded-md hover:bg-secondary transition disabled:opacity-50"
             >
-              Update {section.name}
+              {updatingSectionId === section.id
+                ? "Updating..."
+                : `Update ${section.name}`}
             </button>
           </div>
 
