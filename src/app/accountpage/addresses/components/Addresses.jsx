@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
-import { getAddresses, editAddress, deleteAddress, addAddress } from "@/app/interceptor/interseptor";
+import {
+  getAddresses,
+  editAddress,
+  deleteAddress,
+  addAddress,
+  syncSameAsDeliveryAddress,
+} from "@/app/interceptor/interseptor";
 import { FiCreditCard, FiPackage } from "react-icons/fi";
 
 const Addresses = () => {
@@ -31,6 +37,9 @@ const Addresses = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [sameAsDelivery, setSameAsDelivery] = useState(false);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [notification, setNotification] = useState({
     show: false,
     message: "",
@@ -53,16 +62,40 @@ const Addresses = () => {
     setLoading(true);
     try {
       const response = await getAddresses();
-      if (response.success) {
-        const billing = response.address.filter(
+      if (response?.success) {
+        const addressList = response.address || response.data?.address || [];
+        const billing = addressList.filter(
           (addr) => addr.checkoutAddress === "billingAddress"
         );
-        const delivery = response.address.filter(
+        const delivery = addressList.filter(
           (addr) => addr.checkoutAddress === "deliveryAddress"
         );
+        const transformedDelivery = delivery.map(transformAddress);
+        const transformedBilling = billing.map(transformAddress);
+
         setAddresses({
-          billing: billing.map(transformAddress),
-          delivery: delivery.map(transformAddress),
+          billing: transformedBilling,
+          delivery: transformedDelivery,
+        });
+
+        const backendSameAsDelivery = Boolean(response.sameAsDelivery);
+        setSameAsDelivery(backendSameAsDelivery);
+
+        const primaryIdFromBackend = response.primaryDeliveryAddressId;
+        setSelectedDeliveryId((prevSelected) => {
+          if (
+            primaryIdFromBackend &&
+            transformedDelivery.some((d) => d.id === primaryIdFromBackend)
+          ) {
+            return primaryIdFromBackend;
+          }
+          if (
+            prevSelected &&
+            transformedDelivery.some((d) => d.id === prevSelected)
+          ) {
+            return prevSelected;
+          }
+          return transformedDelivery[0]?.id || null;
         });
       }
     } catch (error) {
@@ -83,7 +116,7 @@ const Addresses = () => {
   const transformAddress = (addr) => ({
     street: addr.addressLine1,
     city: addr.city,
-    landMark: addr.landMark || "", 
+    landMark: addr.landMark || "",
     state: addr.state,
     zip: addr.zipCode,
     country: addr.country,
@@ -91,8 +124,87 @@ const Addresses = () => {
     phone: addr.phone,
     email: addr.email || "",
     addressType: addr.addressType,
+    isSameAsDelivery: Boolean(addr.isSameAsDelivery),
+    sourceDeliveryAddressId: addr.sourceDeliveryAddressId || null,
     id: addr._id,
   });
+
+  const handleToggleSameAsDelivery = async () => {
+    if (syncLoading || loading) return;
+
+    const nextEnabled = !sameAsDelivery;
+    if (nextEnabled && addresses.delivery.length === 0) {
+      showNotification(
+        "Please add a delivery address before enabling Same as Delivery Address",
+        "error"
+      );
+      return;
+    }
+
+    const targetDeliveryId =
+      selectedDeliveryId || addresses.delivery[0]?.id || null;
+
+    setSyncLoading(true);
+    try {
+      await syncSameAsDeliveryAddress({
+        enabled: nextEnabled,
+        deliveryAddressId: nextEnabled ? targetDeliveryId : undefined,
+      });
+      await fetchAddresses();
+      showNotification(
+        nextEnabled
+          ? "Billing address set to same as delivery address"
+          : "Same as delivery address disabled. You can manage a separate billing address."
+      );
+    } catch (error) {
+      console.error("Error syncing same as delivery address:", error);
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showNotification(
+          error.message || "Failed to update billing address",
+          "error"
+        );
+      }
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const handleSelectDeliveryAddress = async (deliveryId) => {
+    if (syncLoading || loading || deliveryId === selectedDeliveryId) return;
+    setSelectedDeliveryId(deliveryId);
+
+    if (!sameAsDelivery) return;
+
+    setSyncLoading(true);
+    try {
+      await syncSameAsDeliveryAddress({
+        enabled: true,
+        deliveryAddressId: deliveryId,
+      });
+      await fetchAddresses();
+      showNotification("Billing address synchronized with selected delivery address");
+    } catch (error) {
+      console.error("Error synchronizing billing address:", error);
+      const isAuth =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("expired");
+
+      if (!isAuth) {
+        showNotification(
+          error.message || "Failed to synchronize billing address",
+          "error"
+        );
+      }
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -251,19 +363,57 @@ const Addresses = () => {
     setIsEditing(true);
   };
 
+  const renderSameAsDeliveryControl = () => (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5">
+      <button
+        type="button"
+        onClick={handleToggleSameAsDelivery}
+        disabled={syncLoading || loading}
+        aria-pressed={sameAsDelivery}
+        className={`inline-flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+          sameAsDelivery
+            ? "bg-bgvariant-1 text-white hover:bg-bgvariant-3"
+            : "border border-bgvariant-1 bg-white text-bgvariant-3 hover:bg-green-50"
+        }`}
+      >
+        <span
+          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+            sameAsDelivery ? "bg-bgvariant-3" : "bg-gray-300"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              sameAsDelivery ? "translate-x-4" : "translate-x-0.5"
+            }`}
+          />
+        </span>
+        <span>
+          {syncLoading ? "Synchronizing..." : "Same as Delivery Address"}
+        </span>
+      </button>
+      {sameAsDelivery && (
+        <span className="text-xs font-medium text-bgvariant-3">
+          Synced with Primary Delivery Address
+        </span>
+      )}
+    </div>
+  );
+
   const renderAddressCards = (type, label) => {
     const addrList = addresses[type];
-    const typeColor = type === "billing" ? "bgvariant1" : "bgvariant1";
+    const activeDeliveryId =
+      selectedDeliveryId || addresses.delivery[0]?.id || null;
 
     if (!Array.isArray(addrList)) return null;
 
     if (addrList.length === 0) {
       return (
         <div className="flex-1">
-          <h3 className={`text-lg font-semibold text-${typeColor}-800 mb-4 flex items-center gap-2`}>
-            <span className={`w-3 h-3 rounded-full bg-${typeColor}-500`}></span>
+          <h3 className="text-lg font-semibold text-bgvariant-3 mb-4 flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-bgvariant-1"></span>
             {label}
           </h3>
+          {type === "billing" && renderSameAsDeliveryControl()}
           <div className="bg-white rounded-xl p-6 border-2 border-dashed border-gray-200 text-center">
             <p className="text-gray-500 mb-3">No {label.toLowerCase()} saved</p>
             <button
@@ -271,8 +421,8 @@ const Addresses = () => {
                 setEditingType(type);
                 setIsEditing(true);
               }}
-              className={`inline-flex items-center gap-1.5 text-sm font-medium text-${typeColor}-600 hover:text-${typeColor}-800`}
-              disabled={loading}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-bgvariant-1 hover:text-bgvariant-3"
+              disabled={loading || syncLoading}
             >
               <Plus size={16} />
               Add {label.split(" ")[0]} Address
@@ -284,62 +434,114 @@ const Addresses = () => {
 
     return (
       <div className="flex-1">
-        <h3 className={`text-lg font-semibold text-${typeColor}-800 mb-4 flex items-center gap-2`}>
-          <span className={`w-3 h-3 rounded-full bg-${typeColor}-500`}></span>
+        <h3 className="text-lg font-semibold text-bgvariant-3 mb-4 flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-bgvariant-1"></span>
           {label}
         </h3>
+        {type === "billing" && renderSameAsDeliveryControl()}
         <div className="grid gap-4">
-          {addrList.map((addr, index) => (
-            <div
-              key={addr.id}
-              className={`bg-white rounded-xl p-5 border-l-4 border-${typeColor}-500 shadow-sm hover:shadow-md transition-all`}
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {label} {index + 1}
-                  </p>
-                  {index === 0 && (
-                    <span className="inline-block mt-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                      Primary
-                    </span>
+          {addrList.map((addr, index) => {
+            const isPrimaryDelivery =
+              type === "delivery" && addr.id === activeDeliveryId;
+            const isPrimaryBilling = type === "billing" && index === 0;
+            const isSyncedBilling =
+              type === "billing" && sameAsDelivery && addr.isSameAsDelivery;
+
+            return (
+              <div
+                key={addr.id}
+                onClick={
+                  type === "delivery" && addresses.delivery.length > 1
+                    ? () => handleSelectDeliveryAddress(addr.id)
+                    : undefined
+                }
+                className={`bg-white rounded-xl p-5 border-l-4 ${
+                  isPrimaryDelivery || isSyncedBilling
+                    ? "border-bgvariant-1 ring-1 ring-bgvariant-1/20"
+                    : "border-bgvariant-1"
+                } shadow-sm hover:shadow-md transition-all ${
+                  type === "delivery" && addresses.delivery.length > 1
+                    ? "cursor-pointer"
+                    : ""
+                }`}
+              >
+                <div className="flex justify-between items-start mb-3 gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {label} {index + 1}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {(isPrimaryDelivery || isPrimaryBilling) && (
+                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                          Primary
+                        </span>
+                      )}
+                      {isSyncedBilling && (
+                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-bgvariant-1 text-white">
+                          Same as Delivery
+                        </span>
+                      )}
+                      {type === "delivery" &&
+                        addresses.delivery.length > 1 &&
+                        !isPrimaryDelivery && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectDeliveryAddress(addr.id);
+                            }}
+                            disabled={syncLoading || loading}
+                            className="text-xs font-medium text-bgvariant-1 hover:text-bgvariant-3 underline disabled:opacity-50"
+                          >
+                            Set as Primary
+                          </button>
+                        )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(type, addr);
+                      }}
+                      className="p-1.5 rounded-full hover:bg-gray-100 text-gray-800 hover:text-gray-700"
+                      aria-label="Edit address"
+                      disabled={loading || syncLoading}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(addr.id);
+                      }}
+                      className="p-1.5 rounded-full hover:bg-gray-100 text-gray-800 hover:text-red-600"
+                      aria-label="Delete address"
+                      disabled={loading || syncLoading}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-800 space-y-1.5">
+                  <p className="font-medium">{addr.fullName}</p>
+                  <p>{addr.street}</p>
+                  {addr.landMark && (
+                    <p className="text-gray-700 italic">
+                      Landmark: {addr.landMark}
+                    </p>
                   )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleEdit(type, addr)}
-                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-800 hover:text-gray-700"
-                    aria-label="Edit address"
-                    disabled={loading}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(addr.id)}
-                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-800 hover:text-red-600"
-                    aria-label="Delete address"
-                    disabled={loading}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <p>
+                    {addr.city}, {addr.state} {addr.zip}
+                  </p>
+                  <p>{addr.country}</p>
+                  <p>Phone: {addr.phone}</p>
+                  {addr.email && <p>Email: {addr.email}</p>}
+                  <p>Type: {addr.addressType}</p>
                 </div>
               </div>
-              <div className="text-sm text-gray-800 space-y-1.5">
-                <p className="font-medium">{addr.fullName}</p>
-                <p>{addr.street}</p>
-                {addr.landMark && (
-  <p className="text-gray-700 italic">Landmark: {addr.landMark}</p>
-)}
-                <p>
-                  {addr.city}, {addr.state} {addr.zip}
-                </p>
-                <p>{addr.country}</p>
-                <p>Phone: {addr.phone}</p>
-                {addr.email && <p>Email: {addr.email}</p>}
-                <p>Type: {addr.addressType}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

@@ -61,7 +61,10 @@ const Review = ({
   const [shippingQuote, setShippingQuote] = useState(null);
   const [isFreeShipping, setIsFreeShipping] = useState(false);
   const [shippingLoading, setShippingLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("COD");
+  // [COD TEMPORARILY DISABLED]
+  // const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [paymentMethod, setPaymentMethod] = useState("RazorPay");
+  // [END COD TEMPORARILY DISABLED]
   const [showLoginModal, setShowLoginModal] = useState(false);
   const[showAuth, setShowAuth]=useState(false)
   const [completedOrderId, setCompletedOrderId] = useState(null);
@@ -71,11 +74,11 @@ const Review = ({
   const latestShippingRequestIdRef = useRef(0);
   const lastShippingConfigKeyRef = useRef("");
 
-  // Define Razorpay key directly or use environment variable with fallback
-  const razorpayKey = "rzp_test_S3g71UVxt2B922";
 
   const paymentMethods = [
-    { value: "COD", label: "Cash on Delivery" },
+    // [COD TEMPORARILY DISABLED]
+    // { value: "COD", label: "Cash on Delivery" },
+    // [END COD TEMPORARILY DISABLED]
     { value: "RazorPay", label: "RazorPay (UPI/Cards/NetBanking)" },
   ];
 
@@ -811,6 +814,8 @@ const Review = ({
       }
 
       const razorpayOrderId = orderData?.razorpayOrder?.id;
+      const razorpayKeyId =
+        orderData?.razorpayKeyId || orderData?.data?.razorpayKeyId;
       const razorpayOrderAmount =
         orderData?.razorpayOrder?.amount ||
         orderData?.amount ||
@@ -825,12 +830,18 @@ const Review = ({
         );
       }
 
+      if (!razorpayKeyId) {
+        throw new Error(
+          "Payment configuration error: missing Razorpay key from server",
+        );
+      }
+
       if (!isRazorpayLoaded()) {
         throw new Error("Razorpay SDK not loaded");
       }
 
       const options = {
-        key: razorpayKey,
+        key: razorpayKeyId,
         amount: razorpayOrderAmount,
         currency: razorpayOrderCurrency,
         name: "Agrowmed",
@@ -913,7 +924,15 @@ const Review = ({
     try {
       if (paymentMethod === "RazorPay") {
         await openRazorpayCheckout();
+      // [COD TEMPORARILY DISABLED]
       } else if (paymentMethod === "COD") {
+        setPaymentError(
+          "Cash on Delivery (COD) is temporarily disabled. Please choose an online payment method."
+        );
+        isSubmittingRef.current = false;
+        setLoading(false);
+        return;
+        /*
         const res = await handleOrder();
 
         if (!res?.userOrder) {
@@ -926,6 +945,8 @@ const Review = ({
         });
 
         handlePaymentSuccess(res.userOrder);
+        */
+      // [END COD TEMPORARILY DISABLED]
       } else {
         setPaymentError("Payment gateway integration required");
         isSubmittingRef.current = false;

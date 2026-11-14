@@ -621,6 +621,24 @@ export const deleteAddress = async (addressId) => {
   }
 };
 
+export const syncSameAsDeliveryAddress = async ({
+  enabled,
+  deliveryAddressId,
+}) => {
+  try {
+    const response = await apiInstance.put(`/address/same-as-delivery`, {
+      enabled,
+      deliveryAddressId,
+    });
+    return response;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message ||
+        "Failed to synchronize billing address"
+    );
+  }
+};
+
 export const getUserDetails = async () => {
   try {
     const response = await apiInstance.get(`/getDetails`);
