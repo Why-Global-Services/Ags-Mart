@@ -606,7 +606,10 @@ const calculateOrderShippingAndPricing = async (params = {}) => {
   const {
     userId,
     deliveryAddressId,
-    paymentMethod = "COD",
+    // [COD TEMPORARILY DISABLED]
+    // Default fallback payment method updated from COD to RazorPay
+    paymentMethod = "RazorPay",
+    // [END COD TEMPORARILY DISABLED]
     couponCode = null,
     isBuyNow = false,
     buyNowItem = null,
@@ -900,7 +903,9 @@ const getShippingEstimateHandler = async (req) => {
     userId: req.user?._id || req.body?.userId,
     deliveryPincode: req.body?.deliveryPincode || req.query?.pincode,
     deliveryAddressId: req.body?.deliveryAddressId,
-    paymentMethod: req.body?.paymentMethod || "COD",
+    // [COD TEMPORARILY DISABLED]
+    paymentMethod: req.body?.paymentMethod || "RazorPay",
+    // [END COD TEMPORARILY DISABLED]
     couponCode: req.body?.couponCode || null,
     isBuyNow: Boolean(req.body?.isBuyNow),
     buyNowItem: req.body?.buyNowItem || null,

@@ -535,17 +535,27 @@ const placeOrder = async (req) => {
 
   if (!userId) throw new ApiError(401, "Unauthorized: No user ID");
 
+  const { paymentMethod } = req.body || {};
+  if (!paymentMethod) throw new ApiError(400, "Payment method is required");
+
+  // [COD TEMPORARILY DISABLED]
+  if (paymentMethod && paymentMethod.toUpperCase() === "COD") {
+    throw new ApiError(
+      400,
+      "Cash on Delivery (COD) is temporarily disabled. Please choose an online payment method."
+    );
+  }
+  // [END COD TEMPORARILY DISABLED]
+
   const userCart = await cart.findOne({ userId });
 
   if (!userCart || !userCart.productId?.length) {
     throw new ApiError(400, "Cart is empty");
   }
 
-  const { paymentMethod } = req.body;
   const addressId = userCart.address_id;
 
   if (!addressId) throw new ApiError(400, "No address selected");
-  if (!paymentMethod) throw new ApiError(400, "Payment method is required");
 
   const user = await User.findOne(
     { _id: userId, "address._id": addressId },

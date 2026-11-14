@@ -352,6 +352,11 @@ const deleteNewAddress = catchAsync(async (req, res) => {
   res.status(200).send(data);
 });
 
+const syncSameAsDeliveryAddress = catchAsync(async (req, res) => {
+  const data = await myaccount.syncSameAsDelivery(req);
+  res.status(200).send(data);
+});
+
 const fetchOrder = catchAsync(async (req, res) => {
   const data = await AccountOrders.getOrder(req);
   res.status(200).send(data);
@@ -572,6 +577,7 @@ module.exports = {
   getNewAddress,
   editNewAddress,
   deleteNewAddress,
+  syncSameAsDeliveryAddress,
   fetchOrder,
   fetchSingleOrder,
   changeOrders,

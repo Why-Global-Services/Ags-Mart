@@ -3552,25 +3552,100 @@ const getreturnpolicy = async () => {
 };
 
 const createshippingpolicy = async (req) => {
-  const shippingPolicyDB = await ShippingPolicy.findOne();
+  const allowedPredefinedFields = [
+    "processingTimeTitle",
+    "processingTimeContent",
+    "domesticShippingTitle",
+    "domesticShippingContent",
+    "orderTrackingTitle",
+    "orderTrackingContent",
+    "shippingRestrictionsTitle",
+    "shippingRestrictionsContent",
+    "cashOnDeliveryTitle",
+    "cashOnDeliveryContent",
+    "damagedOrLostPackagesTitle",
+    "damagedOrLostPackagesContent",
+    "contactUsTitle",
+    "contactUsContent",
+  ];
 
-  if (!shippingPolicyDB) {
-    const newPost = await ShippingPolicy.create({ ...req.body });
+  let policy = await ShippingPolicy.findOne();
+
+  // If a custom section update is submitted
+  if (req.body.customSection && typeof req.body.customSection === "object") {
+    const { id, name, titleField, contentField, title, content } =
+      req.body.customSection;
+
+    if (!id || !name || !title?.trim() || !content?.trim()) {
+      throw new ApiError(
+        400,
+        "Custom section id, name, title, and content are required"
+      );
+    }
+
+    if (!policy) {
+      policy = await ShippingPolicy.create({});
+    }
+
+    if (!Array.isArray(policy.customSections)) {
+      policy.customSections = [];
+    }
+
+    const existingIndex = policy.customSections.findIndex((cs) => cs.id === id);
+    const customEntry = {
+      id,
+      name,
+      titleField,
+      contentField,
+      title: title.trim(),
+      content: content.trim(),
+    };
+
+    if (existingIndex >= 0) {
+      policy.customSections[existingIndex] = customEntry;
+    } else {
+      policy.customSections.push(customEntry);
+    }
+
+    await policy.save();
+
     return {
       success: true,
-      message: " created successfully!",
-      data: newPost,
+      message: "Shipping policy updated successfully!",
+      data: policy,
     };
   }
-  const newPost = await ShippingPolicy.findOneAndUpdate(
-    {},
-    { ...req.body },
-    { new: true }
-  );
+
+  // Predefined field updates
+  const updateFields = {};
+  for (const key of allowedPredefinedFields) {
+    if (req.body[key] !== undefined) {
+      updateFields[key] = req.body[key];
+    }
+  }
+
+  if (Array.isArray(req.body.customSections)) {
+    updateFields.customSections = req.body.customSections;
+  }
+
+  if (Object.keys(updateFields).length === 0) {
+    throw new ApiError(400, "No valid shipping policy fields provided to update");
+  }
+
+  if (!policy) {
+    policy = await ShippingPolicy.create(updateFields);
+  } else {
+    policy = await ShippingPolicy.findOneAndUpdate(
+      { _id: policy._id },
+      { $set: updateFields },
+      { new: true, runValidators: false }
+    );
+  }
+
   return {
     success: true,
-    message: "Updated successfully!",
-    data: newPost,
+    message: "Shipping policy updated successfully!",
+    data: policy,
   };
 };
 

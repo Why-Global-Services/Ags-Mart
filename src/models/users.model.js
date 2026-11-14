@@ -49,6 +49,14 @@ const userSchema = new mongoose.Schema(
       enum: ["block", "unblock"],
       default: "unblock",
     },
+    sameAsDelivery: {
+      type: Boolean,
+      default: false,
+    },
+    primaryDeliveryAddressId: {
+      type: String,
+      default: null,
+    },
     address: [
       {
         fullName: String,
@@ -69,6 +77,14 @@ const userSchema = new mongoose.Schema(
           type: String,
           // enum: ["billingAddress", "deliveryAddress"],
           default: "billingAddress",
+        },
+        isSameAsDelivery: {
+          type: Boolean,
+          default: false,
+        },
+        sourceDeliveryAddressId: {
+          type: String,
+          default: null,
         },
         _id: {
           type: String,

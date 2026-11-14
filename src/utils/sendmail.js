@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const sanitizeHtml = require("sanitize-html");
 const ncrypt = require("ncrypt-js");
+const mongoose = require("mongoose");
 const config = require("../config/config");
 const htmlData = require("./htmlData");
 const ApiError = require("../utils/apiError");
@@ -13,34 +14,36 @@ require("dotenv").config();
  */
 const getSmtpConfig = async () => {
   try {
-    // 1. Try DB settings first
-    const dbSettings = await emailSettings.findOne();
-    if (dbSettings && dbSettings.email && dbSettings.smtpHost) {
-      let email = dbSettings.email;
-      let password = dbSettings.password;
-      let host = dbSettings.smtpHost;
+    // 1. Try DB settings first (only if MongoDB connection is open)
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      const dbSettings = await emailSettings.findOne();
+      if (dbSettings && dbSettings.email && dbSettings.smtpHost) {
+        let email = dbSettings.email;
+        let password = dbSettings.password;
+        let host = dbSettings.smtpHost;
 
-      try {
-        const ncryptObject = new ncrypt(config.encryptionDecryptionKey);
-        email = ncryptObject.decrypt(email);
-        password = ncryptObject.decrypt(password);
-        host = ncryptObject.decrypt(host);
-      } catch (decryptErr) {
-        // Fallback to plain if not encrypted
+        try {
+          const ncryptObject = new ncrypt(config.encryptionDecryptionKey);
+          email = ncryptObject.decrypt(email);
+          password = ncryptObject.decrypt(password);
+          host = ncryptObject.decrypt(host);
+        } catch (decryptErr) {
+          // Fallback to plain if not encrypted
+        }
+
+        return {
+          host,
+          port: dbSettings.smtpPort || 587,
+          auth: {
+            user: email,
+            pass: password,
+          },
+          tls: {
+            rejectUnauthorized: false,
+          },
+          from: email,
+        };
       }
-
-      return {
-        host,
-        port: dbSettings.smtpPort || 587,
-        auth: {
-          user: email,
-          pass: password,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-        from: email,
-      };
     }
   } catch (err) {
     // DB lookup fallback
@@ -358,7 +361,7 @@ exports.sendOrderStatusEmail = async ({
 
   // 5. Attempt Send
   try {
-    const sendResult = await mailService(recipientEmail, subject, emailHtml);
+    const sendResult = await (exports.mailService || mailService)(recipientEmail, subject, emailHtml);
 
     if (sendResult.success) {
       await OrderNotification.updateOne(
@@ -407,6 +410,309 @@ exports.sendOrderStatusEmail = async ({
         },
       }
     );
+    return { success: false, error: sendErr.message };
+  }
+};
+
+/**
+ * Sends a separate, detailed new-order notification email to the configured administrator(s).
+ * Triggered exclusively after successful Razorpay payment verification and order confirmation.
+ * Database-backed atomic idempotency with event key `<orderId>:ADMIN_NEW_ORDER`.
+ *
+ * @param {object} params
+ * @param {object} params.order - Authoritative order document
+ * @param {string} [params.paymentId] - Razorpay payment ID
+ * @param {boolean} [params.isRetry] - Force retry if previously failed
+ * @returns {Promise<object>}
+ */
+exports.sendAdminNewOrderEmail = async ({
+  order,
+  paymentId = null,
+  isRetry = false,
+}) => {
+  if (!order || !order.orderId) {
+    return { success: false, reason: "Missing order or orderId" };
+  }
+
+  // 1. Resolve and validate admin recipient email(s) from config or process.env
+  const rawAdminEmails = config.email?.adminEmail || process.env.ADMIN_EMAIL || "";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const adminRecipients = (typeof rawAdminEmails === "string" ? rawAdminEmails : "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((email) => emailRegex.test(email));
+
+  if (adminRecipients.length === 0) {
+    console.warn(
+      `⚠️ ADMIN_EMAIL is not configured or contains no valid email addresses. Skipping admin order notification for order #${order.orderId}.`
+    );
+    return {
+      success: false,
+      skipped: true,
+      reason: "No valid admin email configured",
+    };
+  }
+
+  const eventKey = `${order.orderId}:ADMIN_NEW_ORDER`;
+  const subject = `🔔 New Order Received: #${order.orderId} - ₹${Number(order.totalPrice || 0).toFixed(2)} [Razorpay Paid]`;
+
+  // 2. Atomic Database-Backed Idempotency Claim
+  let notificationRecord;
+  try {
+    notificationRecord = await OrderNotification.findOneAndUpdate(
+      { eventKey },
+      {
+        $setOnInsert: {
+          orderId: order.orderId,
+          status: "ADMIN_NEW_ORDER",
+          eventKey,
+          recipientEmail: adminRecipients.join(", "),
+          customerName: order.userName || "Customer",
+          subject,
+          notificationState: "PENDING",
+          attempts: 0,
+        },
+      },
+      { upsert: true, new: true }
+    );
+  } catch (dbErr) {
+    if (dbErr.code === 11000) {
+      notificationRecord = await OrderNotification.findOne({ eventKey });
+    } else {
+      console.error(
+        "❌ Failed to query OrderNotification record for admin email:",
+        dbErr.message
+      );
+      return { success: false, error: dbErr.message };
+    }
+  }
+
+  // Check if already successfully delivered
+  if (
+    notificationRecord &&
+    notificationRecord.notificationState === "SENT" &&
+    !isRetry
+  ) {
+    console.log(
+      `ℹ️ Admin notification for ${eventKey} already sent. Skipping duplicate.`
+    );
+    return { success: true, duplicate: true, alreadySent: true };
+  }
+
+  // 3. Increment attempt count
+  if (notificationRecord && notificationRecord._id) {
+    await OrderNotification.updateOne(
+      { _id: notificationRecord._id },
+      {
+        $inc: { attempts: 1 },
+        $set: { lastAttemptAt: new Date() },
+      }
+    );
+  }
+
+  // 4. Enrich ordered products with catalog details (names, variants, images)
+  const rawItems = order.orderDetails?.[0]?.products || [];
+  const productIds = rawItems
+    .map((p) => p.productId)
+    .filter(Boolean);
+
+  let productMap = new Map();
+  if (productIds.length > 0) {
+    try {
+      const { Product } = require("../models/Product.model");
+      if (
+        Product &&
+        typeof Product.find === "function" &&
+        mongoose.connection &&
+        mongoose.connection.readyState === 1
+      ) {
+        const foundProducts = await Product.find({
+          _id: { $in: productIds },
+        }).lean();
+        (foundProducts || []).forEach((p) => productMap.set(String(p._id), p));
+      }
+    } catch (lookupErr) {
+      // Non-blocking catalog lookup fallback
+    }
+  }
+
+  const enrichedProducts = rawItems.map((item) => {
+    const prodDoc = productMap.get(String(item.productId));
+    const name =
+      item.productName ||
+      prodDoc?.productName ||
+      `Product (${item.productId})`;
+
+    const image =
+      item.productImage ||
+      (Array.isArray(prodDoc?.productImages)
+        ? prodDoc.productImages[0]
+        : prodDoc?.productImage) ||
+      null;
+
+    let variantLabel = "—";
+    if (item.variantId && prodDoc) {
+      const unitVar = prodDoc.unitOnlyVariants?.find(
+        (v) => String(v._id) === String(item.variantId)
+      );
+      const sizeColorVar = prodDoc.sizeColorVariants?.find(
+        (v) => String(v._id) === String(item.variantId)
+      );
+      if (unitVar?.unit) {
+        variantLabel = unitVar.unit;
+      } else if (sizeColorVar) {
+        variantLabel = `${sizeColorVar.size} / ${sizeColorVar.color}`;
+      }
+    } else if (item.variantName) {
+      variantLabel = item.variantName;
+    }
+
+    return {
+      name,
+      image,
+      variant: variantLabel,
+      quantity: item.quantity || 1,
+      price: item.price || 0,
+      lineTotal: item.subtotal || (item.price || 0) * (item.quantity || 1),
+    };
+  });
+
+  // 5. Compare delivery and billing addresses
+  const del = order.deliveryAddress || {};
+  const bill = order.billingAddress || {};
+  const isSameAsDelivery =
+    (del._id && bill._id && String(del._id) === String(bill._id)) ||
+    (del.addressLine1 &&
+      bill.addressLine1 &&
+      del.addressLine1 === bill.addressLine1 &&
+      del.zipCode === bill.zipCode);
+
+  // 6. Render Admin Email Template
+  const emailHtml = htmlData.adminNewOrderEmailTemplate({
+    orderId: order.orderId,
+    orderDate:
+      order.orderConfirmedAt ||
+      order.orderPlacedAt ||
+      order.createdAt ||
+      new Date(),
+    orderStatus: order.orderStatus || "Ordered",
+    paymentMethod: order.paymentMethod || "RazorPay",
+    paymentStatus: order.paymentStatus || "Completed",
+    paymentId: paymentId || order.paymentDetails?.razorpayPaymentId || "N/A",
+    customer: {
+      name: order.userName || del.fullName || "Customer",
+      email: order.email || del.email || bill.email || "N/A",
+      phone: order.contactNumber || del.phone || bill.phone || "N/A",
+    },
+    deliveryAddress: {
+      name: del.fullName || order.userName || "N/A",
+      phone: del.phone || order.contactNumber || "N/A",
+      address:
+        [del.addressLine1, del.street, del.landMark]
+          .filter(Boolean)
+          .join(", ") || "N/A",
+      city: del.city || "",
+      state: del.state || "",
+      pincode: del.zipCode || "",
+      country: del.country || "India",
+    },
+    billingAddress: {
+      name: bill.fullName || "N/A",
+      phone: bill.phone || "N/A",
+      address:
+        [bill.addressLine1, bill.street, bill.landMark]
+          .filter(Boolean)
+          .join(", ") || "N/A",
+      city: bill.city || "",
+      state: bill.state || "",
+      pincode: bill.zipCode || "",
+      country: bill.country || "India",
+      isSameAsDelivery: Boolean(isSameAsDelivery),
+    },
+    products: enrichedProducts,
+    pricing: {
+      subtotal:
+        order.orderDetails?.[0]?.price !== undefined
+          ? order.orderDetails[0].price
+          : order.totalPrice || 0,
+      shipping:
+        order.shippingCharge !== undefined
+          ? order.shippingCharge
+          : order.orderDetails?.[0]?.shippingCharge || 0,
+      couponCode: order.orderDetails?.[0]?.couponCode || null,
+      discount: order.orderDetails?.[0]?.discount || 0,
+      total: order.totalPrice || order.orderDetails?.[0]?.finalAmount || 0,
+    },
+  });
+
+  // 7. Dispatch Email
+  try {
+    const sendResult = await (exports.mailService || mailService)(
+      adminRecipients.join(", "),
+      subject,
+      emailHtml
+    );
+
+    if (sendResult.success) {
+      if (notificationRecord && notificationRecord._id) {
+        await OrderNotification.updateOne(
+          { _id: notificationRecord._id },
+          {
+            $set: {
+              notificationState: "SENT",
+              deliveredAt: new Date(),
+              lastError: null,
+            },
+          }
+        );
+      }
+      console.log(
+        `✅ Admin new order notification email sent for #${order.orderId} to [${adminRecipients.join(", ")}]`
+      );
+      return { success: true, delivered: true, recipients: adminRecipients };
+    } else if (sendResult.disabled) {
+      if (notificationRecord && notificationRecord._id) {
+        await OrderNotification.updateOne(
+          { _id: notificationRecord._id },
+          {
+            $set: {
+              notificationState: "SKIPPED",
+              lastError: sendResult.message,
+            },
+          }
+        );
+      }
+      return { success: false, disabled: true, reason: sendResult.message };
+    } else {
+      if (notificationRecord && notificationRecord._id) {
+        await OrderNotification.updateOne(
+          { _id: notificationRecord._id },
+          {
+            $set: {
+              notificationState: "FAILED",
+              lastError: sendResult.error || sendResult.message,
+            },
+          }
+        );
+      }
+      return { success: false, error: sendResult.error || sendResult.message };
+    }
+  } catch (sendErr) {
+    console.error(
+      `❌ Unexpected error sending admin order email for #${order.orderId}:`,
+      sendErr.message
+    );
+    if (notificationRecord && notificationRecord._id) {
+      await OrderNotification.updateOne(
+        { _id: notificationRecord._id },
+        {
+          $set: {
+            notificationState: "FAILED",
+            lastError: sendErr.message,
+          },
+        }
+      );
+    }
     return { success: false, error: sendErr.message };
   }
 };

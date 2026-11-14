@@ -29,6 +29,7 @@ const { evaluateCouponEligibility } = require("../../../utils/couponEligibility"
 class OrderService {
   constructor() {
     this.checkEnvironmentVariables();
+    this.razorpayKeyId = null;
     this.razorpayInstance = this.initializeRazorpay();
     this.circuitBreakers = new Map();
     this.couponAttempts = new Map();
@@ -58,15 +59,18 @@ class OrderService {
       logger.warn(
         "Razorpay credentials not found. Razorpay payments will be disabled."
       );
+      this.razorpayKeyId = null;
       return null;
     }
 
     try {
+      this.razorpayKeyId = key_id;
       return new Razorpay({
         key_id: key_id,
         key_secret: key_secret,
       });
     } catch (error) {
+      this.razorpayKeyId = null;
       logger.error("Failed to initialize Razorpay", { error: error.message });
       return null;
     }
@@ -77,18 +81,29 @@ class OrderService {
    */
   async placeOrder(req) {
     const startTime = performance.now();
+
+    const { couponCode, paymentMethod, isBuyNow = false } = req.body || {};
+
+    // [COD TEMPORARILY DISABLED]
+    if (paymentMethod && paymentMethod.toUpperCase() === "COD") {
+      throw new ApiError(
+        400,
+        "Cash on Delivery (COD) is temporarily disabled. Please choose an online payment method."
+      );
+    }
+    // [END COD TEMPORARILY DISABLED]
+
     const session = await mongoose.startSession();
 
     console.log("🚀 Starting order placement process", {
       userId: req.user?._id,
-      bodyKeys: Object.keys(req.body),
+      bodyKeys: Object.keys(req.body || {}),
     });
 
     try {
       await session.startTransaction();
       logger.info("Order placement started", { userId: req.user?._id });
 
-      const { couponCode, paymentMethod, isBuyNow = false } = req.body;
       const userId = this.validateUser(req.user);
 
       const preparationResult = await this.prepareOrderData({
@@ -873,7 +888,13 @@ const validatedCartItems = cartItems.map((item) => {
         );
         await paymentDetailsModel.create(paymentData);
 
-        return { razorpayOrder };
+        return {
+          razorpayOrder,
+          razorpayKeyId:
+            this.razorpayKeyId ||
+            process.env.RAZORPAY_KEY ||
+            process.env.RAZORPAY_KEY_ID,
+        };
 
       case "Stripe":
         throw new ApiError(400, "Stripe payment is currently unavailable");
@@ -893,7 +914,13 @@ const validatedCartItems = cartItems.map((item) => {
       case "PayPal":
         throw new ApiError(400, "PayPal payment is currently unavailable");
 
+      // [COD TEMPORARILY DISABLED]
       case "COD":
+        throw new ApiError(
+          400,
+          "Cash on Delivery (COD) is temporarily disabled. Please choose an online payment method."
+        );
+        /*
         order.orderStatus = "Ordered";
         order.paymentStatus = "Pending";
         order.expiresAt = null;
@@ -907,6 +934,8 @@ const validatedCartItems = cartItems.map((item) => {
         await cart.findOneAndDelete({ userId });
 
         return {};
+        */
+      // [END COD TEMPORARILY DISABLED]
 
       default:
         throw new ApiError(400, "Unsupported payment method");
@@ -1399,7 +1428,10 @@ const validatedCartItems = cartItems.map((item) => {
     let cartItems;
     let subtotalAfterCoupon;
     let deliveryPincode = null;
-    let paymentMethod = "COD";
+    // [COD TEMPORARILY DISABLED]
+    // Default fallback payment method updated from COD to RazorPay
+    let paymentMethod = "RazorPay";
+    // [END COD TEMPORARILY DISABLED]
 
     if (Array.isArray(paramsOrCartItems)) {
       cartItems = paramsOrCartItems;
@@ -1408,7 +1440,9 @@ const validatedCartItems = cartItems.map((item) => {
       cartItems = paramsOrCartItems.cartItems || [];
       subtotalAfterCoupon = Number(paramsOrCartItems.subtotalAfterCoupon) || 0;
       deliveryPincode = paramsOrCartItems.deliveryPincode || null;
-      paymentMethod = paramsOrCartItems.paymentMethod || "COD";
+      // [COD TEMPORARILY DISABLED]
+      paymentMethod = paramsOrCartItems.paymentMethod || "RazorPay";
+      // [END COD TEMPORARILY DISABLED]
     } else {
       cartItems = [];
       subtotalAfterCoupon = 0;
@@ -1689,6 +1723,19 @@ const validatedCartItems = cartItems.map((item) => {
         logger.warn("Razorpay order status email error (non-fatal):", {
           orderId: order.orderId,
           error: emailErr.message,
+        });
+      }
+
+      // Send admin notification email for newly confirmed & paid order
+      try {
+        await sendmail.sendAdminNewOrderEmail({
+          order,
+          paymentId: razorpay_payment_id,
+        });
+      } catch (adminEmailErr) {
+        logger.warn("Admin new order notification email error (non-fatal):", {
+          orderId: order.orderId,
+          error: adminEmailErr.message,
         });
       }
 

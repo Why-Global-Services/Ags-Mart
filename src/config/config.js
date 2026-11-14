@@ -29,6 +29,7 @@ const envVarsSchema = Joi.object()
       "the from field in the emails sent by the app"
     ),
     ENABLE_EMAIL: Joi.boolean().default(false).description("Master switch to enable outgoing emails"),
+    ADMIN_EMAIL: Joi.string().allow("").description("Admin email recipient(s) for new order notifications"),
     ENCRYPTION_SECRETKEY: Joi.string().description("Encryption Decryption Key"),
 
     // Google OAuth (DISABLED)

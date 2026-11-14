@@ -1,6 +1,10 @@
 const { User } = require("../../../models/users.model");
 const ApiError = require("../../../utils/apiError");
 const httpStatus = require("http-status");
+const {
+  syncBillingWithDelivery,
+  cleanupAddressReferencesOnDelete,
+} = require("../myAccounts/address");
 
 
 
@@ -158,12 +162,16 @@ const getAddress = async (req, res) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "No userId provided");
   }
 
-  const user = await User.findById(userId).select("address");
+  const user = await User.findById(userId).select(
+    "address sameAsDelivery primaryDeliveryAddressId"
+  );
 
   return {
     success: true,
     message: "Fetched Address",
     address: user?.address || [],
+    sameAsDelivery: Boolean(user?.sameAsDelivery),
+    primaryDeliveryAddressId: user?.primaryDeliveryAddressId || null,
   };
 };
 
@@ -218,26 +226,58 @@ const updateAddress = async (req, res) => {
   }
 
   let userDetails = await User.findById(userId);
+  if (!userDetails) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
 
+  let updatedTarget = null;
   userDetails.address = userDetails.address.map((item) => {
     if (item._id.toString() == _id.toString()) {
-      item = {
+      const plain = item.toObject ? item.toObject() : item;
+      const merged = {
+        ...plain,
         fullName,
         addressLine1,
+        landMark: req.body.landMark !== undefined ? req.body.landMark : plain.landMark,
         city,
         state,
         zipCode,
         country,
         phone,
-        email: validatedEmail !== undefined ? validatedEmail : item.email,
+        email: validatedEmail !== undefined ? validatedEmail : plain.email,
         addressType,
         checkoutAddress,
       };
-      return item;
+      if (plain.checkoutAddress === "billingAddress" && plain.isSameAsDelivery) {
+        merged.isSameAsDelivery = false;
+        merged.sourceDeliveryAddressId = null;
+        userDetails.sameAsDelivery = false;
+      }
+      updatedTarget = merged;
+      return merged;
     }
 
     return item;
   });
+
+  if (
+    updatedTarget &&
+    updatedTarget.checkoutAddress === "deliveryAddress" &&
+    userDetails.sameAsDelivery
+  ) {
+    const isSyncedDelivery =
+      userDetails.primaryDeliveryAddressId?.toString() === _id.toString() ||
+      userDetails.address.some(
+        (addr) =>
+          addr &&
+          addr.checkoutAddress === "billingAddress" &&
+          addr.isSameAsDelivery &&
+          addr.sourceDeliveryAddressId?.toString() === _id.toString()
+      );
+    if (isSyncedDelivery) {
+      syncBillingWithDelivery(userDetails, updatedTarget);
+    }
+  }
 
   await userDetails.save();
   return {
@@ -260,13 +300,22 @@ const deleteAddress = async (req, res) => {
   }
 
   let updatedAddress = await User.findById(userId);
+  if (!updatedAddress) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  const targetAddr = updatedAddress.address.find(
+    (item) => item._id.toString() === id.toString()
+  );
 
   const data = updatedAddress.address.filter(
     (item) => item._id.toString() !== id.toString()
   );
-  console.log(data, "thsi is filter data");
 
   updatedAddress.address = data;
+  if (targetAddr) {
+    cleanupAddressReferencesOnDelete(updatedAddress, targetAddr);
+  }
 
   await updatedAddress.save();
 

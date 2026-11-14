@@ -190,6 +190,10 @@ router
   .route("/deleteaddress/:addressId")
   .delete(verifyToken, userController.deleteNewAddress);
 
+router
+  .route("/address/same-as-delivery")
+  .put(verifyToken, userController.syncSameAsDeliveryAddress);
+
 router.route("/getOrders").get(verifyToken, userController.fetchOrder);
 router
   .route("/getOneOrders/:_id")
