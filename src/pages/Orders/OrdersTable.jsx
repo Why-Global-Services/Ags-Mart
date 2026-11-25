@@ -1073,8 +1073,7 @@ import {
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
-const PrintableInvoice = React.lazy(() => import("./PrintableInvoice"))
-// import PrintableInvoice from "./PrintableInvoice";
+import PrintableInvoice from "./PrintableInvoice";
 
 const { RangePicker } = DatePicker;
 
@@ -1267,11 +1266,20 @@ const Order = () => {
       order.orderDetails.products &&
       Array.isArray(order.orderDetails.products)
     ) {
-      return order.orderDetails.products.map((item) => ({
-        name: item.selectedVariant?.productTitle || item.productName || "N/A",
-        quantity: item.quantity || 0,
-        price: item.price || 0,
-      }));
+      return order.orderDetails.products.map((item) => {
+        const prodName =
+          item.productName ||
+          item.productTitle ||
+          item.selectedVariant?.productName ||
+          item.selectedVariant?.productTitle ||
+          "N/A";
+        const unit = item.selectedUnit || item.selectedVariant?.unit || null;
+        return {
+          name: unit ? `${prodName} (${unit})` : prodName,
+          quantity: item.quantity || 0,
+          price: item.price || 0,
+        };
+      });
     }
 
     // If orderDetails is a single product object
@@ -1472,15 +1480,14 @@ const Order = () => {
   };
 
   const getProductCodes = (order) => {
-  if (!order?.orderDetails?.products?.length) return "N/A";
+    if (!order?.orderDetails?.products?.length) return "N/A";
 
-  return order.orderDetails.products
-    .map(
-      (item) => item?.selectedVariant?.productCode
-    )
-    .filter(Boolean) // remove null/undefined
-    .join(", ");
-};
+    const codes = order.orderDetails.products
+      .map((item) => item?.productCode || item?.selectedVariant?.productCode)
+      .filter(Boolean);
+
+    return codes.length > 0 ? codes.join(", ") : "N/A";
+  };
 
   const resetFilters = () => {
     setSearchText("");
@@ -2284,18 +2291,40 @@ const handlePrint = useReactToPrint({
 
                             {/* Product Name */}
                             <td className="border p-2">
-                              <p className="font-medium">
-                                {product.productTitle}
+                              <p className="font-medium text-gray-900">
+                                {product.productName ||
+                                  product.productTitle ||
+                                  product.selectedVariant?.productName ||
+                                  product.selectedVariant?.productTitle ||
+                                  "Product"}
                               </p>
-                              {product.selectedVariant?.productTitle && (
-                                <p className="text-sm text-gray-600">
-                                  {" "}
-                                  {product.selectedVariant.productTitle}
+                              {(product.selectedUnit ||
+                                product.selectedVariant?.unit) && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  <span className="font-semibold text-gray-700">
+                                    Unit:
+                                  </span>{" "}
+                                  {product.selectedUnit ||
+                                    product.selectedVariant?.unit}
                                 </p>
                               )}
+                              {!product.selectedUnit &&
+                                !product.selectedVariant?.unit &&
+                                product.selectedVariant?.size &&
+                                product.selectedVariant?.color && (
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    <span className="font-semibold text-gray-700">
+                                      Variant:
+                                    </span>{" "}
+                                    {product.selectedVariant.size} /{" "}
+                                    {product.selectedVariant.color}
+                                  </p>
+                                )}
                             </td>
                             <td className="border p-2 text-center font-medium text-gray-700">
-                              {product?.selectedVariant?.productCode || "N/A"}
+                              {product.productCode ||
+                                product.selectedVariant?.productCode ||
+                                "N/A"}
                             </td>
 
                             {/* Price */}
@@ -2406,9 +2435,7 @@ const handlePrint = useReactToPrint({
 
 {/* Hidden Printable Invoice - Always rendered */}
 <div style={{ display: 'none' }}>
-  <React.Suspense fallback={<div>Loading...</div>}>
-    <PrintableInvoice ref={invoicePrintRef} order={selectedOrder} />
-  </React.Suspense>
+  <PrintableInvoice ref={invoicePrintRef} order={selectedOrder} />
 </div>
 
       {/* Edit Order Status Modal */}
@@ -2556,14 +2583,28 @@ const handlePrint = useReactToPrint({
 
               <div className="flex-1">
                 <h3 className="font-semibold text-lg">
-                  {selectedReturnProduct.productTitle || "N/A"}
+                  {selectedReturnProduct.productName ||
+                    selectedReturnProduct.productTitle ||
+                    selectedReturnProduct.selectedVariant?.productName ||
+                    selectedReturnProduct.selectedVariant?.productTitle ||
+                    "N/A"}
                 </h3>
-                {selectedReturnProduct.selectedVariant?.productTitle && (
+                {(selectedReturnProduct.selectedUnit ||
+                  selectedReturnProduct.selectedVariant?.unit) && (
                   <p className="text-sm text-gray-600">
-                    Variant:{" "}
-                    {selectedReturnProduct.selectedVariant.productTitle}
+                    <span className="font-medium text-gray-700">Unit:</span>{" "}
+                    {selectedReturnProduct.selectedUnit ||
+                      selectedReturnProduct.selectedVariant?.unit}
                   </p>
                 )}
+                {!selectedReturnProduct.selectedUnit &&
+                  !selectedReturnProduct.selectedVariant?.unit &&
+                  selectedReturnProduct.selectedVariant?.productTitle && (
+                    <p className="text-sm text-gray-600">
+                      Variant:{" "}
+                      {selectedReturnProduct.selectedVariant.productTitle}
+                    </p>
+                  )}
                 <div className="mt-2 space-y-1">
                   <p className="text-sm">
                     <strong>Quantity:</strong> {selectedReturnProduct.quantity}

@@ -129,33 +129,45 @@ function createCpanelZip(sourceDir, zipFilePath) {
 
 /**
  * Vite plugin for cPanel static SPA deployment.
- * 1. Generates static route directories with index.html for direct URL access without 404s.
- * 2. Generates .htaccess for Apache rewrite rules.
- * 3. Packages a production-ready cPanel ZIP archive (dist.zip) guaranteed to pass security scanners.
+ * 1. Generates .htaccess for robust Apache rewrite & cache rules.
+ * 2. Packages a production-ready cPanel ZIP archive (dist.zip) guaranteed to pass security scanners.
  */
 function cpanelDeploymentPlugin() {
-  const spaRoutes = [
-    'dashboard',
-    'systemUser',
-    'products',
-    'categories',
-    'subCategories',
-    'orders',
-    'customers',
-    'reviews',
-    'offers',
-    'brand',
-    'coupons',
-    'profile',
-    'websetting',
-    'report',
-    'featuredproducts',
-    'notification',
-    'userqueries',
-    'topbar',
-    'setting',
-    'login',
-  ];
+  const htaccessContent = `<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Direct access to index.html
+  RewriteRule ^index\\.html$ - [L]
+
+  # 2. Never rewrite missing static assets to index.html (prevents MIME type errors)
+  RewriteCond %{REQUEST_URI} \\.(js|css|png|jpe?g|gif|svg|webp|ico|woff2?|eot|ttf|otf|json|map)$ [NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ - [R=404,L]
+
+  # 3. Serve existing files and directories directly
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 4. Fallback all SPA routes to root /index.html
+  RewriteRule ^ /index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # HTML entry point: never cache index.html so new deployments take effect immediately
+  <FilesMatch "^index\\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+  </FilesMatch>
+
+  # Static assets with content hash: cache aggressively for 1 year
+  <FilesMatch "\\.(js|css|webp|png|jpe?g|gif|svg|ico|woff2?|eot|ttf|otf)$">
+    Header set Cache-Control "max-age=31536000, public, immutable"
+  </FilesMatch>
+</IfModule>
+`;
 
   return {
     name: 'cpanel-deployment-plugin',
@@ -165,36 +177,14 @@ function cpanelDeploymentPlugin() {
 
       if (!fs.existsSync(indexPath)) return;
 
-      const indexHtml = fs.readFileSync(indexPath, 'utf8');
-
-      // Create route directories with index.html fallback for cPanel
-      for (const route of spaRoutes) {
-        const routeDir = path.join(outDir, route);
-        if (!fs.existsSync(routeDir)) {
-          fs.mkdirSync(routeDir, { recursive: true });
-        }
-        fs.writeFileSync(path.join(routeDir, 'index.html'), indexHtml, 'utf8');
-      }
-
-      // Ensure .htaccess is present
+      // Always write the latest .htaccess
       const htaccessPath = path.join(outDir, '.htaccess');
-      if (!fs.existsSync(htaccessPath)) {
-        const htaccessContent = `<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . ./index.html [L]
-</IfModule>
-`;
-        fs.writeFileSync(htaccessPath, htaccessContent, 'utf8');
-      }
+      fs.writeFileSync(htaccessPath, htaccessContent, 'utf8');
 
       // Automatically generate deployment ZIP
       const zipPath = path.resolve(__dirname, 'dist.zip');
       createCpanelZip(outDir, zipPath);
-      console.log(`\x1b[32m✓ cPanel deployment package created: ${zipPath}\x1b[0m`);
+      console.log(`\\x1b[32m✓ cPanel deployment package created: ${zipPath}\\x1b[0m`);
     },
   };
 }
@@ -202,7 +192,7 @@ function cpanelDeploymentPlugin() {
 export default defineConfig({
   plugins: [react(), tailwindcss(), cpanelDeploymentPlugin()],
 
-  base: './',
+  base: '/',
 
   server: {
     port: 5173,

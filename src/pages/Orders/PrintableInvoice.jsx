@@ -101,16 +101,37 @@ const PrintableInvoice = React.forwardRef(({ order }, ref) => {
                 <td className="border border-gray-300 p-2">{index + 1}</td>
                 <td className="border border-gray-300 p-2">
                   <div>
-                    <p className="font-medium">{product.productTitle}</p>
-                    {product.selectedVariant?.productTitle && (
-                      <p className="text-sm text-gray-600">
-                        {product.selectedVariant.productTitle}
+                    <p className="font-medium">
+                      {product.productName ||
+                        product.productTitle ||
+                        product.selectedVariant?.productName ||
+                        product.selectedVariant?.productTitle ||
+                        "Product"}
+                    </p>
+                    {(product.selectedUnit ||
+                      product.selectedVariant?.unit) && (
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium">Unit:</span>{" "}
+                        {product.selectedUnit ||
+                          product.selectedVariant?.unit}
                       </p>
                     )}
+                    {!product.selectedUnit &&
+                      !product.selectedVariant?.unit &&
+                      product.selectedVariant?.size &&
+                      product.selectedVariant?.color && (
+                        <p className="text-xs text-gray-600">
+                          <span className="font-medium">Variant:</span>{" "}
+                          {product.selectedVariant.size} /{" "}
+                          {product.selectedVariant.color}
+                        </p>
+                      )}
                   </div>
                 </td>
                 <td className="border border-gray-300 p-2">
-                  {product?.selectedVariant?.productCode || "N/A"}
+                  {product.productCode ||
+                    product?.selectedVariant?.productCode ||
+                    "N/A"}
                 </td>
                 <td className="border border-gray-300 p-2">₹{product.price}</td>
                 <td className="border border-gray-300 p-2">{product.quantity}</td>
@@ -152,7 +173,7 @@ const PrintableInvoice = React.forwardRef(({ order }, ref) => {
       <div className="border-t pt-6 text-center text-sm text-gray-500">
         <p>Thank you for your business!</p>
         <p className="mt-2">
-          For any queries, contact: sales@agrowmed.com | +91 93444 30739 
+          For any queries, contact: sales@agrowmed.com | +91 97896 76031 
         </p>
         <p className="mt-4">
           Invoice generated on: {dayjs().format("DD/MM/YYYY hh:mm A")}
