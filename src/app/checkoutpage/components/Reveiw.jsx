@@ -201,7 +201,8 @@ const Review = ({
           : ["/combo.jpg"],
         selectedVariant: {
           _id: buyNowItem.variantId || null,
-          unit: buyNowItem.variantDetails?.unit || null,
+          unit: buyNowItem.variantDetails?.unit || buyNowItem.selectedUnit || null,
+          productCode: buyNowItem.productCode || buyNowItem.variantDetails?.productCode || null,
           varientValue: buyNowItem.variantDetails?.displaySize || "",
           price: {
             salePrice:
@@ -218,6 +219,8 @@ const Review = ({
                 0) - (buyNowItem.priceBreakdown?.salePrice || 0),
           },
         },
+        selectedUnit: buyNowItem.variantDetails?.unit || buyNowItem.selectedUnit || null,
+        productCode: buyNowItem.productCode || buyNowItem.variantDetails?.productCode || null,
         variantDetails: buyNowItem.variantDetails,
         quantity: buyNowItem.quantity ?? 1,
         productType:
@@ -257,6 +260,8 @@ const Review = ({
             ? [p.productImages[0]]
             : ["/combo.jpg"],
         selectedVariant: {
+          unit: p.selectedUnit || p.variantDetails?.unit || p.selectedVariant?.unit || null,
+          productCode: p.productCode || p.selectedVariant?.productCode || p.variantDetails?.productCode || null,
           varientValue:
             p.selectedVariant?.varientValue ??
             (p.productType === "variant" ? "" : ""),
@@ -268,6 +273,8 @@ const Review = ({
             taxPercentage: p.priceBreakdown?.taxPercentage ?? 0,
           },
         },
+        selectedUnit: p.selectedUnit || p.variantDetails?.unit || p.selectedVariant?.unit || null,
+        productCode: p.productCode || p.selectedVariant?.productCode || p.variantDetails?.productCode || null,
         variantDetails: p.variantDetails,
         quantity: p.quantity ?? 1,
         productType:
@@ -715,11 +722,26 @@ const Review = ({
 
     if (isBuyNow && items.length > 0) {
       const item = items[0];
+      const selectedUnit =
+        item.selectedUnit ||
+        item.variantDetails?.unit ||
+        item.selectedVariant?.unit ||
+        buyNowItem?.variantDetails?.unit ||
+        buyNowItem?.selectedUnit ||
+        null;
+      const productCode =
+        item.productCode ||
+        item.selectedVariant?.productCode ||
+        item.variantDetails?.productCode ||
+        buyNowItem?.productCode ||
+        null;
 
       payload = {
         isBuyNow: true,
         productId: item._id,
         variantId: item.variantId || null,
+        selectedUnit,
+        productCode,
         quantity: item.quantity || 1,
         productType:
           item.productType || (item.variantId ? "variation" : "nonVariation"),
@@ -738,6 +760,16 @@ const Review = ({
         cartItems: items.map((item) => ({
           productId: item._id,
           variantId: item.variantId || null,
+          selectedUnit:
+            item.selectedUnit ||
+            item.variantDetails?.unit ||
+            item.selectedVariant?.unit ||
+            null,
+          productCode:
+            item.productCode ||
+            item.selectedVariant?.productCode ||
+            item.variantDetails?.productCode ||
+            null,
           quantity: item.quantity || 1,
           productType:
             item.productType || (item.variantId ? "variation" : "nonVariation"),
@@ -770,11 +802,26 @@ const Review = ({
 
       if (isBuyNow && items.length > 0) {
         const item = items[0];
+        const selectedUnit =
+          item.selectedUnit ||
+          item.variantDetails?.unit ||
+          item.selectedVariant?.unit ||
+          buyNowItem?.variantDetails?.unit ||
+          buyNowItem?.selectedUnit ||
+          null;
+        const productCode =
+          item.productCode ||
+          item.selectedVariant?.productCode ||
+          item.variantDetails?.productCode ||
+          buyNowItem?.productCode ||
+          null;
 
         orderPayload = {
           isBuyNow: true,
           productId: item._id,
           variantId: item.variantId || null,
+          selectedUnit,
+          productCode,
           quantity: item.quantity || 1,
           productType:
             item.productType || (item.variantId ? "variation" : "nonVariation"),
@@ -797,6 +844,16 @@ const Review = ({
           cartItems: items.map((item) => ({
             productId: item._id,
             variantId: item.variantId || null,
+            selectedUnit:
+              item.selectedUnit ||
+              item.variantDetails?.unit ||
+              item.selectedVariant?.unit ||
+              null,
+            productCode:
+              item.productCode ||
+              item.selectedVariant?.productCode ||
+              item.variantDetails?.productCode ||
+              null,
             quantity: item.quantity || 1,
             productType:
               item.productType ||

@@ -145,7 +145,14 @@ export default function Footer() {
               </li>
               <li className="flex items-start gap-3">
                 <FaWhatsapp className="text-green-400 mt-0.5 shrink-0" />
-                <a href="tel:+919344430739" className="text-gray-300 text-xs hover:text-green-300">+91 93444 30739</a>
+                <a
+                  href="https://wa.me/919789676031"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 text-xs hover:text-green-300"
+                >
+                  +91 97896 76031
+                </a>
               </li>
             </ul>
           </div>

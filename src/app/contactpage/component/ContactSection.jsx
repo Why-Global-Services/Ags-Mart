@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { FcGoogle } from "react-icons/fc";
-import { FaYoutube, FaFacebook, FaInstagram, FaPhoneAlt, FaEnvelope, FaSeedling, FaLeaf } from "react-icons/fa";
+import { FaYoutube, FaFacebook, FaInstagram, FaPhoneAlt, FaEnvelope, FaSeedling, FaLeaf, FaWhatsapp } from "react-icons/fa";
 import { FiMail, FiPhone, FiMapPin, FiClock, FiCheckCircle } from "react-icons/fi";
 import { RiCustomerService2Line, RiPlantLine } from "react-icons/ri";
 import Loading from '@/app/common/Loading';
@@ -69,7 +69,8 @@ const SOCIAL_LINKS = [
     { icon: FcGoogle, url: "https://www.google.com", label: "Google" },
     { icon: FaYoutube, url: "https://www.youtube.com", label: "YouTube", color: "text-red-500" },
     { icon: FaFacebook, url: "https://www.facebook.com", label: "Facebook", color: "text-blue-500" },
-    { icon: FaInstagram, url: "https://www.instagram.com", label: "Instagram", color: "text-pink-500" }
+    { icon: FaInstagram, url: "https://www.instagram.com", label: "Instagram", color: "text-pink-500" },
+    { icon: FaWhatsapp, url: "https://wa.me/919789676031", label: "WhatsApp", color: "text-green-500" }
 ];
 
 // ==================== Utility Functions ====================
@@ -256,7 +257,12 @@ const ContactInfoCard = ({ icon, title, text, subtext, gradient, href }) => (
                     {title}
                 </h3>
                 {href ? (
-                    <a href={href} className="text-gray-700 text-sm font-medium leading-relaxed break-words hover:text-green-700 transition-colors">
+                    <a
+                        href={href}
+                        target={href.startsWith('http') ? '_blank' : undefined}
+                        rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                        className="text-gray-700 text-sm font-medium leading-relaxed break-words hover:text-green-700 transition-colors"
+                    >
                         {text}
                     </a>
                 ) : (
@@ -394,12 +400,20 @@ const ContactPage = () => {
 
     const contactInfoData = [
         {
+            icon: <FaWhatsapp className="text-green-700 text-xl" />,
+            title: "WhatsApp",
+            text: "+91 97896 76031",
+            href: "https://wa.me/919789676031",
+            subtext: "Chat with Admin on WhatsApp",
+            gradient: "from-green-50 to-emerald-50/50"
+        },
+        {
             icon: <FiPhone className="text-green-700 text-xl" />,
             title: "Call Us",
-            text: "+91 93444 30739",
-            href: "tel:+919344430739",
+            text: "+91 97896 76031",
+            href: "tel:+919789676031",
             subtext: "Mon - Sat: 9:00 AM - 7:00 PM",
-            gradient: "from-green-50 to-emerald-50/50"
+            gradient: "from-emerald-50 to-green-50/50"
         },
         {
             icon: <FiMail className="text-green-700 text-xl" />,
@@ -407,7 +421,7 @@ const ContactPage = () => {
             text: "sales@agrowmed.com",
             href: "mailto:sales@agrowmed.com",
             subtext: "Quick response within 24 hours",
-            gradient: "from-emerald-50 to-green-50/50"
+            gradient: "from-green-50 to-emerald-50/50"
         }
     ];
 

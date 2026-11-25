@@ -3,14 +3,29 @@
 import { FaWhatsapp } from "react-icons/fa";
 import { useSelector } from "react-redux";
 
-export default function WhatsappButton() {
-  const contactNumber = useSelector((state) => state.adminProfile.contactNumber);
+const DEFAULT_ADMIN_WHATSAPP = "919789676031";
 
-  if (!contactNumber) return null;
+export default function WhatsappButton() {
+  const reduxNumber = useSelector((state) => state.adminProfile?.contactNumber);
+  const rawNumber = reduxNumber || DEFAULT_ADMIN_WHATSAPP;
+  const cleanNumber = String(rawNumber).replace(/\D/g, "");
+
+  const isInvalidOrOldNumber =
+    !cleanNumber ||
+    cleanNumber.includes("9876543210") ||
+    cleanNumber.includes("9344430739");
+
+  const formattedNumber = isInvalidOrOldNumber
+    ? DEFAULT_ADMIN_WHATSAPP
+    : cleanNumber.startsWith("91") && cleanNumber.length === 12
+    ? cleanNumber
+    : cleanNumber.length === 10
+    ? `91${cleanNumber}`
+    : DEFAULT_ADMIN_WHATSAPP;
 
   return (
     <a
-      href={`https://wa.me/${contactNumber}?text=${encodeURIComponent(
+      href={`https://wa.me/${formattedNumber}?text=${encodeURIComponent(
         "Hi Admin, I need help regarding my account."
       )}`}
       target="_blank"

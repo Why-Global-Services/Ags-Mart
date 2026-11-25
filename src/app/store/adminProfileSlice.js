@@ -3,16 +3,32 @@ import { getAdminProfile } from "../interceptor/interseptor";
 
 /* ================= FETCH PROFILE ================= */
 
+const DEFAULT_ADMIN_WHATSAPP = "919789676031";
+
 export const fetchAdminProfile = createAsyncThunk(
   "adminProfile/fetch",
   async (_, { rejectWithValue }) => {
     try {
       const res = await getAdminProfile();
 
+      const rawNumber = res?.data?.mobileNumber ? String(res.data.mobileNumber).replace(/\D/g, "") : "";
+      const isDummyOrOldNumber =
+        !rawNumber ||
+        rawNumber.includes("9876543210") ||
+        rawNumber.includes("9344430739");
+
+      const contactNumber = isDummyOrOldNumber
+        ? DEFAULT_ADMIN_WHATSAPP
+        : rawNumber.startsWith("91") && rawNumber.length === 12
+        ? rawNumber
+        : rawNumber.length === 10
+        ? `91${rawNumber}`
+        : DEFAULT_ADMIN_WHATSAPP;
+
       return {
         primaryEmail: res?.data?.email || "",
         secondaryEmail: res?.data?.additionalEmail || "",
-        contactNumber: res?.data?.mobileNumber || "",
+        contactNumber,
         address: res?.data?.Address || "",
       };
     } catch (err) {
@@ -29,7 +45,7 @@ const adminProfileSlice = createSlice({
   initialState: {
     primaryEmail: "",
     secondaryEmail: "",
-    contactNumber: "",
+    contactNumber: DEFAULT_ADMIN_WHATSAPP,
     address: "",
 
     loading: false,
@@ -40,7 +56,7 @@ const adminProfileSlice = createSlice({
     resetAdminProfile: (state) => {
       state.primaryEmail = "";
       state.secondaryEmail = "";
-      state.contactNumber = "";
+      state.contactNumber = DEFAULT_ADMIN_WHATSAPP;
       state.address = "";
     },
   },
