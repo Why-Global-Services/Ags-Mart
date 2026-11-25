@@ -398,7 +398,11 @@ exports.adminNewOrderEmailTemplate = ({
               }
               <div>
                 <strong style="color: #0f172a; font-size: 13px;">${safeItemName}</strong>
-                ${safeVariant && safeVariant !== "—" ? `<div style="color: #64748b; font-size: 11px; margin-top: 2px;">Variant: ${safeVariant}</div>` : ""}
+                ${
+                  safeVariant && safeVariant !== "—" && safeVariant !== "Standard"
+                    ? `<div style="color: #64748b; font-size: 11px; margin-top: 2px;">${safeVariant.includes("/") ? "Variant" : "Unit"}: ${safeVariant}</div>`
+                    : ""
+                }
               </div>
             </div>
           </td>

@@ -390,6 +390,9 @@ if (
 
     productName: product.productName,
     productImage: product.productImages?.[0],
+    selectedUnit: variant?.unit || null,
+    productCode: variant?.productCode || product.nonVariant?.productCode || null,
+    selectedVariant: variant || null,
 
     isFreeProduct: true, // ⭐ Important flag
   };
@@ -769,6 +772,17 @@ const validatedCartItems = cartItems.map((item) => {
         products: validatedCartItems.map((item) => ({
           productId: item.productId,
           variantId: item.variantId,
+          selectedUnit:
+            item.selectedUnit ||
+            item.productDetails?.matchedVariant?.unit ||
+            item.selectedVariant?.unit ||
+            null,
+          productCode:
+            item.productCode ||
+            item.productDetails?.matchedVariant?.productCode ||
+            item.selectedVariant?.productCode ||
+            item.productDetails?.nonVariant?.productCode ||
+            null,
           productType: item.productType,
           quantity: item.quantity,
           price: item.price,
@@ -978,6 +992,14 @@ const validatedCartItems = cartItems.map((item) => {
         );
       }
 
+      // Authoritative catalog resolution - do not blindly trust client values
+      if (variant.unit) {
+        item.selectedUnit = variant.unit;
+      }
+      if (variant.productCode || product.nonVariant?.productCode) {
+        item.productCode = variant.productCode || product.nonVariant?.productCode || null;
+      }
+
       const availableStock =
         item.productType === "nonVariation" || item.productType === "nonVariant"
           ? product.nonVariant?.stockCount
@@ -1145,6 +1167,8 @@ const validatedCartItems = cartItems.map((item) => {
           productName: product.productName || product.name,
           productImage: productImage,
           selectedVariant: variant,
+          selectedUnit: variant?.unit || null,
+          productCode: variant?.productCode || product.nonVariant?.productCode || null,
           productCategory: product.productCategory,
         },
       ],
@@ -1342,6 +1366,16 @@ const validatedCartItems = cartItems.map((item) => {
         const price = parseFloat(item.price) || 0;
         const tax = parseFloat(item.tax) || 0;
         const subtotal = price * item.quantity;
+        const matchedVariant = item.productDetails?.matchedVariant;
+        const selectedUnit =
+          item.selectedUnit ||
+          matchedVariant?.unit ||
+          null;
+        const productCode =
+          item.productCode ||
+          matchedVariant?.productCode ||
+          item.productDetails?.nonVariant?.productCode ||
+          null;
 
         return {
           ...item,
@@ -1349,6 +1383,9 @@ const validatedCartItems = cartItems.map((item) => {
           price,
           tax,
           subtotal,
+          selectedUnit,
+          productCode,
+          selectedVariant: matchedVariant || null,
           productImage: item.productImages?.[0] || item.productImage,
         };
       });

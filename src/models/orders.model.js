@@ -58,6 +58,14 @@ const orderDetailsSchema = new mongoose.Schema(
             variantId: {
               type: String,
             },
+            selectedUnit: {
+              type: String,
+              default: null,
+            },
+            productCode: {
+              type: String,
+              default: null,
+            },
             productType: {
               type: String,
               enum: ["variation", "nonVariation", "variant", "nonVariant"],

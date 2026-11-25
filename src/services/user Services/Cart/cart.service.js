@@ -596,6 +596,11 @@ const getCart = async (req) => {
 
         selectedUnit,
 
+        productCode:
+          selectedVariant?.productCode ||
+          product.nonVariant?.productCode ||
+          null,
+
         selectedVariant:
           selectedVariant ||
           null,

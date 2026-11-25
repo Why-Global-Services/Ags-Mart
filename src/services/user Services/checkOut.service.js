@@ -438,6 +438,11 @@ const checkOut = async (req) => {
               selectedVariant?.unit ||
               null,
 
+            productCode:
+              selectedVariant?.productCode ||
+              product.nonVariant?.productCode ||
+              null,
+
             priceBreakdown: {
               costPrice,
 

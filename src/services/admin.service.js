@@ -1799,7 +1799,10 @@ const getOrder = async (req, res) => {
       },
     },
     {
-      $unwind: "$userDetails",
+      $unwind: {
+        path: "$userDetails",
+        preserveNullAndEmptyArrays: true,
+      },
     },
     {
       $lookup: {
@@ -1809,8 +1812,12 @@ const getOrder = async (req, res) => {
         as: "productInfo",
       },
     },
-
-    { $unwind: "$productInfo" },
+    {
+      $unwind: {
+        path: "$productInfo",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
     {
       $addFields: {
         "orderDetails.products.selectedVariant": {
@@ -1821,22 +1828,49 @@ const getOrder = async (req, res) => {
             },
             in: {
               $cond: [
-                { $eq: ["$orderDetails.products.productType", "variation"] },
+                {
+                  $or: [
+                    { $eq: ["$orderDetails.products.productType", "variation"] },
+                    { $eq: ["$orderDetails.products.productType", "variant"] },
+                    { $eq: ["$productInfo.productType", "variant"] },
+                    {
+                      $and: [
+                        { $ne: ["$orderDetails.products.variantId", null] },
+                        { $ne: ["$orderDetails.products.variantId", ""] },
+                        { $ne: ["$orderDetails.products.variantId", "$orderDetails.products.productId"] }
+                      ]
+                    }
+                  ]
+                },
                 {
                   $mergeObjects: [
                     {
-                      productTitle: "$productInfo.productTitle",
-                      productName: "$productInfo.productName"
+                      productTitle: { $ifNull: ["$productInfo.productTitle", "$productInfo.productName", ""] },
+                      productName: { $ifNull: ["$productInfo.productName", "$productInfo.productTitle", ""] },
+                      unit: "$orderDetails.products.selectedUnit",
+                      productCode: "$orderDetails.products.productCode"
                     },
                     {
                       $switch: {
                         branches: [
                           {
+                            case: { $eq: ["$$variantType", "unitOnly"] },
+                            then: {
+                              $first: {
+                                $filter: {
+                                  input: { $ifNull: ["$productInfo.variant.unitOnlyVariants", []] },
+                                  as: "v",
+                                  cond: { $eq: ["$$v._id", "$$variantId"] }
+                                }
+                              }
+                            }
+                          },
+                          {
                             case: { $eq: ["$$variantType", "sizeColor"] },
                             then: {
                               $first: {
                                 $filter: {
-                                  input: "$productInfo.variant.sizeColorVariants",
+                                  input: { $ifNull: ["$productInfo.variant.sizeColorVariants", []] },
                                   as: "v",
                                   cond: { $eq: ["$$v._id", "$$variantId"] }
                                 }
@@ -1848,7 +1882,7 @@ const getOrder = async (req, res) => {
                             then: {
                               $first: {
                                 $filter: {
-                                  input: "$productInfo.variant.colorOnlyVariants",
+                                  input: { $ifNull: ["$productInfo.variant.colorOnlyVariants", []] },
                                   as: "v",
                                   cond: { $eq: ["$$v._id", "$$variantId"] }
                                 }
@@ -1860,7 +1894,7 @@ const getOrder = async (req, res) => {
                             then: {
                               $first: {
                                 $filter: {
-                                  input: "$productInfo.variant.sizeOnlyVariants",
+                                  input: { $ifNull: ["$productInfo.variant.sizeOnlyVariants", []] },
                                   as: "v",
                                   cond: { $eq: ["$$v._id", "$$variantId"] }
                                 }
@@ -1868,17 +1902,47 @@ const getOrder = async (req, res) => {
                             }
                           }
                         ],
-                        default: null
+                        default: {
+                          $let: {
+                            vars: {
+                              matchedUnit: {
+                                $first: {
+                                  $filter: {
+                                    input: { $ifNull: ["$productInfo.variant.unitOnlyVariants", []] },
+                                    as: "u",
+                                    cond: { $eq: ["$$u._id", "$$variantId"] }
+                                  }
+                                }
+                              }
+                            },
+                            in: {
+                              $ifNull: [
+                                "$$matchedUnit",
+                                {
+                                  unit: "$orderDetails.products.selectedUnit",
+                                  productCode: "$orderDetails.products.productCode"
+                                }
+                              ]
+                            }
+                          }
+                        }
                       }
                     }
                   ]
                 },
                 {
                   $mergeObjects: [
-                    "$productInfo.nonVariant",
+                    { $ifNull: ["$productInfo.nonVariant", {}] },
                     {
-                      productTitle: "$productInfo.productTitle",
-                      productName: "$productInfo.productName"
+                      productTitle: { $ifNull: ["$productInfo.productTitle", "$productInfo.productName", ""] },
+                      productName: { $ifNull: ["$productInfo.productName", "$productInfo.productTitle", ""] },
+                      productCode: {
+                        $ifNull: [
+                          "$orderDetails.products.productCode",
+                          "$productInfo.nonVariant.productCode",
+                          null
+                        ]
+                      }
                     }
                   ]
                 }
@@ -1887,10 +1951,7 @@ const getOrder = async (req, res) => {
           }
         }
       }
-
-    }
-
-    ,
+    },
     {
       $project: {
         _id: 1,
@@ -1922,15 +1983,74 @@ const getOrder = async (req, res) => {
             productId: "$orderDetails.products.productId",
             variantId: "$orderDetails.products.variantId",
             productType: "$orderDetails.products.productType",
+            selectedUnit: {
+              $ifNull: [
+                "$orderDetails.products.selectedUnit",
+                "$orderDetails.products.selectedVariant.unit",
+                null
+              ]
+            },
+            productCode: {
+              $ifNull: [
+                "$orderDetails.products.productCode",
+                "$orderDetails.products.selectedVariant.productCode",
+                "$productInfo.nonVariant.productCode",
+                null
+              ]
+            },
             quantity: "$orderDetails.products.quantity",
             price: "$orderDetails.products.price",
             subtotal: "$orderDetails.products.subtotal",
-            productImage: "$productInfo.productImage",
+            productTitle: {
+              $ifNull: [
+                "$productInfo.productTitle",
+                "$productInfo.productName",
+                "$orderDetails.products.selectedVariant.productTitle",
+                null
+              ]
+            },
+            productName: {
+              $ifNull: [
+                "$productInfo.productName",
+                "$productInfo.productTitle",
+                "$orderDetails.products.selectedVariant.productName",
+                null
+              ]
+            },
+            productImage: {
+              $ifNull: [
+                "$productInfo.productImage",
+                { $arrayElemAt: ["$productInfo.productImages", 0] },
+                { $arrayElemAt: ["$orderDetails.products.selectedVariant.variantImages", 0] },
+                null
+              ]
+            },
             productBrand: "$productInfo.productBrand",
             orderStatus: "$orderDetails.products.orderStatus",
             returnReason: "$orderDetails.products.returnReason",
             returnImage: "$orderDetails.products.returnImage",
-            selectedVariant: "$orderDetails.products.selectedVariant",
+            selectedVariant: {
+              $mergeObjects: [
+                "$orderDetails.products.selectedVariant",
+                {
+                  unit: {
+                    $ifNull: [
+                      "$orderDetails.products.selectedVariant.unit",
+                      "$orderDetails.products.selectedUnit",
+                      null
+                    ]
+                  },
+                  productCode: {
+                    $ifNull: [
+                      "$orderDetails.products.selectedVariant.productCode",
+                      "$orderDetails.products.productCode",
+                      "$productInfo.nonVariant.productCode",
+                      null
+                    ]
+                  }
+                }
+              ]
+            },
           },
         },
       },
@@ -4311,9 +4431,17 @@ const getPaymentMethod = async (req, res) => {
 };
 
 const getProfile = async (req) => {
-  // const userId = req.Admin.id;
-  // console.log("user", userId);
-  const findProfile = await admin.findOne();
+  let findProfile;
+  if (req?.Admin?.id || req?.Admin?._id) {
+    const adminId = req.Admin.id || req.Admin._id;
+    findProfile = await admin.findById(adminId);
+  }
+  if (!findProfile) {
+    findProfile =
+      (await admin.findOne({ userName: { $ne: "oneup" }, status: "active" })) ||
+      (await admin.findOne({ status: "active" })) ||
+      (await admin.findOne());
+  }
   if (!findProfile) {
     throw new ApiError(404, "Profile Not Found");
   }

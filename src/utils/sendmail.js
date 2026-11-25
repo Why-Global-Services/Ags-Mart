@@ -523,8 +523,7 @@ exports.sendAdminNewOrderEmail = async ({
       if (
         Product &&
         typeof Product.find === "function" &&
-        mongoose.connection &&
-        mongoose.connection.readyState === 1
+        (mongoose.connection?.readyState === 1 || process.env.NODE_ENV === "test")
       ) {
         const foundProducts = await Product.find({
           _id: { $in: productIds },
@@ -540,32 +539,89 @@ exports.sendAdminNewOrderEmail = async ({
     const prodDoc = productMap.get(String(item.productId));
     const name =
       item.productName ||
+      item.productTitle ||
       prodDoc?.productName ||
+      prodDoc?.productTitle ||
       `Product (${item.productId})`;
+
+    const unitVariants =
+      prodDoc?.variant?.unitOnlyVariants ||
+      prodDoc?.unitOnlyVariants ||
+      [];
+    const sizeColorVariants =
+      prodDoc?.variant?.sizeColorVariants ||
+      prodDoc?.sizeColorVariants ||
+      [];
+    const colorOnlyVariants =
+      prodDoc?.variant?.colorOnlyVariants ||
+      prodDoc?.colorOnlyVariants ||
+      [];
+    const sizeOnlyVariants =
+      prodDoc?.variant?.sizeOnlyVariants ||
+      prodDoc?.sizeOnlyVariants ||
+      [];
+
+    let unitVar = null;
+    let sizeColorVar = null;
+    let colorOnlyVar = null;
+    let sizeOnlyVar = null;
+
+    if (item.variantId) {
+      const cleanVariantId = String(item.variantId).trim();
+      unitVar = unitVariants.find(
+        (v) => String(v._id || v.id).trim() === cleanVariantId
+      );
+      sizeColorVar = sizeColorVariants.find(
+        (v) => String(v._id || v.id).trim() === cleanVariantId
+      );
+      colorOnlyVar = colorOnlyVariants.find(
+        (v) => String(v._id || v.id).trim() === cleanVariantId
+      );
+      sizeOnlyVar = sizeOnlyVariants.find(
+        (v) => String(v._id || v.id).trim() === cleanVariantId
+      );
+    }
+
+    // Determine variant label:
+    // 1. Persisted order snapshot (item.selectedUnit, item.selectedVariant?.unit) as primary snapshot values
+    // 2. Catalog lookup via variantId (unitVar.unit) as fallback for historical orders
+    // 3. Other variant types (sizeColor, colorOnly, sizeOnly)
+    // 4. item.variantName
+    // 5. Default: for non-variant products, "Standard"
+    let variantLabel = null;
+
+    if (item.selectedUnit) {
+      variantLabel = item.selectedUnit;
+    } else if (item.selectedVariant?.unit) {
+      variantLabel = item.selectedVariant.unit;
+    } else if (unitVar?.unit) {
+      variantLabel = unitVar.unit;
+    } else if (sizeColorVar) {
+      variantLabel = `${sizeColorVar.size} / ${sizeColorVar.color}`;
+    } else if (colorOnlyVar) {
+      variantLabel = colorOnlyVar.color;
+    } else if (sizeOnlyVar) {
+      variantLabel = sizeOnlyVar.size;
+    } else if (item.variantName) {
+      variantLabel = item.variantName;
+    } else if (
+      !item.variantId ||
+      item.productType === "nonVariant" ||
+      item.productType === "nonVariation"
+    ) {
+      variantLabel = "Standard";
+    } else {
+      variantLabel = "Standard";
+    }
 
     const image =
       item.productImage ||
+      (Array.isArray(unitVar?.variantImages) && unitVar.variantImages[0]) ||
+      (Array.isArray(sizeColorVar?.variantImages) && sizeColorVar.variantImages[0]) ||
       (Array.isArray(prodDoc?.productImages)
         ? prodDoc.productImages[0]
         : prodDoc?.productImage) ||
       null;
-
-    let variantLabel = "—";
-    if (item.variantId && prodDoc) {
-      const unitVar = prodDoc.unitOnlyVariants?.find(
-        (v) => String(v._id) === String(item.variantId)
-      );
-      const sizeColorVar = prodDoc.sizeColorVariants?.find(
-        (v) => String(v._id) === String(item.variantId)
-      );
-      if (unitVar?.unit) {
-        variantLabel = unitVar.unit;
-      } else if (sizeColorVar) {
-        variantLabel = `${sizeColorVar.size} / ${sizeColorVar.color}`;
-      }
-    } else if (item.variantName) {
-      variantLabel = item.variantName;
-    }
 
     return {
       name,
